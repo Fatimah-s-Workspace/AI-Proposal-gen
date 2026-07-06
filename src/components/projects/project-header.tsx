@@ -1,0 +1,122 @@
+"use client";
+
+import { useState } from "react";
+import { Trash2 } from "lucide-react";
+import type { Route } from "next";
+import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
+
+type Project = {
+  id: string;
+  title: string;
+  clientName: string;
+  opportunityType: string;
+  stage: string;
+  sector: string;
+  country: string;
+  deadline: Date | null;
+  authority: string | null;
+};
+
+type ProjectHeaderProps = {
+  project: Project;
+};
+
+export function ProjectHeader({ project }: ProjectHeaderProps) {
+  const router = useRouter();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDelete = async () => {
+    try {
+      const response = await fetch(`/api/projects/${project.id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        router.push("/projects" as Route);
+      } else {
+        console.error("Failed to delete project");
+      }
+    } catch (error) {
+      console.error("Error deleting project:", error);
+    } finally {
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b pb-4 pt-5 mb-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex-1">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">{project.opportunityType}</Badge>
+              <Badge
+                variant={project.stage === "drafting" ? "success" : "outline"}
+              >
+                {project.stage}
+              </Badge>
+            </div>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <h2 className="text-3xl font-semibold tracking-normal line-clamp-1">
+                    {project.title}
+                  </h2>
+                </TooltipTrigger>
+                <TooltipContent align="center">{project.title}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="mt-2 text-muted-foreground line-clamp-1">
+                    {project.clientName} · {project.sector} · {project.country}
+                  </p>
+                </TooltipTrigger>
+                <TooltipContent align="center">
+                  {project.clientName} · {project.sector} · {project.country}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="flex flex-wrap gap-2 items-center">
+            <Button asChild variant="outline" size="sm">
+              <a href={`/projects/${project.id}/edit`}>Edit project</a>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="size-4 mr-2" />
+              Delete Project
+            </Button>
+            <Button asChild variant="outline">
+              <a href={`/projects/${project.id}/export`}>Export</a>
+            </Button>
+            <Button asChild>
+              <a href={`/projects/${project.id}/workspace`}>Open workspace</a>
+            </Button>
+          </div>
+        </div>
+      </div>
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="Delete Project"
+        description="Are you sure you want to delete this project? This will permanently delete all documents, requirements, and proposal content. This action cannot be undone."
+        confirmText="Delete Project"
+      />
+    </>
+  );
+}
