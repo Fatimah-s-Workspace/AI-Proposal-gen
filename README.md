@@ -176,7 +176,6 @@ For local SQLite, keep:
 
 ```bash
 DATABASE_URL="file:./dev.db"
-SQLITE_DATABASE_URL="file:./dev.db"
 ```
 
 Prepare the database:

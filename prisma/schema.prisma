@@ -22,6 +22,7 @@ model User {
   sessions       Session[]
   projects       Project[]
   exports        ExportHistory[]
+  proposalGenerations ProposalGeneration[]
   subscription   Subscription?
   usageTracking  UsageTracking[]
 
@@ -87,6 +88,7 @@ model Project {
   supportingEvidence SupportingEvidence[]
   proposalSections  ProposalSection[]
   generatedContents GeneratedContent[]
+  proposalGenerations ProposalGeneration[]
   exports           ExportHistory[]
   usageTracking     UsageTracking[]
   complianceAnalyses ComplianceAnalysis[]
@@ -243,6 +245,7 @@ model ProposalSection {
   updatedAt         DateTime           @updatedAt
   project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
   generatedContents GeneratedContent[]
+  proposalGenerations ProposalGeneration[]
   requirementMappings RequirementMapping[]
   qualityReviews     ProposalQualityReview[]
   proposalIssues      ProposalIssue[]
@@ -320,6 +323,28 @@ model ProposalIssue {
   @@index([projectId])
   @@index([sectionId])
   @@index([qualityReviewId])
+}
+
+model ProposalGeneration {
+  id          String           @id @default(cuid())
+  projectId   String
+  sectionId   String?
+  userId      String?
+  provider    String           @default("gemini")
+  status      String           @default("pending")
+  prompt      String
+  response    String
+  metadata    Json?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  section     ProposalSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([sectionId])
+  @@index([userId])
+  @@index([status])
 }
 
 model GeneratedContent {
