@@ -70,7 +70,7 @@ export function ParsedSectionsViewer({ documents }: ParsedSectionsViewerProps) {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="max-h-[640px] overflow-y-auto pr-4">
             {doc.parsingError ? (
               <div className="rounded-md border border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive">
                 <p className="font-medium">Parsing Error</p>
@@ -90,7 +90,7 @@ export function ParsedSectionsViewer({ documents }: ParsedSectionsViewerProps) {
                       <summary className="text-xs font-medium cursor-pointer hover:text-primary">
                         View full section
                       </summary>
-                      <div className="mt-3 rounded-md bg-muted p-3">
+                      <div className="mt-3 max-h-[360px] overflow-y-auto rounded-md bg-muted p-3">
                         <pre className="text-xs whitespace-pre-wrap break-words">
                           {section.body}
                         </pre>
@@ -102,7 +102,7 @@ export function ParsedSectionsViewer({ documents }: ParsedSectionsViewerProps) {
                   <summary className="text-sm font-medium cursor-pointer hover:text-primary">
                     View Raw Parsed Text
                   </summary>
-                  <div className="mt-3 rounded-md bg-slate-950 p-4 text-xs text-white">
+                  <div className="mt-3 max-h-[360px] overflow-y-auto rounded-md bg-slate-950 p-4 text-xs text-white">
                     <pre className="whitespace-pre-wrap break-words">
                       {doc.rawParsedText ||
                         doc.parsedSections
@@ -117,7 +117,7 @@ export function ParsedSectionsViewer({ documents }: ParsedSectionsViewerProps) {
                   <summary className="text-sm font-medium cursor-pointer hover:text-primary">
                     View Parsed JSON
                   </summary>
-                  <div className="mt-3 rounded-md bg-slate-950 p-4 text-xs text-white">
+                  <div className="mt-3 max-h-[360px] overflow-y-auto rounded-md bg-slate-950 p-4 text-xs text-white">
                     <pre className="whitespace-pre-wrap break-words">
                       {JSON.stringify(
                         doc.parsedJson ?? {
@@ -136,7 +136,7 @@ export function ParsedSectionsViewer({ documents }: ParsedSectionsViewerProps) {
                   <summary className="text-sm font-medium cursor-pointer hover:text-primary">
                     Parsing logs
                   </summary>
-                  <div className="mt-3 rounded-md bg-muted p-4 text-sm text-muted-foreground">
+                  <div className="mt-3 max-h-[320px] overflow-y-auto rounded-md bg-muted p-4 text-sm text-muted-foreground">
                     <pre className="whitespace-pre-wrap break-words text-xs">
                       {JSON.stringify(
                         {

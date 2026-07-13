@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { explainTenderClause } from "@/features/tender-intelligence/pipeline";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { explainClauseWithGemini } from "@/features/tender-intelligence/gemini";
 
 const updateClauseSchema = z.object({
   title: z.string().min(1).optional().nullable(),
@@ -32,24 +33,55 @@ export async function POST(
       projectId,
       project: { userId: user.id },
     },
+    include: {
+      project: { select: { title: true } },
+    },
   });
 
   if (!clause) return Response.json({ error: "Clause not found" }, { status: 404 });
 
   const body = await request.json().catch(() => ({}));
-  const explanation = explainTenderClause({
-    originalText: typeof body.clauseText === "string" ? body.clauseText : clause.originalText,
-    clauseType: typeof body.clauseType === "string" ? body.clauseType : clause.clauseType,
+  const clauseText =
+    typeof body.clauseText === "string" ? body.clauseText : clause.originalText;
+  const clauseType =
+    typeof body.clauseType === "string" ? body.clauseType : clause.clauseType;
+  const geminiExplanation = await explainClauseWithGemini({
+    clauseText,
+    clauseType,
+    projectTitle: clause.project.title,
+  }).catch((error) => {
+    console.error("Gemini clause explanation failed", error);
+    return null;
   });
+  const localExplanation = geminiExplanation
+    ? null
+    : explainTenderClause({
+        originalText: clauseText,
+        clauseType,
+      });
+  const actionsRequired = geminiExplanation?.actionsRequired.length
+    ? geminiExplanation.actionsRequired
+    : [geminiExplanation?.action ?? localExplanation?.action].filter(
+        (item): item is string => Boolean(item),
+      );
 
   const updatedClause = await prisma.tenderClause.update({
     where: { id: clauseId },
     data: {
-      explanation: explanation.plainEnglish,
-      riskLevel: explanation.riskLevel,
-      importance: explanation.riskLevel,
-      actionsRequired: [explanation.action],
-      confidence: Math.max(clause.confidence ?? 0, 0.82),
+      explanation: geminiExplanation?.plainEnglish ?? localExplanation?.plainEnglish,
+      riskLevel: geminiExplanation?.riskLevel ?? localExplanation?.riskLevel,
+      importance: geminiExplanation?.riskLevel ?? localExplanation?.riskLevel,
+      clauseType: geminiExplanation?.clauseType ?? clause.clauseType,
+      actionsRequired,
+      confidence: Math.max(
+        clause.confidence ?? 0,
+        geminiExplanation?.confidence ?? 0.82,
+      ),
+      metadata: {
+        ...normaliseMetadata(clause.metadata),
+        explanationProvider: geminiExplanation?.provider ?? "local",
+        explanationModel: geminiExplanation?.model ?? null,
+      },
     },
   });
 

@@ -142,138 +142,142 @@ export function DocumentsTable({
   return (
     <>
       <TooltipProvider>
-        <div className="hidden md:block overflow-x-auto rounded-md border">
-          <Table className="min-w-[900px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead>File</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Version</TableHead>
-                <TableHead>Upload</TableHead>
-                <TableHead>Parsing</TableHead>
-                <TableHead>Parsed at</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleDocuments.map((document) => (
-                <TableRow key={document.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <FileText className="size-4 text-primary" />
-                      {document.isPrimary && (
-                        <Star className="size-4 text-yellow-500 fill-current" />
-                      )}
-                      {document.parentId && (
-                        <GitBranch className="size-4 text-blue-500" />
-                      )}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="font-medium line-clamp-1 break-words">
-                            {document.originalName}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-[240px] break-words">
-                          {document.originalName}
-                          {document.revisionNotes && (
-                            <div className="mt-2 text-xs">
-                              <strong>Revision notes:</strong>{" "}
-                              {document.revisionNotes}
-                            </div>
-                          )}
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {formatBytes(document.size)}
-                    </p>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {getDocumentTypeLabel(document.documentType)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">v{document.version}</span>
-                    {document.parentId && (
-                      <span className="text-xs text-muted-foreground block">
-                        Revision
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        document.status === "uploaded" ? "secondary" : "outline"
-                      }
-                    >
-                      {document.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        document.parsingStatus === "completed"
-                          ? "default"
-                          : document.parsingStatus === "failed"
-                            ? "destructive"
-                            : "outline"
-                      }
-                    >
-                      {document.parsingStatus ?? "pending"}
-                    </Badge>
-                    {document.parsingError ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <p className="text-xs text-destructive line-clamp-1">
-                            {document.parsingError}
-                          </p>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-[240px] break-words">
-                          {document.parsingError}
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(document.parsedAt)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      {!document.isPrimary &&
-                        document.documentType === "tender_pack" && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleMarkPrimary(document.id)}
-                                className="text-yellow-600 hover:text-yellow-700"
-                              >
-                                <Star className="size-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              Mark as Primary Tender Pack
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openConfirm(document.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+        <div className="hidden rounded-md border md:block">
+          <div className="max-h-[420px] overflow-auto">
+            <Table className="min-w-[900px]">
+              <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
+                <TableRow>
+                  <TableHead>File</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Version</TableHead>
+                  <TableHead>Upload</TableHead>
+                  <TableHead>Parsing</TableHead>
+                  <TableHead>Parsed at</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {visibleDocuments.map((document) => (
+                  <TableRow key={document.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <FileText className="size-4 text-primary" />
+                        {document.isPrimary && (
+                          <Star className="size-4 text-yellow-500 fill-current" />
+                        )}
+                        {document.parentId && (
+                          <GitBranch className="size-4 text-blue-500" />
+                        )}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="font-medium line-clamp-1 break-words">
+                              {document.originalName}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[240px] break-words">
+                            {document.originalName}
+                            {document.revisionNotes && (
+                              <div className="mt-2 text-xs">
+                                <strong>Revision notes:</strong>{" "}
+                                {document.revisionNotes}
+                              </div>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {formatBytes(document.size)}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {getDocumentTypeLabel(document.documentType)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">v{document.version}</span>
+                      {document.parentId && (
+                        <span className="text-xs text-muted-foreground block">
+                          Revision
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          document.status === "uploaded"
+                            ? "secondary"
+                            : "outline"
+                        }
+                      >
+                        {document.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          document.parsingStatus === "completed"
+                            ? "default"
+                            : document.parsingStatus === "failed"
+                              ? "destructive"
+                              : "outline"
+                        }
+                      >
+                        {document.parsingStatus ?? "pending"}
+                      </Badge>
+                      {document.parsingError ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <p className="text-xs text-destructive line-clamp-1">
+                              {document.parsingError}
+                            </p>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[240px] break-words">
+                            {document.parsingError}
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(document.parsedAt)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {!document.isPrimary &&
+                          document.documentType === "tender_pack" && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleMarkPrimary(document.id)}
+                                  className="text-yellow-600 hover:text-yellow-700"
+                                >
+                                  <Star className="size-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Mark as Primary Tender Pack
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openConfirm(document.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
-        <div className="space-y-3 md:hidden">
+        <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1 md:hidden">
           {visibleDocuments.map((document) => (
             <div
               key={document.id}

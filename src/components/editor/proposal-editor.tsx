@@ -373,14 +373,17 @@ export function ProposalEditor({
       );
       if (!response.ok) throw new Error("Generation failed");
       return response.json() as Promise<{
+        section?: ApiSection;
         sections?: ApiSection[];
         assistant?: DraftChecklistAnalysis;
       }>;
     },
     onSuccess: (payload) => {
       if (payload.assistant) setAssistantOverride(payload.assistant);
-      const updated = payload.sections?.[0]
-        ? normalizeSection(payload.sections[0])
+      const incomingSections =
+        payload.sections ?? (payload.section ? [payload.section] : []);
+      const updated = incomingSections[0]
+        ? normalizeSection(incomingSections[0])
         : null;
       if (!updated) return;
       setLocalSections((current) =>
@@ -413,13 +416,16 @@ export function ProposalEditor({
       );
       if (!response.ok) throw new Error("Generation failed");
       return response.json() as Promise<{
+        section?: ApiSection;
         sections?: ApiSection[];
         assistant?: DraftChecklistAnalysis;
       }>;
     },
     onSuccess: (payload) => {
       if (payload.assistant) setAssistantOverride(payload.assistant);
-      const updatedSections = (payload.sections ?? []).map(normalizeSection);
+      const incomingSections =
+        payload.sections ?? (payload.section ? [payload.section] : []);
+      const updatedSections = incomingSections.map(normalizeSection);
       if (!updatedSections.length) return;
       setLocalSections((current) => mergeSections(current, updatedSections));
       const selected =

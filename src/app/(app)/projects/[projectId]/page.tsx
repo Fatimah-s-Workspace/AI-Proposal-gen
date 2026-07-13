@@ -138,7 +138,7 @@ export default async function ProjectPage({
               </Link>
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="max-h-[560px] overflow-y-auto pr-4">
             {project.documents.length &&
             project.documents[0].parsedSections?.length ? (
               <div className="space-y-4">
@@ -174,7 +174,7 @@ export default async function ProjectPage({
                   <summary className="cursor-pointer text-sm font-medium">
                     View parsed sections
                   </summary>
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-4 max-h-[300px] space-y-3 overflow-y-auto pr-1">
                     {project.documents[0].parsedSections.map((section) => (
                       <div key={section.id} className="rounded-md border p-3">
                         <p className="text-sm font-semibold">{section.title}</p>
@@ -189,7 +189,7 @@ export default async function ProjectPage({
                   <summary className="cursor-pointer text-sm font-medium">
                     View raw document payload
                   </summary>
-                  <pre className="mt-4 max-h-64 overflow-auto rounded-md bg-slate-950 p-3 text-xs text-white">
+                  <pre className="mt-4 max-h-[320px] overflow-auto rounded-md bg-slate-950 p-3 text-xs text-white">
                     {JSON.stringify(
                       {
                         parsedSections: project.documents[0].parsedSections,

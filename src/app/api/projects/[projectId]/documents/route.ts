@@ -7,7 +7,7 @@ import {
   parseTenderSections,
 } from "@/features/documents/parser";
 import { saveUploadedFile, validateUpload } from "@/features/documents/upload";
-import type { ParsedSection } from "@/features/ai";
+import type { ExtractedRequirement, ParsedSection } from "@/features/ai";
 import {
   calculateChecklistScore,
   detectEvidenceMatchesForRequirements,
@@ -17,6 +17,7 @@ import {
   mergeEvidenceMatches,
 } from "@/features/tender-intelligence/pipeline";
 import { syncProposalSectionsFromTender } from "@/server/tender-proposal";
+import { analyseTenderDocumentWithGemini } from "@/features/tender-intelligence/gemini";
 
 export const runtime = "nodejs";
 
@@ -112,7 +113,22 @@ export async function POST(
       file.type,
       file.name,
     );
-    const sections = parseTenderSections(extractedText);
+    const localSections = parseTenderSections(extractedText);
+    const aiIntelligence = procurementDocumentTypes.has(documentType)
+      ? await analyseTenderDocumentWithGemini({
+          project,
+          documentName: file.name,
+          documentType,
+          text: extractedText,
+          localSections,
+        }).catch((error) => {
+          console.error("Gemini tender intelligence failed", error);
+          return null;
+        })
+      : null;
+    const sections = aiIntelligence?.sections.length
+      ? aiIntelligence.sections
+      : localSections;
     const shouldBecomePrimary =
       documentType === "tender_pack" &&
       files.length === 1 &&
@@ -172,7 +188,9 @@ export async function POST(
     let detectedEvidenceCount = 0;
 
     if (procurementDocumentTypes.has(documentType)) {
-      let extractedClauses = extractTenderClausesFromSections(sections);
+      let extractedClauses = aiIntelligence?.clauses.length
+        ? aiIntelligence.clauses
+        : extractTenderClausesFromSections(sections);
 
       // If no sections were found or no clauses extracted, try extracting from the entire document
       if (sections.length === 0 || extractedClauses.length === 0) {
@@ -186,7 +204,10 @@ export async function POST(
         ]);
       }
 
-      const createdClauses = [];
+      const createdClauses: Array<{
+        extraction: (typeof extractedClauses)[number];
+        row: { id: string; title: string | null; originalText: string };
+      }> = [];
 
       for (const clause of extractedClauses) {
         const explanation = explainTenderClause(clause);
@@ -212,6 +233,8 @@ export async function POST(
                 sourceSection: section?.title ?? null,
                 documentType,
                 version: document.version,
+                aiProvider: aiIntelligence?.provider ?? "local",
+                aiModel: aiIntelligence?.model ?? null,
               },
             },
           }),
@@ -219,12 +242,20 @@ export async function POST(
       }
 
       createdClauseCount = createdClauses.length;
-      const requirements = extractRequirementsFromClauses(
-        createdClauses.map(({ extraction, row }) => ({
-          ...extraction,
-          id: row.id,
-        })),
-      );
+      const requirements = aiIntelligence?.requirements.length
+        ? aiIntelligence.requirements.map((requirement) => ({
+            ...requirement,
+            sourceClauseId: matchRequirementToClauseId(
+              requirement,
+              createdClauses,
+            ),
+          }))
+        : extractRequirementsFromClauses(
+            createdClauses.map(({ extraction, row }) => ({
+              ...extraction,
+              id: row.id,
+            })),
+          );
 
       for (const requirement of requirements) {
         await prisma.requirement.create({
@@ -350,4 +381,28 @@ export async function POST(
     documents: uploaded,
     complianceScore,
   });
+}
+
+
+function matchRequirementToClauseId(
+  requirement: ExtractedRequirement,
+  clauses: Array<{ row: { id: string; title: string | null; originalText: string } }>,
+) {
+  const source = `${requirement.sourceClause ?? ""} ${requirement.description}`
+    .toLowerCase()
+    .replace(/\W+/g, " ")
+    .trim();
+  if (!source) return undefined;
+
+  const match = clauses.find(({ row }) => {
+    const clauseText = `${row.title ?? ""} ${row.originalText}`
+      .toLowerCase()
+      .replace(/\W+/g, " ");
+    return (
+      clauseText.includes(source.slice(0, 80)) ||
+      source.includes(clauseText.slice(0, 80))
+    );
+  });
+
+  return match?.row.id;
 }

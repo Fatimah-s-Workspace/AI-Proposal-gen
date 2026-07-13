@@ -24,7 +24,8 @@ function stringArray(value: unknown) {
 
 function actionCompletions(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-  const completions = (value as { actionCompletions?: unknown }).actionCompletions;
+  const completions = (value as { actionCompletions?: unknown })
+    .actionCompletions;
   return Array.isArray(completions) ? completions.map(Boolean) : [];
 }
 
@@ -106,8 +107,9 @@ export default async function AIToolsPage({ params }: Props) {
               <CardHeader>
                 <CardTitle>Clause Explanation Service</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Upload tender documents to extract clauses, then use AI to generate
-                  business-friendly explanations, classify importance, and create action items.
+                  Upload tender documents to extract clauses, then use AI to
+                  generate business-friendly explanations, classify importance,
+                  and create action items.
                 </p>
               </CardHeader>
               <CardContent>
@@ -125,8 +127,9 @@ export default async function AIToolsPage({ params }: Props) {
               <CardHeader>
                 <CardTitle>Proposal Generation Service</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Generate comprehensive proposal sections aligned with your extracted
-                  requirements. Each section can be regenerated with custom instructions.
+                  Generate comprehensive proposal sections aligned with your
+                  extracted requirements. Each section can be regenerated with
+                  custom instructions.
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -141,9 +144,12 @@ export default async function AIToolsPage({ params }: Props) {
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
                     <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                    <p className="text-lg font-medium mb-2">No proposal sections yet</p>
+                    <p className="text-lg font-medium mb-2">
+                      No proposal sections yet
+                    </p>
                     <p className="text-sm">
-                      Create proposal sections to start generating content with AI.
+                      Create proposal sections to start generating content with
+                      AI.
                     </p>
                   </div>
                 )}

@@ -20,11 +20,14 @@ import {
 } from "@/components/ui/tooltip";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/session";
+import { ai } from "@/lib/ai/client";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
   const user = await requireUser();
+  const models = await ai.models.list();
+  console.log("Available AI models:", models);
   const projects = await prisma.project.findMany({
     where: { userId: user.id },
     orderBy: { updatedAt: "desc" },

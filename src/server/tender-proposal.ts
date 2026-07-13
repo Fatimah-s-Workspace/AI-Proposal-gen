@@ -2,10 +2,10 @@ import { prisma } from "@/server/db";
 import {
   buildTenderProposalAssistant,
   buildTenderProposalPlan,
-  generateTenderProposalDrafts,
   type TenderProposalContext,
 } from "@/features/proposals/tender-proposal";
 import type { ExtractedRequirement } from "@/features/ai";
+import { generateProposalSectionDraft } from "@/server/proposal-generation";
 
 export async function loadTenderProposalContext(
   projectId: string,
@@ -18,7 +18,11 @@ export async function loadTenderProposalContext(
     },
     include: {
       documents: {
-        orderBy: [{ isPrimary: "desc" }, { version: "desc" }, { createdAt: "desc" }],
+        orderBy: [
+          { isPrimary: "desc" },
+          { version: "desc" },
+          { createdAt: "desc" },
+        ],
         include: {
           parsedSections: { orderBy: { order: "asc" } },
         },
@@ -123,7 +127,10 @@ export async function syncProposalSectionsFromTender(projectId: string) {
     },
   });
   const existingBySlug = new Map(
-    existingSections.map((section) => [section.sectionType || section.slug, section]),
+    existingSections.map((section) => [
+      section.sectionType || section.slug,
+      section,
+    ]),
   );
   const plannedSlugs = new Set(plan.map((section) => section.slug));
   const updatedSections = [];
@@ -181,7 +188,12 @@ export async function syncProposalSectionsFromTender(projectId: string) {
   for (const section of existingSections) {
     const hasContent = Boolean(section.content?.trim());
     const hasVersions = section._count.generatedContents > 0;
-    if (!plannedSlugs.has(section.sectionType) && !plannedSlugs.has(section.slug) && !hasContent && !hasVersions) {
+    if (
+      !plannedSlugs.has(section.sectionType) &&
+      !plannedSlugs.has(section.slug) &&
+      !hasContent &&
+      !hasVersions
+    ) {
       await prisma.proposalSection.delete({ where: { id: section.id } });
     }
   }
@@ -211,61 +223,41 @@ export async function generateTenderSectionsForProject(input: {
   customPrompt?: string;
 }) {
   const syncResult = await syncProposalSectionsFromTender(input.projectId);
-  const context = await loadTenderProposalContext(input.projectId, input.userId);
+  const context = await loadTenderProposalContext(
+    input.projectId,
+    input.userId,
+  );
   if (!context) throw new Error("Project not found");
 
   const targetSection = input.sectionId
     ? syncResult.sections.find((section) => section.id === input.sectionId)
     : null;
   const sectionSlug = targetSection?.sectionType ?? targetSection?.slug;
-  const drafts = generateTenderProposalDrafts({
-    context,
-    sectionSlug,
-    tone: input.tone,
-    customPrompt: input.customPrompt,
-  });
+  const selectedPlans = syncResult.plan.filter(
+    (plan) => !sectionSlug || plan.slug === sectionSlug,
+  );
   const updatedSections = [];
 
-  for (const draft of drafts) {
+  for (const plan of selectedPlans) {
     const section = syncResult.sections.find(
-      (item) => item.sectionType === draft.slug || item.slug === draft.slug,
+      (item) => item.sectionType === plan.slug || item.slug === plan.slug,
     );
     if (!section) continue;
 
-    const nextVersion =
-      (await prisma.generatedContent.count({
-        where: {
-          projectId: input.projectId,
-          sectionId: section.id,
-        },
-      })) + 1;
+    const result = await generateProposalSectionDraft({
+      projectId: input.projectId,
+      sectionId: section.id,
+      userId: input.userId,
+      context,
+      sectionPlan: plan,
+      prismaClient: prisma,
+      tone: input.tone,
+      customPrompt: input.customPrompt,
+    });
+
     updatedSections.push(
-      await prisma.proposalSection.update({
-        where: { id: section.id },
-        data: {
-          content: draft.content,
-          status: "drafting",
-          version: { increment: 1 },
-          generatedAt: new Date(),
-          generatedContents: {
-            create: {
-              projectId: input.projectId,
-              provider: "local-mock",
-              contentType: "proposal_section",
-              prompt: draft.plan.prompt,
-              output: draft.content,
-              version: nextVersion,
-              metadata: {
-                rationale: draft.rationale,
-                importance: draft.plan.importance,
-                requirementIds: draft.plan.requirementIds,
-                clauseIds: draft.plan.clauseIds,
-                sourceDocumentIds: draft.plan.sourceDocumentIds,
-                tone: input.tone ?? "formal",
-              },
-            },
-          },
-        },
+      await prisma.proposalSection.findUniqueOrThrow({
+        where: { id: result.section.id },
         include: {
           generatedContents: {
             orderBy: { createdAt: "desc" },
@@ -276,10 +268,15 @@ export async function generateTenderSectionsForProject(input: {
     );
   }
 
-  const refreshedContext = await loadTenderProposalContext(input.projectId, input.userId);
+  const refreshedContext = await loadTenderProposalContext(
+    input.projectId,
+    input.userId,
+  );
   return {
     sections: updatedSections,
-    assistant: refreshedContext ? buildTenderProposalAssistant(refreshedContext) : null,
+    assistant: refreshedContext
+      ? buildTenderProposalAssistant(refreshedContext)
+      : null,
   };
 }
 
@@ -288,7 +285,9 @@ function normalisePriority(value: string): ExtractedRequirement["priority"] {
   return "medium";
 }
 
-function normaliseRequirementCategory(value: string): ExtractedRequirement["category"] {
+function normaliseRequirementCategory(
+  value: string,
+): ExtractedRequirement["category"] {
   if (
     value === "mandatory" ||
     value === "technical" ||

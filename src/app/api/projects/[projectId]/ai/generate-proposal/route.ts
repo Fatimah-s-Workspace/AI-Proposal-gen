@@ -34,10 +34,14 @@ export async function POST(
     },
   });
 
-  if (!project) return Response.json({ error: "Project not found" }, { status: 404 });
+  if (!project)
+    return Response.json({ error: "Project not found" }, { status: 404 });
   if (!project.requirements.length && !project.clauses.length) {
     return Response.json(
-      { error: "Upload and parse a tender document before generating proposal sections." },
+      {
+        error:
+          "Upload and parse a tender document before generating proposal sections.",
+      },
       { status: 400 },
     );
   }
@@ -74,7 +78,10 @@ export async function POST(
     ),
   });
 
+  const primarySection = result.sections[0];
+
   return Response.json({
+    section: primarySection,
     sections: result.sections,
     assistant: result.assistant,
     compliance,
