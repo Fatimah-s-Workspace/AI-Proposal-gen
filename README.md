@@ -94,7 +94,6 @@ Rule-based fallback and shared logic:
 
 AI API routes:
 
-- `src/app/api/projects/[projectId]/ai/extract-requirements/route.ts`
 - `src/app/api/projects/[projectId]/ai/generate-proposal/route.ts`
 - `src/app/api/projects/[projectId]/ai/draft-against-checklist/route.ts`
 - `src/app/api/projects/[projectId]/ai/rewrite/route.ts`

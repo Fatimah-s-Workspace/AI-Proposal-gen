@@ -32,7 +32,7 @@ type ProposalSection = {
   wordTarget: number;
 };
 
-type ProposalEditorProps = {
+type AiToolsProposalEditorProps = {
   section: ProposalSection;
   projectId: string;
   onSave?: (content: string) => void;
@@ -66,13 +66,13 @@ const ToolbarButton = ({
   </Button>
 );
 
-export function ProposalEditor({
+export function AiToolsProposalEditor({
   section,
   onSave,
   onRegenerate,
   isGenerating = false,
   className,
-}: ProposalEditorProps) {
+}: AiToolsProposalEditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [wordCount, setWordCount] = useState(0);

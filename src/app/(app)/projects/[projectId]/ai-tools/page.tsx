@@ -8,7 +8,7 @@ import Link from "next/link";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/session";
 import { ClauseExplanationPanel } from "@/components/projects/clause-explanation-panel";
-import { ProposalEditor } from "@/components/projects/proposal-editor";
+import { AiToolsProposalEditor } from "@/components/projects/ai-tools-proposal-editor";
 
 export const metadata: Metadata = {
   title: "AI Tools",
@@ -135,7 +135,7 @@ export default async function AIToolsPage({ params }: Props) {
               <CardContent className="space-y-6">
                 {proposalSections.length > 0 ? (
                   proposalSections.map((section) => (
-                    <ProposalEditor
+                    <AiToolsProposalEditor
                       key={section.id}
                       section={section}
                       projectId={projectId}
