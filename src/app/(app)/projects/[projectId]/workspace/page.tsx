@@ -1,7 +1,10 @@
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClausePanel } from "@/components/editor/clause-panel";
 import { ProposalEditor } from "@/components/editor/proposal-editor";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/session";
 import { buildTenderProposalPlan } from "@/features/proposals/tender-proposal";
@@ -93,6 +96,17 @@ export default async function WorkspacePage({
   return (
     <div className="space-y-6">
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b pb-4 pt-5 mb-8">
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="-ml-3 mb-2 text-muted-foreground"
+        >
+          <Link href={`/projects/${projectId}`}>
+            <ArrowLeft className="size-4" />
+            Back to project
+          </Link>
+        </Button>
         <div className="mb-2 flex flex-wrap gap-2">
           <Badge variant="secondary">{project.opportunityType}</Badge>
           <Badge variant="outline">{project.clientName}</Badge>

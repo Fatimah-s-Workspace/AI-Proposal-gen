@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import type { Route } from "next";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,17 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b pb-4 pt-5 mb-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex-1">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="-ml-3 mb-2 text-muted-foreground"
+            >
+              <Link href="/projects">
+                <ArrowLeft className="size-4" />
+                All projects
+              </Link>
+            </Button>
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{project.opportunityType}</Badge>
               <Badge
