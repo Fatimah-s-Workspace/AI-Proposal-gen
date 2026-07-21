@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  StickyNote,
   Trash2,
   Star,
   GitBranch,
@@ -26,6 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Document = {
@@ -221,7 +223,7 @@ export function DocumentsTable({
         <div className="hidden rounded-md border md:block">
           <div className="max-h-[420px] overflow-auto">
             <Table className="min-w-[900px]">
-              <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
+              <TableHeader className="sticky top-0 z-[1] bg-background shadow-sm">
                 <TableRow>
                   <TableHead className="w-10">
                     <Checkbox
@@ -258,31 +260,30 @@ export function DocumentsTable({
                         aria-label={`Select ${document.originalName}`}
                       />
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <FileText className="size-4 text-primary" />
+                    <TableCell className="max-w-64">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <FileText className="size-4 shrink-0 text-primary" />
                         {document.isPrimary && (
-                          <Star className="size-4 text-yellow-500 fill-current" />
+                          <Star className="size-4 shrink-0 text-yellow-500 fill-current" />
                         )}
                         {document.parentId && (
-                          <GitBranch className="size-4 text-blue-500" />
+                          <GitBranch className="size-4 shrink-0 text-blue-500" />
                         )}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="font-medium line-clamp-1 break-words">
-                              {document.originalName}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-[240px] break-words">
-                            {document.originalName}
-                            {document.revisionNotes && (
-                              <div className="mt-2 text-xs">
-                                <strong>Revision notes:</strong>{" "}
-                                {document.revisionNotes}
-                              </div>
-                            )}
-                          </TooltipContent>
-                        </Tooltip>
+                        <TruncatedText
+                          text={document.originalName}
+                          className="min-w-0 flex-1 font-medium"
+                        />
+                        {document.revisionNotes && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <StickyNote className="size-3.5 shrink-0 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[240px] break-words">
+                              <strong>Revision notes:</strong>{" "}
+                              {document.revisionNotes}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {formatBytes(document.size)}
@@ -325,16 +326,11 @@ export function DocumentsTable({
                         {document.parsingStatus ?? "pending"}
                       </Badge>
                       {document.parsingError ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <p className="text-xs text-destructive line-clamp-1">
-                              {document.parsingError}
-                            </p>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-[240px] break-words">
-                            {document.parsingError}
-                          </TooltipContent>
-                        </Tooltip>
+                        <TruncatedText
+                          as="p"
+                          text={document.parsingError}
+                          className="text-xs text-destructive"
+                        />
                       ) : null}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -384,7 +380,7 @@ export function DocumentsTable({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
                     <Checkbox
                       checked={selectedIds.has(document.id)}
                       onCheckedChange={(checked) =>
@@ -395,9 +391,10 @@ export function DocumentsTable({
                     />
                     <FileText className="size-4 text-primary shrink-0" />
 
-                    <p className="truncate font-medium">
-                      {document.originalName}
-                    </p>
+                    <TruncatedText
+                      text={document.originalName}
+                      className="min-w-0 flex-1 font-medium"
+                    />
 
                     {document.isPrimary && (
                       <Star className="size-4 fill-current text-yellow-500 shrink-0" />
