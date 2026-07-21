@@ -1,5 +1,7 @@
 import {
+  AlertTriangle,
   ArrowRight,
+  Clock,
   FileText,
   FolderKanban,
   PlusCircle,
@@ -8,20 +10,27 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/session";
 
 export const dynamic = "force-dynamic";
 
+const RECENT_PROJECT_LIMIT = 4;
+const ATTENTION_DEADLINE_DAYS = 14;
+const ATTENTION_COMPLIANCE_THRESHOLD = 50;
+
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [projects, usage] = await Promise.all([
+  const currentPeriod = new Date().toISOString().slice(0, 7);
+  const [projects, usageThisPeriod] = await Promise.all([
     prisma.project.findMany({
       where: { userId: user.id },
       orderBy: { updatedAt: "desc" },
-      take: 6,
+      take: RECENT_PROJECT_LIMIT,
       include: {
         _count: {
           select: {
@@ -33,9 +42,7 @@ export default async function DashboardPage() {
       },
     }),
     prisma.usageTracking.findMany({
-      where: { userId: user.id },
-      orderBy: { period: "desc" },
-      take: 24,
+      where: { userId: user.id, period: currentPeriod },
     }),
   ]);
 
@@ -51,20 +58,35 @@ export default async function DashboardPage() {
   const activeProjects = projects.filter(
     (project) => project.status !== "archived",
   ).length;
-  const currentPeriod = new Date().toISOString().slice(0, 7);
-  const currentUsage = usage
-    .filter((period) => period.period === currentPeriod)
-    .reduce(
-      (acc, period) => ({
-        uploads: acc.uploads + period.uploads,
-        aiGenerations: acc.aiGenerations + period.aiGenerations,
-        exports: acc.exports + period.exports,
-        tokensUsed: acc.tokensUsed + period.tokensUsed,
-      }),
-      { uploads: 0, aiGenerations: 0, exports: 0, tokensUsed: 0 },
-    );
+  const currentUsage = usageThisPeriod.reduce(
+    (acc, period) => ({
+      uploads: acc.uploads + period.uploads,
+      aiGenerations: acc.aiGenerations + period.aiGenerations,
+      exports: acc.exports + period.exports,
+    }),
+    { uploads: 0, aiGenerations: 0, exports: 0 },
+  );
   const uploadLimit = user.subscription?.monthlyUploadLimit ?? 100;
   const proposalLimit = user.subscription?.monthlyProposalLimit ?? 10;
+
+  const now = new Date().getTime();
+  const soonCutoff = now + ATTENTION_DEADLINE_DAYS * 24 * 60 * 60 * 1000;
+  const attentionItems = projects
+    .map((project) => {
+      const daysToDeadline = project.deadline
+        ? Math.ceil((project.deadline.getTime() - now) / (24 * 60 * 60 * 1000))
+        : null;
+      const deadlineSoon =
+        project.deadline != null &&
+        project.deadline.getTime() > now &&
+        project.deadline.getTime() <= soonCutoff;
+      const lowCompliance =
+        project.complianceScore < ATTENTION_COMPLIANCE_THRESHOLD &&
+        project._count.requirements > 0;
+      if (!deadlineSoon && !lowCompliance) return null;
+      return { project, daysToDeadline, deadlineSoon, lowCompliance };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 
   return (
     <div className="space-y-8">
@@ -114,6 +136,45 @@ export default async function DashboardPage() {
         />
       </section>
 
+      {attentionItems.length > 0 && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <AlertTriangle className="size-4 text-amber-600" />
+            Needs attention
+          </h2>
+          <div className="grid gap-3 md:grid-cols-3">
+            {attentionItems.map(({ project, daysToDeadline, deadlineSoon, lowCompliance }) => (
+              <Link
+                key={project.id}
+                href={`/projects/${project.id}`}
+                className="rounded-lg border border-amber-200 bg-amber-50 p-4 transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950 dark:hover:bg-amber-900/60"
+              >
+                <TruncatedText
+                  as="p"
+                  text={project.title}
+                  className="font-medium"
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {deadlineSoon && daysToDeadline !== null && (
+                    <Badge variant="outline" className="gap-1 bg-background">
+                      <Clock className="size-3" />
+                      {daysToDeadline <= 0
+                        ? "Due today"
+                        : `${daysToDeadline}d to deadline`}
+                    </Badge>
+                  )}
+                  {lowCompliance && (
+                    <Badge variant="outline" className="gap-1 bg-background">
+                      {project.complianceScore}% compliant
+                    </Badge>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="grid gap-6 md:grid-cols-3">
         <Card className="md:col-span-2">
           <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -128,36 +189,35 @@ export default async function DashboardPage() {
           <CardContent>
             {projects.length ? (
               <div className="divide-y rounded-md border">
-                {projects
-                  .map((project) => (
-                    <Link
-                      key={project.id}
-                      href={`/projects/${project.id}`}
-                      className="grid gap-3 p-4 transition-colors hover:bg-muted/60 md:grid-cols-[minmax(0,1fr)_120px_120px]"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{project.title}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {project.clientName}
-                        </p>
+                {projects.map((project) => (
+                  <Link
+                    key={project.id}
+                    href={`/projects/${project.id}`}
+                    className="grid gap-3 p-4 transition-colors hover:bg-muted/60 md:grid-cols-[minmax(0,1fr)_120px_120px]"
+                  >
+                    <div className="min-w-0">
+                      <TruncatedText text={project.title} className="font-medium" />
+                      <TruncatedText
+                        text={project.clientName}
+                        className="text-xs text-muted-foreground"
+                      />
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {project.stage.replace("_", " ")}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-2 rounded-full bg-muted">
+                        <div
+                          className="h-2 rounded-full bg-primary"
+                          style={{ width: `${project.complianceScore}%` }}
+                        />
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        {project.stage.replace("_", " ")}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="h-2 rounded-full bg-muted">
-                          <div
-                            className="h-2 rounded-full bg-primary"
-                            style={{ width: `${project.complianceScore}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {project.complianceScore}% ready
-                        </p>
-                      </div>
-                    </Link>
-                  ))
-                  .splice(0, 4)}
+                      <p className="text-xs text-muted-foreground">
+                        {project.complianceScore}% ready
+                      </p>
+                    </div>
+                  </Link>
+                ))}
               </div>
             ) : (
               <div className="rounded-md border border-dashed p-8 text-center">
@@ -173,7 +233,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card id="usage" className="md:col-span-1">
+        <Card className="md:col-span-1">
           <CardHeader>
             <CardTitle>Plan usage</CardTitle>
           </CardHeader>
@@ -191,8 +251,7 @@ export default async function DashboardPage() {
                 </span>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                Usage for {currentPeriod}. Uploads and AI actions are counted
-                across all active workspaces.
+                Usage for {currentPeriod}, across all active workspaces.
               </p>
             </div>
             <UsageMeter
@@ -205,53 +264,18 @@ export default async function DashboardPage() {
               value={currentUsage.aiGenerations}
               limit={proposalLimit}
             />
-            <div className="grid grid-cols-2 gap-3 border-t pt-4 text-sm">
+            <div className="flex items-center justify-between border-t pt-4 text-sm">
               <div>
                 <p className="font-medium">{currentUsage.exports}</p>
-                <p className="text-xs text-muted-foreground">Exports</p>
+                <p className="text-xs text-muted-foreground">Exports this month</p>
               </div>
-              <div>
-                <p className="font-medium">
-                  {currentUsage.tokensUsed.toLocaleString()}
-                </p>
-                <p className="text-xs text-muted-foreground">Mock tokens</p>
-              </div>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/usage">
+                  Full usage
+                  <ArrowRight className="size-3.5" />
+                </Link>
+              </Button>
             </div>
-            {usage.length > 1 && (
-              <>
-                <div className="border-t pt-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">
-                    Usage history
-                  </p>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {usage.map((period) => (
-                      <div
-                        key={period.id}
-                        className="flex items-center justify-between text-xs p-2 rounded hover:bg-muted/50"
-                      >
-                        <span className="text-muted-foreground">
-                          {period.period}
-                        </span>
-                        <div className="flex gap-2 text-right">
-                          <span>
-                            {period.uploads}
-                            <span className="text-muted-foreground ml-1">
-                              up
-                            </span>
-                          </span>
-                          <span>
-                            {period.aiGenerations}
-                            <span className="text-muted-foreground ml-1">
-                              ai
-                            </span>
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
           </CardContent>
         </Card>
       </section>
