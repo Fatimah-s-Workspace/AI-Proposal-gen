@@ -20,3 +20,13 @@ export function getGeminiClient() {
   }
   return geminiClient;
 }
+
+// Free-tier quota exhaustion (429/RESOURCE_EXHAUSTED) and transient
+// availability errors (503/overloaded) should degrade to the local
+// fallback instead of failing the user's request.
+export function isGeminiQuotaOrAvailabilityError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /\b(429|503)\b|RESOURCE_EXHAUSTED|UNAVAILABLE|quota|rate.?limit|overloaded/i.test(
+    message,
+  );
+}

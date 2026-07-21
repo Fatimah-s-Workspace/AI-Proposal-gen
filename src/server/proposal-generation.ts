@@ -4,7 +4,12 @@ import type {
   TenderProposalContext,
   TenderProposalSectionPlan,
 } from "@/features/proposals/tender-proposal";
-import { getGeminiClient } from "@/lib/ai/client";
+import {
+  GEMINI_MODEL,
+  getGeminiClient,
+  isGeminiQuotaOrAvailabilityError,
+} from "@/lib/ai/client";
+import { parseJson } from "@/features/ai/gemini-provider";
 import { prisma } from "@/server/db";
 
 const geminiDraftResponseSchema = z.object({
@@ -47,14 +52,17 @@ export async function generateProposalSectionDraft(input: {
   if (geminiClient) {
     try {
       const response = await geminiClient.models.generateContent({
-        model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
+        model: GEMINI_MODEL,
         contents: prompt,
       });
       responseText = response.text?.trim() ?? "";
       if (!responseText) throw new Error("Gemini returned an empty response");
     } catch (error) {
       geminiError = error;
-      if (!process.env.GEMINI_API_KEY) {
+      if (
+        !process.env.GEMINI_API_KEY ||
+        isGeminiQuotaOrAvailabilityError(error)
+      ) {
         generationMode = "fallback";
         responseText = "";
       } else {
@@ -94,7 +102,7 @@ export async function generateProposalSectionDraft(input: {
         input.customPrompt,
       );
     } else {
-      parsed = geminiDraftResponseSchema.parse(JSON.parse(responseText));
+      parsed = geminiDraftResponseSchema.parse(parseJson(responseText));
     }
   } catch {
     await prismaClient.$transaction(async (tx) => {
@@ -113,6 +121,15 @@ export async function generateProposalSectionDraft(input: {
     });
     throw new Error("Invalid Gemini response format");
   }
+
+  const fallbackReason =
+    generationMode === "fallback"
+      ? !process.env.GEMINI_API_KEY
+        ? "no_api_key"
+        : geminiError && isGeminiQuotaOrAvailabilityError(geminiError)
+          ? "quota_or_availability"
+          : "gemini_error"
+      : undefined;
 
   try {
     const updatedSection = await prismaClient.$transaction(async (tx) => {
@@ -143,12 +160,10 @@ export async function generateProposalSectionDraft(input: {
           response: parsed.content,
           metadata: {
             title: parsed.title,
-            model:
-              generationMode === "fallback"
-                ? "fallback"
-                : (process.env.GEMINI_MODEL ?? "gemini-2.5-flash"),
+            model: generationMode === "fallback" ? "fallback" : GEMINI_MODEL,
             version: nextVersion + 1,
             fallback: generationMode === "fallback",
+            fallbackReason,
             error:
               geminiError instanceof Error ? geminiError.message : undefined,
           },
@@ -166,12 +181,10 @@ export async function generateProposalSectionDraft(input: {
           output: parsed.content,
           metadata: {
             title: parsed.title,
-            model:
-              generationMode === "fallback"
-                ? "fallback"
-                : (process.env.GEMINI_MODEL ?? "gemini-2.5-flash"),
+            model: generationMode === "fallback" ? "fallback" : GEMINI_MODEL,
             version: nextVersion + 1,
             fallback: generationMode === "fallback",
+            fallbackReason,
           },
         },
       });
