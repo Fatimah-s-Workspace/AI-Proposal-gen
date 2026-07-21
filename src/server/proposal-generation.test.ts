@@ -67,6 +67,7 @@ function createFakePrisma() {
 }
 
 test("generates and persists a proposal section draft", async () => {
+  process.env.GEMINI_API_KEY = "test-key";
   const { prisma, state } = createFakePrisma();
   const gemini = {
     models: {
@@ -176,6 +177,7 @@ test("falls back to a local draft when Gemini is unavailable", async () => {
 });
 
 test("rejects malformed Gemini output and keeps the section unchanged", async () => {
+  process.env.GEMINI_API_KEY = "test-key";
   const { prisma, state } = createFakePrisma();
   const gemini = {
     models: {
@@ -271,12 +273,72 @@ test("rejects when the proposal section does not exist", async () => {
   );
 });
 
-test("records Gemini failure without mutating the section", async () => {
+test("falls back to a local draft when the Gemini quota is exhausted", async () => {
+  process.env.GEMINI_API_KEY = "test-key";
   const { prisma, state } = createFakePrisma();
   const gemini = {
     models: {
       generateContent: async () => {
-        throw new Error("upstream unavailable");
+        throw new Error("429 RESOURCE_EXHAUSTED: Quota exceeded for model");
+      },
+    },
+  };
+
+  const result = await generateProposalSectionDraft({
+    projectId: "project-1",
+    sectionId: "section-1",
+    userId: "user-1",
+    context: {
+      project: {
+        title: "Roads",
+        clientName: "City",
+        opportunityType: "Tender",
+        sector: "Infrastructure",
+        country: "Nigeria",
+      },
+      documents: [],
+      parsedSections: [],
+      clauses: [],
+      requirements: [],
+    },
+    sectionPlan: {
+      title: "Executive Summary",
+      slug: "executive-summary",
+      sectionType: "executive-summary",
+      order: 1,
+      wordTarget: 350,
+      importance: "high",
+      prompt: "Draft the executive summary.",
+      rationale: "Needed for evaluation.",
+      requirementIds: [],
+      clauseIds: [],
+      sourceDocumentIds: [],
+      sourceSectionTitles: [],
+    },
+    prismaClient: prisma as never,
+    geminiClient: gemini as never,
+  });
+
+  assert.match(result.section.content ?? "", /We understand/);
+  assert.equal((state.generation as { status: string }).status, "succeeded");
+  assert.equal(
+    (state.generation as { provider: string }).provider,
+    "gemini-fallback",
+  );
+  assert.equal(
+    (state.generation as { metadata: { fallbackReason: string } }).metadata
+      .fallbackReason,
+    "quota_or_availability",
+  );
+});
+
+test("records Gemini failure without mutating the section", async () => {
+  process.env.GEMINI_API_KEY = "test-key";
+  const { prisma, state } = createFakePrisma();
+  const gemini = {
+    models: {
+      generateContent: async () => {
+        throw new Error("API key not valid. Please pass a valid API key.");
       },
     },
   };

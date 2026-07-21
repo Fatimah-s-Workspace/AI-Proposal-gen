@@ -48,8 +48,8 @@ The project is designed as a practical AI product showcase: it demonstrates auth
 - Next.js App Router with TypeScript
 - React and server components
 - Tailwind CSS and shadcn/ui-style components
-- Prisma ORM
-- SQLite for local development and PostgreSQL-compatible schema for production
+- Prisma ORM with the pg driver adapter (PostgreSQL required)
+- Google Gemini (`@google/genai`) with an automatic rule-based fallback
 - Auth.js / NextAuth credentials authentication
 - React Hook Form and Zod validation
 - React Query for client mutations and autosave
@@ -75,15 +75,19 @@ The project is designed as a practical AI product showcase: it demonstrates auth
 
 ## Where The AI Lives
 
-The current project uses local mocked AI and rule-based tender intelligence. It does not yet call a paid hosted AI model. This makes the app easy to run locally and safe for demos.
+The app uses Google Gemini for tender intelligence, clause explanation, and proposal drafting, with a local rule-based provider as an automatic fallback. Gemini is enabled by setting `GEMINI_API_KEY`; without a key the app runs fully offline on the rule-based pipeline, which keeps local development and demos free.
 
-Main AI and intelligence files:
+Gemini integration files:
 
-- `src/features/ai/mock-provider.ts` - mocked provider functions for extraction, drafting, clause explanation, and compliance analysis.
+- `src/lib/ai/client.ts` - Gemini client setup, model selection, and quota/availability error detection.
+- `src/features/ai/gemini-provider.ts` - generic JSON-schema-constrained Gemini call helper with Zod validation.
+- `src/features/tender-intelligence/gemini.ts` - tender analysis (sections, clauses, requirements) and clause explanation prompts and schemas.
+- `src/server/proposal-generation.ts` - Gemini proposal section drafting with fallback drafting and a full generation audit trail in `ProposalGeneration`.
+
+Rule-based fallback and shared logic:
+
+- `src/features/ai/mock-provider.ts` - deterministic provider functions for extraction, drafting, clause explanation, and compliance analysis.
 - `src/features/ai/types.ts` - shared AI data types.
-- `src/features/ai/proposal-generation.ts` - prompt templates and mock proposal section generation service.
-- `src/features/ai/clause-explanation.ts` - mock clause explanation service.
-- `src/features/ai/draft-against-checklist.ts` - maps requirements to proposal sections and reviews coverage.
 - `src/features/tender-intelligence/pipeline.ts` - rule-based clause detection, requirement extraction, evidence matching, and compliance scoring.
 - `src/features/proposals/tender-proposal.ts` - builds proposal section plans and generates tender-aware draft sections.
 - `src/server/tender-proposal.ts` - loads database context, syncs planned sections, and stores generated content.
@@ -95,39 +99,15 @@ AI API routes:
 - `src/app/api/projects/[projectId]/ai/draft-against-checklist/route.ts`
 - `src/app/api/projects/[projectId]/ai/rewrite/route.ts`
 
-## How To Add Proper AI
+## Fallback Behavior
 
-The cleanest upgrade is to keep the current function contracts and replace the mock provider with a real provider selected by environment variable.
+The Gemini free tier has request and token quotas, so every Gemini call site degrades gracefully instead of failing the user's request:
 
-Suggested implementation:
+- Document upload analysis falls back to the rule-based pipeline in `pipeline.ts`.
+- Clause explanation falls back to the local clause explainer.
+- Proposal section drafting falls back to a template-based draft when the key is missing, the quota is exhausted (429/RESOURCE_EXHAUSTED), or the model is unavailable (503).
 
-1. Add an environment variable:
-
-```bash
-AI_PROVIDER=openai
-OPENAI_API_KEY=your_api_key
-```
-
-2. Create a real provider file, for example:
-
-```text
-src/features/ai/openai-provider.ts
-```
-
-3. Implement the same operations currently exposed by `src/features/ai/mock-provider.ts`:
-
-- `extractRequirementsFromTender`
-- `explainClauses`
-- `generateProposalDraft`
-- `analyseCompliance`
-
-4. Add a provider selector in `src/features/ai/index.ts` so the app can switch between `mock` and `openai`.
-
-5. Use structured JSON outputs for requirements, clauses, compliance gaps, evidence needs, and proposal sections.
-
-6. Add prompt logging, retry handling, token limits, safety checks, and model cost tracking before production rollout.
-
-7. Keep human review in the workflow because tender submissions are high-stakes documents.
+Every proposal generation attempt is recorded in `ProposalGeneration` with the provider (`gemini` or `gemini-fallback`), a `fallbackReason` (`no_api_key`, `quota_or_availability`, or `gemini_error`), and the original error message, so you can always tell which drafts were AI-generated and why a fallback happened. Other Gemini errors (for example an invalid API key or malformed model output) still fail loudly so real configuration bugs are not hidden.
 
 ## Document Processing
 
@@ -172,17 +152,19 @@ Copy environment variables:
 cp .env.example .env
 ```
 
-For local SQLite, keep:
+Point `DATABASE_URL` at a running PostgreSQL instance:
 
 ```bash
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/tenderflow_ai?schema=public"
 ```
+
+Optionally set `GEMINI_API_KEY` to enable AI-backed analysis and drafting (the app falls back to the local rule-based provider without it).
 
 Prepare the database:
 
 ```bash
-npm run db:push:sqlite
-npm run db:seed:sqlite
+npm run db:push
+npm run db:seed
 ```
 
 Start the app:
@@ -202,9 +184,10 @@ Demo login:
 npm run dev
 npm run lint
 npm run typecheck
+npm test
 npm run build
-npm run db:push:sqlite
-npm run db:seed:sqlite
+npm run db:push
+npm run db:seed
 npm run db:studio
 ```
 
@@ -252,8 +235,8 @@ This project is not fully production-ready yet.
 
 Before rolling out to real users, i will complete:
 
-- Real AI provider integration.
 - OCR for scanned PDF tenders.
+- Prompt/cost observability, retries, and token budgeting for Gemini calls.
 - Automated tests for parsing, extraction, API permissions, and exports.
 - Cloud file storage.
 - Persistent rate limiting.
