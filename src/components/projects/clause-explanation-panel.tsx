@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { Loader2, ChevronDown, ChevronRight, Lightbulb } from "lucide-react";
 
 type TenderClause = {
@@ -196,9 +197,13 @@ export function ClauseExplanationPanel({
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {clause.title || clause.originalText}
-                    </p>
+                    <TruncatedText
+                      as="p"
+                      text={clause.title || clause.originalText}
+                      lines={2}
+                      tooltipMaxChars={500}
+                      className="text-sm text-muted-foreground"
+                    />
                   </div>
                   <div className="flex items-center gap-2">
                     <Button

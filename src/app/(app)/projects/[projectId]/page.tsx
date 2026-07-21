@@ -1,13 +1,13 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DraftChecklist } from "@/components/projects/draft-checklist";
 import { DocumentsTable } from "@/components/projects/documents-table";
 import { ProjectHeader } from "@/components/projects/project-header";
 import { UploadDropzone } from "@/components/projects/upload-dropzone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/session";
 
@@ -47,6 +47,15 @@ export default async function ProjectPage({
   const completedSections = project.proposalSections.filter(
     (section) => section.content,
   ).length;
+  const highPriorityOutstanding = project.requirements.filter(
+    (requirement) =>
+      requirement.priority === "high" &&
+      requirement.status !== "met" &&
+      requirement.status !== "waiver",
+  ).length;
+  const draftProgress = project.proposalSections.length
+    ? Math.round((completedSections / project.proposalSections.length) * 100)
+    : 0;
 
   return (
     <div className="space-y-8">
@@ -177,10 +186,17 @@ export default async function ProjectPage({
                   <div className="mt-4 max-h-[300px] space-y-3 overflow-y-auto pr-1">
                     {project.documents[0].parsedSections.map((section) => (
                       <div key={section.id} className="rounded-md border p-3">
-                        <p className="text-sm font-semibold">{section.title}</p>
-                        <p className="mt-1 text-sm text-muted-foreground line-clamp-3">
-                          {section.body}
-                        </p>
+                        <TruncatedText
+                          text={section.title}
+                          className="text-sm font-semibold"
+                        />
+                        <TruncatedText
+                          as="p"
+                          text={section.body}
+                          lines={3}
+                          tooltipMaxChars={600}
+                          className="mt-1 text-sm text-muted-foreground"
+                        />
                       </div>
                     ))}
                   </div>
@@ -212,36 +228,34 @@ export default async function ProjectPage({
         </Card>
       </section>
 
-      {/* Draft against checklist */}
       <Card>
         <CardHeader>
-          <CardTitle>Draft against checklist</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
-            Generate proposal content that addresses your key requirements
+          <CardTitle>Proposal drafting</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {completedSections} of {project.proposalSections.length} sections
+            drafted
+            {highPriorityOutstanding > 0
+              ? ` · ${highPriorityOutstanding} high-priority requirement${
+                  highPriorityOutstanding === 1 ? "" : "s"
+                } outstanding`
+              : ""}
           </p>
         </CardHeader>
-        <CardContent>
-          <DraftChecklist
-            requirements={project.requirements.map((requirement) => ({
-              id: requirement.id,
-              title: requirement.title,
-              description: requirement.description,
-              category: requirement.category,
-              sourceClause: requirement.sourceClause,
-              priority: requirement.priority,
-              status: requirement.status,
-              owner: requirement.owner,
-            }))}
-            proposalSections={project.proposalSections.map((section) => ({
-              id: section.id,
-              title: section.title,
-              content: section.content,
-              sectionType: section.sectionType,
-              status: section.status,
-              wordTarget: section.wordTarget,
-            }))}
-            projectId={project.id}
-          />
+        <CardContent className="space-y-4">
+          <Progress value={draftProgress} />
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link href={`/projects/${project.id}/workspace`}>
+                Continue drafting
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/projects/${project.id}/parsed-overview`}>
+                Review checklist
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TruncatedText } from "@/components/ui/truncated-text";
 
 type ParsedSection = {
   id: string;
@@ -83,9 +84,13 @@ export function ParsedSectionsViewer({ documents }: ParsedSectionsViewerProps) {
                     <h3 className="font-semibold text-sm mb-2">
                       {section.order}. {section.title}
                     </h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-5">
-                      {section.body}
-                    </p>
+                    <TruncatedText
+                      as="p"
+                      text={section.body}
+                      lines={5}
+                      tooltipMaxChars={600}
+                      className="whitespace-pre-wrap text-sm text-muted-foreground"
+                    />
                     <details className="mt-3">
                       <summary className="text-xs font-medium cursor-pointer hover:text-primary">
                         View full section

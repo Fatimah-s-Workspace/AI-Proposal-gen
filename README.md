@@ -69,7 +69,6 @@ The project is designed as a practical AI product showcase: it demonstrates auth
 - `/projects/[projectId]` - upload documents and review extracted data
 - `/projects/[projectId]/parsed-overview` - inspect parsed sections and clauses
 - `/projects/[projectId]/workspace` - edit proposal sections and review AI assistant data
-- `/projects/[projectId]/ai-tools` - clause explanation and proposal generation tools
 - `/projects/[projectId]/export` - export proposal to DOCX or PDF
 - `/usage` - usage tracking
 

@@ -27,6 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { cn, initials } from "@/lib/utils";
 
 import { useApp } from "@/providers/app-provider";
@@ -62,10 +63,14 @@ function SignoutContent({ user }: { user: User }) {
           {initials(user.name)}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">
-            {user.companyName || user.name || "TenderFlow user"}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+          <TruncatedText
+            text={user.companyName || user.name || "TenderFlow user"}
+            className="text-sm font-medium"
+          />
+          <TruncatedText
+            text={user.email ?? ""}
+            className="text-xs text-muted-foreground"
+          />
         </div>
       </div>
       <div className="flex items-center justify-between">
@@ -189,12 +194,14 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
                                   "bg-primary/10 text-primary",
                               )}
                             >
-                              <div className="font-medium truncate">
-                                {project.title}
-                              </div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {project.clientName}
-                              </div>
+                              <TruncatedText
+                                text={project.title}
+                                className="font-medium"
+                              />
+                              <TruncatedText
+                                text={project.clientName}
+                                className="text-xs text-muted-foreground"
+                              />
                             </Link>
                           ))}
                           <Link
@@ -249,12 +256,14 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
                               "bg-primary/10 text-primary",
                           )}
                         >
-                          <div className="font-medium truncate">
-                            {project.title}
-                          </div>
-                          <div className="text-muted-foreground">
-                            {project.clientName}
-                          </div>
+                          <TruncatedText
+                            text={project.title}
+                            className="font-medium"
+                          />
+                          <TruncatedText
+                            text={project.clientName}
+                            className="text-muted-foreground"
+                          />
                         </Link>
                       ))}
                       <Link

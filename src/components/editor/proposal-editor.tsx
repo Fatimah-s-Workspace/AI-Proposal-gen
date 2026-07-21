@@ -27,6 +27,7 @@ import { useEditorStore } from "@/store/editor-store";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import {
   Popover,
   PopoverContent,
@@ -803,10 +804,18 @@ export function ProposalEditor({
                               {req.status.replace("_", " ")}
                             </span>
                           </div>
-                          <p className="font-medium">{req.title}</p>
-                          <p className="text-muted-foreground text-[11px] line-clamp-2">
-                            {req.description}
-                          </p>
+                          <TruncatedText
+                            as="p"
+                            text={req.title}
+                            className="font-medium"
+                          />
+                          <TruncatedText
+                            as="p"
+                            text={req.description}
+                            lines={2}
+                            tooltipMaxChars={500}
+                            className="text-muted-foreground text-[11px]"
+                          />
                           <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
                             <p>
                               Source: {req.sourceClause ?? "Tender requirement"}
@@ -871,13 +880,24 @@ export function ProposalEditor({
                               {clause.riskLevel} risk
                             </Badge>
                           </div>
-                          <p className="font-medium">{clause.clause}</p>
-                          <p className="text-muted-foreground text-[11px] line-clamp-3">
-                            {clause.plainEnglish}
-                          </p>
-                          <p className="text-primary text-[11px] mt-1 font-medium">
-                            {clause.action}
-                          </p>
+                          <TruncatedText
+                            as="p"
+                            text={clause.clause}
+                            className="font-medium"
+                          />
+                          <TruncatedText
+                            as="p"
+                            text={clause.plainEnglish}
+                            lines={3}
+                            tooltipMaxChars={500}
+                            className="text-muted-foreground text-[11px]"
+                          />
+                          <TruncatedText
+                            as="p"
+                            text={clause.action}
+                            lines={2}
+                            className="text-primary text-[11px] mt-1 font-medium"
+                          />
                         </div>
                       ))}
                     </div>
