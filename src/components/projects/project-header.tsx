@@ -8,12 +8,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../ui/tooltip";
+import { TruncatedText } from "@/components/ui/truncated-text";
 
 type Project = {
   id: string;
@@ -57,7 +52,7 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
     <>
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b pb-4 pt-5 mb-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <Button
               asChild
               variant="ghost"
@@ -78,28 +73,20 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
               </Badge>
             </div>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <h2 className="text-3xl font-semibold tracking-normal line-clamp-1">
-                    {project.title}
-                  </h2>
-                </TooltipTrigger>
-                <TooltipContent align="center">{project.title}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <p className="mt-2 text-muted-foreground line-clamp-1">
-                    {project.clientName} · {project.sector} · {project.country}
-                  </p>
-                </TooltipTrigger>
-                <TooltipContent align="center">
-                  {project.clientName} · {project.sector} · {project.country}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <TruncatedText
+              as="h2"
+              text={project.title}
+              className="text-3xl font-semibold tracking-normal"
+              tooltipSide="bottom"
+            />
+            <TruncatedText
+              as="p"
+              text={`${project.clientName} · ${project.sector} · ${project.country}`}
+              className="mt-2 text-muted-foreground"
+              tooltipSide="bottom"
+            />
           </div>
-          <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <Button asChild variant="outline" size="sm">
               <a href={`/projects/${project.id}/edit`}>Edit project</a>
             </Button>
