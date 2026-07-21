@@ -1,3 +1,5 @@
+import { unlink } from "fs/promises";
+import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { incrementUsage } from "@/server/usage";
@@ -20,6 +22,54 @@ import { syncProposalSectionsFromTender } from "@/server/tender-proposal";
 import { analyseTenderDocumentWithGemini } from "@/features/tender-intelligence/gemini";
 
 export const runtime = "nodejs";
+
+const bulkDeleteSchema = z.object({
+  documentIds: z.array(z.string().min(1)).min(1).max(100),
+});
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ projectId: string }> },
+) {
+  const user = await requireApiUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { projectId } = await params;
+  const parsed = bulkDeleteSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return Response.json(
+      { error: "Invalid delete request", issues: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  const documents = await prisma.tenderDocument.findMany({
+    where: {
+      id: { in: parsed.data.documentIds },
+      projectId,
+      project: { userId: user.id },
+    },
+    select: { id: true, storagePath: true },
+  });
+
+  if (!documents.length) {
+    return Response.json({ error: "No matching documents found" }, { status: 404 });
+  }
+
+  await Promise.all(
+    documents.map((document) =>
+      unlink(document.storagePath).catch((error) => {
+        console.warn("Failed to delete file from disk:", error);
+      }),
+    ),
+  );
+
+  const { count } = await prisma.tenderDocument.deleteMany({
+    where: { id: { in: documents.map((document) => document.id) } },
+  });
+
+  return Response.json({ deleted: count });
+}
 
 const procurementDocumentTypes = new Set([
   "tender_pack",
@@ -98,7 +148,7 @@ export async function POST(
   }
 
   for (const file of files) {
-    const validationError = validateUpload(file);
+    const validationError = await validateUpload(file);
     if (validationError)
       return Response.json({ error: validationError }, { status: 400 });
   }

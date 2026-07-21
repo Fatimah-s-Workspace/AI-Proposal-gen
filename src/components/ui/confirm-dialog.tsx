@@ -10,6 +10,7 @@ type ConfirmDialogProps = {
   description: string;
   confirmText?: string;
   cancelText?: string;
+  confirmDisabled?: boolean;
 };
 
 export function ConfirmDialog({
@@ -20,6 +21,7 @@ export function ConfirmDialog({
   description,
   confirmText = "Delete",
   cancelText = "Cancel",
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
@@ -29,10 +31,14 @@ export function ConfirmDialog({
         <h3 className="text-lg font-semibold">{title}</h3>
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
         <div className="mt-4 flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={confirmDisabled}>
             {cancelText}
           </Button>
-          <Button variant="destructive" onClick={onConfirm}>
+          <Button
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={confirmDisabled}
+          >
             {confirmText}
           </Button>
         </div>

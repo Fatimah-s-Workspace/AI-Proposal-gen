@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -70,6 +71,9 @@ export function DocumentsTable({
 }: DocumentsTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
   const pageCount = Math.max(1, Math.ceil(documents.length / pageSize));
@@ -77,6 +81,29 @@ export function DocumentsTable({
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
+  const allVisibleSelected =
+    visibleDocuments.length > 0 &&
+    visibleDocuments.every((document) => selectedIds.has(document.id));
+
+  const toggleSelected = (documentId: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(documentId);
+      else next.delete(documentId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = (checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const document of visibleDocuments) {
+        if (checked) next.add(document.id);
+        else next.delete(document.id);
+      }
+      return next;
+    });
+  };
 
   const handleDelete = async () => {
     if (!deletingId) return;
@@ -100,6 +127,30 @@ export function DocumentsTable({
     } finally {
       setIsConfirmOpen(false);
       setDeletingId(null);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedIds.size) return;
+    setIsBulkDeleting(true);
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/documents`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentIds: [...selectedIds] }),
+      });
+
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        console.error("Failed to delete documents");
+      }
+    } catch (error) {
+      console.error("Error deleting documents:", error);
+    } finally {
+      setIsBulkDeleting(false);
+      setIsBulkConfirmOpen(false);
     }
   };
 
@@ -141,12 +192,46 @@ export function DocumentsTable({
 
   return (
     <>
+      {selectedIds.size > 0 && (
+        <div className="mb-3 flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2">
+          <p className="text-sm">
+            {selectedIds.size} document{selectedIds.size !== 1 ? "s" : ""}{" "}
+            selected
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setIsBulkConfirmOpen(true)}
+            >
+              <Trash2 className="mr-2 size-4" />
+              Delete selected
+            </Button>
+          </div>
+        </div>
+      )}
       <TooltipProvider>
         <div className="hidden rounded-md border md:block">
           <div className="max-h-[420px] overflow-auto">
             <Table className="min-w-[900px]">
               <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allVisibleSelected}
+                      onCheckedChange={(checked) =>
+                        toggleSelectAllVisible(checked as boolean)
+                      }
+                      aria-label="Select all documents on this page"
+                    />
+                  </TableHead>
                   <TableHead>File</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Version</TableHead>
@@ -158,7 +243,21 @@ export function DocumentsTable({
               </TableHeader>
               <TableBody>
                 {visibleDocuments.map((document) => (
-                  <TableRow key={document.id}>
+                  <TableRow
+                    key={document.id}
+                    data-state={
+                      selectedIds.has(document.id) ? "selected" : undefined
+                    }
+                  >
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(document.id)}
+                        onCheckedChange={(checked) =>
+                          toggleSelected(document.id, checked as boolean)
+                        }
+                        aria-label={`Select ${document.originalName}`}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <FileText className="size-4 text-primary" />
@@ -286,6 +385,14 @@ export function DocumentsTable({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={selectedIds.has(document.id)}
+                      onCheckedChange={(checked) =>
+                        toggleSelected(document.id, checked as boolean)
+                      }
+                      aria-label={`Select ${document.originalName}`}
+                      className="shrink-0"
+                    />
                     <FileText className="size-4 text-primary shrink-0" />
 
                     <p className="truncate font-medium">
@@ -383,6 +490,17 @@ export function DocumentsTable({
         title="Delete Document"
         description="Are you sure you want to delete this document? This action cannot be undone."
         confirmText="Delete"
+      />
+      <ConfirmDialog
+        isOpen={isBulkConfirmOpen}
+        onClose={() => setIsBulkConfirmOpen(false)}
+        onConfirm={handleBulkDelete}
+        title="Delete selected documents"
+        description={`Are you sure you want to delete ${selectedIds.size} document${
+          selectedIds.size !== 1 ? "s" : ""
+        }? This will also remove their parsed sections and requirements. This action cannot be undone.`}
+        confirmText={isBulkDeleting ? "Deleting…" : "Delete selected"}
+        confirmDisabled={isBulkDeleting}
       />
     </>
   );
