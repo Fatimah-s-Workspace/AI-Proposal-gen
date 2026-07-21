@@ -12,22 +12,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/session";
-import { ai } from "@/lib/ai/client";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
   const user = await requireUser();
-  const models = await ai.models.list();
-  console.log("Available AI models:", models);
   const projects = await prisma.project.findMany({
     where: { userId: user.id },
     orderBy: { updatedAt: "desc" },
@@ -42,6 +34,7 @@ export default async function ProjectsPage() {
       },
     },
   });
+  const now = new Date().getTime();
 
   return (
     <div className="space-y-8">
@@ -74,79 +67,87 @@ export default async function ProjectsPage() {
                     <TableHead className="min-w-48">Project</TableHead>
                     <TableHead className="min-w-40">Client</TableHead>
                     <TableHead className="min-w-32">Type</TableHead>
+                    <TableHead className="min-w-28">Stage</TableHead>
                     <TableHead className="min-w-32">Compliance</TableHead>
                     <TableHead className="min-w-40">Stats</TableHead>
                     <TableHead className="min-w-32">Deadline</TableHead>
+                    <TableHead className="min-w-28">Updated</TableHead>
                     <TableHead className="min-w-24 text-right">
                       Action
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <TooltipProvider>
-                    {projects.map((project) => (
-                      <TableRow key={project.id}>
-                        <TableCell>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Link
-                                href={`/projects/${project.id}`}
-                                className="font-semibold hover:text-primary line-clamp-1"
-                              >
-                                {project.title}
-                              </Link>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" align="center">
-                              {project.title}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {project.clientName}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">
-                            {project.opportunityType}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="w-16">
-                              <Progress value={project.complianceScore} />
-                            </div>
-                            <span className="text-sm font-medium">
-                              {project.complianceScore}%
-                            </span>
+                  {projects.map((project) => (
+                    <TableRow key={project.id}>
+                      <TableCell className="max-w-64">
+                        <Link
+                          href={`/projects/${project.id}`}
+                          className="hover:text-primary"
+                        >
+                          <TruncatedText
+                            text={project.title}
+                            className="font-semibold"
+                          />
+                        </Link>
+                      </TableCell>
+                      <TableCell className="max-w-48 text-sm text-muted-foreground">
+                        <TruncatedText text={project.clientName} />
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {project.opportunityType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            project.stage === "drafting" ? "success" : "outline"
+                          }
+                        >
+                          {project.stage.replace("_", " ")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="w-16">
+                            <Progress value={project.complianceScore} />
                           </div>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          <div className="flex gap-4">
-                            <span>{project._count.documents} docs</span>
-                            <span>{project._count.requirements} reqs</span>
-                            <span>{project._count.exports} exports</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {formatDate(project.deadline)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-2">
-                            <Button asChild variant="outline" size="sm">
-                              <Link href={`/projects/${project.id}/edit`}>
-                                Edit
-                              </Link>
-                            </Button>
-                            <Button asChild variant="outline" size="sm">
-                              <Link href={`/projects/${project.id}`}>
-                                Open
-                                <ArrowRight className="size-4" />
-                              </Link>
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TooltipProvider>
+                          <span className="text-sm font-medium">
+                            {project.complianceScore}%
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        <div className="flex gap-4">
+                          <span>{project._count.documents} docs</span>
+                          <span>{project._count.requirements} reqs</span>
+                          <span>{project._count.exports} exports</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {formatDate(project.deadline)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatRelativeDate(project.updatedAt, now)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2">
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={`/projects/${project.id}/edit`}>
+                              Edit
+                            </Link>
+                          </Button>
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={`/projects/${project.id}`}>
+                              Open
+                              <ArrowRight className="size-4" />
+                            </Link>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -169,6 +170,18 @@ export default async function ProjectsPage() {
 
 function formatDate(date: Date | null) {
   if (!date) return "No deadline";
+  return new Intl.DateTimeFormat("en-NG", {
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
+function formatRelativeDate(date: Date, now: number) {
+  const diffDays = Math.floor((now - date.getTime()) / (24 * 60 * 60 * 1000));
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
   return new Intl.DateTimeFormat("en-NG", {
     day: "numeric",
     month: "short",
