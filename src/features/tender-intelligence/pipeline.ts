@@ -473,13 +473,22 @@ function normaliseEvidenceList(value: unknown) {
   return [];
 }
 
+// Shared normalisation used to detect duplicate clauses/requirements both
+// within a single extraction batch and across documents already stored in a
+// project (e.g. the same tender pack uploaded twice, or an addendum that
+// repeats text from the main pack).
+export function buildTextDedupeKey(text: string, maxLength = 120) {
+  return text
+    .toLowerCase()
+    .replace(/\W+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
 function dedupeByText(clauses: TenderClauseExtraction[]) {
   const seen = new Set<string>();
   return clauses.filter((clause) => {
-    const key = clause.originalText
-      .toLowerCase()
-      .replace(/\W+/g, " ")
-      .slice(0, 120);
+    const key = buildTextDedupeKey(clause.originalText, 120);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

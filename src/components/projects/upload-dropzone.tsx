@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { cn } from "@/lib/utils";
 
 interface UploadDropzoneProps {
@@ -105,14 +106,24 @@ export function UploadDropzone({
       (sum, doc) => sum + (doc.requirementCount || 0),
       0,
     );
+    const duplicateClauses = Number(result.duplicateClauseCount ?? 0);
+    const duplicateRequirements = Number(result.duplicateRequirementCount ?? 0);
+    const hadDuplicates = duplicateClauses > 0 || duplicateRequirements > 0;
 
-    if (totalClauses === 0 && totalRequirements === 0) {
+    if (totalClauses === 0 && totalRequirements === 0 && hadDuplicates) {
+      setNotice(
+        `Processed ${processedDocuments.length} document(s), but every clause and requirement already existed in this project — nothing new was added.`,
+      );
+    } else if (totalClauses === 0 && totalRequirements === 0) {
       setError(
         `Documents uploaded but no clauses were extracted. The document may not contain procurement language, or try selecting "Tender Pack" as the document type.`,
       );
     } else {
+      const duplicateNote = hadDuplicates
+        ? ` (${duplicateClauses + duplicateRequirements} duplicate item(s) skipped)`
+        : "";
       setNotice(
-        `Processed ${processedDocuments.length} document(s): ${totalClauses} clauses and ${totalRequirements} requirements extracted.`,
+        `Processed ${processedDocuments.length} document(s): ${totalClauses} clauses and ${totalRequirements} requirements extracted${duplicateNote}.`,
       );
     }
 
@@ -206,7 +217,7 @@ export function UploadDropzone({
                 className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-muted py-1 pl-2 pr-1 text-xs"
               >
                 <FileUp className="size-3 shrink-0 text-muted-foreground" />
-                <span className="max-w-56 truncate">{file.name}</span>
+                <TruncatedText text={file.name} className="max-w-56" />
                 <span className="shrink-0 text-muted-foreground">
                   {(file.size / 1024 / 1024).toFixed(1)}MB
                 </span>

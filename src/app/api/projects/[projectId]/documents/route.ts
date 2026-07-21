@@ -11,6 +11,7 @@ import {
 import { saveUploadedFile, validateUpload } from "@/features/documents/upload";
 import type { ExtractedRequirement, ParsedSection } from "@/features/ai";
 import {
+  buildTextDedupeKey,
   calculateChecklistScore,
   detectEvidenceMatchesForRequirements,
   explainTenderClause,
@@ -156,6 +157,33 @@ export async function POST(
   const uploaded = [];
   const existingPrimaryId = await getPrimaryTenderId(projectId);
 
+  // Seed dedup keys from clauses/requirements already in the project so
+  // re-uploading the same tender pack (or an addendum that repeats text
+  // from the main pack) does not create duplicate checklist items.
+  const [existingClauses, existingRequirements] = await Promise.all([
+    prisma.tenderClause.findMany({
+      where: { projectId },
+      select: { id: true, originalText: true },
+    }),
+    prisma.requirement.findMany({
+      where: { projectId },
+      select: { title: true, description: true },
+    }),
+  ]);
+  const clauseIdByKey = new Map<string, string>(
+    existingClauses.map((clause) => [
+      buildTextDedupeKey(clause.originalText, 120),
+      clause.id,
+    ]),
+  );
+  const seenRequirementKeys = new Set(
+    existingRequirements.map((requirement) =>
+      buildTextDedupeKey(`${requirement.title} ${requirement.description}`, 160),
+    ),
+  );
+  let duplicateClauseCount = 0;
+  let duplicateRequirementCount = 0;
+
   for (const file of files) {
     const saved = await saveUploadedFile(file, projectId);
     const extractedText = await extractTextFromBuffer(
@@ -260,39 +288,54 @@ export async function POST(
       }> = [];
 
       for (const clause of extractedClauses) {
+        const dedupeKey = buildTextDedupeKey(clause.originalText, 120);
+        const existingClauseId = clauseIdByKey.get(dedupeKey);
+
+        if (existingClauseId) {
+          duplicateClauseCount += 1;
+          createdClauses.push({
+            extraction: clause,
+            row: {
+              id: existingClauseId,
+              title: clause.title,
+              originalText: clause.originalText,
+            },
+          });
+          continue;
+        }
+
         const explanation = explainTenderClause(clause);
         const section = createdSections.find(
           (item) => item.order === clause.parsedSectionOrder,
         );
-        createdClauses.push({
-          extraction: clause,
-          row: await prisma.tenderClause.create({
-            data: {
-              projectId,
-              documentId: document.id,
-              parsedSectionId: section?.id,
-              title: clause.title,
-              originalText: clause.originalText,
-              clauseType: clause.clauseType,
-              importance: clause.importance,
-              riskLevel: clause.riskLevel,
-              confidence: clause.confidence,
-              explanation: explanation.plainEnglish,
-              actionsRequired: clause.actionsRequired,
-              metadata: {
-                sourceSection: section?.title ?? null,
-                documentType,
-                version: document.version,
-                aiProvider: aiIntelligence?.provider ?? "local",
-                aiModel: aiIntelligence?.model ?? null,
-              },
+        const row = await prisma.tenderClause.create({
+          data: {
+            projectId,
+            documentId: document.id,
+            parsedSectionId: section?.id,
+            title: clause.title,
+            originalText: clause.originalText,
+            clauseType: clause.clauseType,
+            importance: clause.importance,
+            riskLevel: clause.riskLevel,
+            confidence: clause.confidence,
+            explanation: explanation.plainEnglish,
+            actionsRequired: clause.actionsRequired,
+            metadata: {
+              sourceSection: section?.title ?? null,
+              documentType,
+              version: document.version,
+              aiProvider: aiIntelligence?.provider ?? "local",
+              aiModel: aiIntelligence?.model ?? null,
             },
-          }),
+          },
         });
+        clauseIdByKey.set(dedupeKey, row.id);
+        createdClauses.push({ extraction: clause, row });
       }
 
-      createdClauseCount = createdClauses.length;
-      const requirements = aiIntelligence?.requirements.length
+      createdClauseCount = createdClauses.length - duplicateClauseCount;
+      const candidateRequirements = aiIntelligence?.requirements.length
         ? aiIntelligence.requirements.map((requirement) => ({
             ...requirement,
             sourceClauseId: matchRequirementToClauseId(
@@ -307,7 +350,17 @@ export async function POST(
             })),
           );
 
-      for (const requirement of requirements) {
+      for (const requirement of candidateRequirements) {
+        const dedupeKey = buildTextDedupeKey(
+          `${requirement.title} ${requirement.description}`,
+          160,
+        );
+        if (seenRequirementKeys.has(dedupeKey)) {
+          duplicateRequirementCount += 1;
+          continue;
+        }
+        seenRequirementKeys.add(dedupeKey);
+
         await prisma.requirement.create({
           data: {
             projectId,
@@ -323,9 +376,8 @@ export async function POST(
             status: "in_progress",
           },
         });
+        createdRequirementCount += 1;
       }
-
-      createdRequirementCount = requirements.length;
     }
 
     if (evidenceDocumentTypes.has(documentType)) {
@@ -429,6 +481,8 @@ export async function POST(
   return Response.json({
     message: `${uploaded.length} document(s) processed`,
     documents: uploaded,
+    duplicateClauseCount,
+    duplicateRequirementCount,
     complianceScore,
   });
 }
