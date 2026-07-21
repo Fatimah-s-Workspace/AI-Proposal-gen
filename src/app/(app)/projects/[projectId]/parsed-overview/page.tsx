@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ParsedSectionsViewer } from "@/components/projects/parsed-sections-viewer";
-import { ExtractedRequirementsTable } from "@/components/projects/extracted-requirements-table";
 import { ClauseExplanationPanel } from "@/components/projects/clause-explanation-panel";
 import { ChecklistDashboard } from "@/components/projects/checklist-dashboard";
 import { prisma } from "@/server/db";
@@ -141,7 +140,6 @@ export default async function ParsedOverviewPage({ params }: Props) {
         <TabsList className="mb-6 flex h-auto flex-wrap justify-start">
           <TabsTrigger value="checklist">Checklist</TabsTrigger>
           <TabsTrigger value="clauses">Clauses</TabsTrigger>
-          <TabsTrigger value="requirements">Requirements</TabsTrigger>
           <TabsTrigger value="sections">Parsed sections</TabsTrigger>
           <TabsTrigger value="debug">Debug</TabsTrigger>
         </TabsList>
@@ -152,17 +150,6 @@ export default async function ParsedOverviewPage({ params }: Props) {
 
         <TabsContent value="clauses">
           <ClauseExplanationPanel clauses={clauses} projectId={projectId} />
-        </TabsContent>
-
-        <TabsContent value="requirements">
-          <Card>
-            <CardHeader>
-              <CardTitle>Extracted requirements</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ExtractedRequirementsTable requirements={requirements} projectId={projectId} />
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="sections" className="space-y-6">

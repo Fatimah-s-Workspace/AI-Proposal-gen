@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, CircleAlert, CircleDashed, Pencil } from "lucide-react";
+import { CheckCircle2, CircleAlert, CircleDashed, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { EditRequirementForm } from "@/components/projects/edit-requirement-form";
 
 type ChecklistRequirement = {
@@ -33,6 +35,8 @@ export function ChecklistDashboard({
   projectId: string;
 }) {
   const [editing, setEditing] = useState<ChecklistRequirement | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const metrics = useMemo(() => {
     const total = Math.max(requirements.length, 1);
     return {
@@ -44,6 +48,20 @@ export function ChecklistDashboard({
       coverage: Math.round((requirements.filter((item) => item.status === "met" || item.status === "waiver").length / total) * 100),
     };
   }, [requirements]);
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/requirements/${deletingId}`,
+        { method: "DELETE" },
+      );
+      if (response.ok) window.location.reload();
+    } finally {
+      setIsConfirmOpen(false);
+      setDeletingId(null);
+    }
+  };
 
   if (!requirements.length) {
     return (
@@ -94,14 +112,24 @@ export function ChecklistDashboard({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusIcon status={requirement.status} />
-                  <h3 className="font-medium">{requirement.title}</h3>
+                  <TruncatedText as="span" text={requirement.title} className="font-medium" />
                   <Badge variant={requirement.priority === "high" ? "warning" : "secondary"}>{requirement.priority}</Badge>
                   <Badge variant="outline">{requirement.category}</Badge>
                   <span className="text-xs text-muted-foreground">{Math.round(requirement.confidence * 100)}% confidence</span>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{requirement.description}</p>
+                <TruncatedText
+                  as="p"
+                  text={requirement.description}
+                  lines={3}
+                  tooltipMaxChars={500}
+                  className="mt-2 text-sm leading-6 text-muted-foreground"
+                />
                 <div className="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
-                  <p>Source: {requirement.sourceClause || "Tender clause"}</p>
+                  <TruncatedText
+                    as="p"
+                    text={`Source: ${requirement.sourceClause || "Tender clause"}`}
+                    tooltipMaxChars={400}
+                  />
                   <p>Owner: {requirement.owner || "Unassigned"}</p>
                   <p>Evidence needed: {normaliseList(requirement.evidenceNeeded).join(", ") || "Not specified"}</p>
                   <p>Detected evidence: {normaliseEvidence(requirement.evidenceMatches)}</p>
@@ -123,11 +151,32 @@ export function ChecklistDashboard({
                   <Pencil />
                   Edit
                 </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => {
+                    setDeletingId(requirement.id);
+                    setIsConfirmOpen(true);
+                  }}
+                >
+                  <Trash2 />
+                  Delete
+                </Button>
               </div>
             </div>
           </div>
         ))}
       </div>
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete requirement"
+        description="Are you sure you want to delete this requirement? This action cannot be undone."
+        confirmText="Delete"
+      />
     </div>
   );
 }
