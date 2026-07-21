@@ -1,5 +1,7 @@
 # TenderFlow AI
 
+[![CI](https://github.com/DaviesFatimah/AI-Proposal-gen/actions/workflows/ci.yml/badge.svg)](https://github.com/DaviesFatimah/AI-Proposal-gen/actions/workflows/ci.yml)
+
 TenderFlow AI is a full-stack proposal workspace for teams that respond to tenders, RFPs, grants, EOIs, and RFQs. It helps Nigerian and African SMEs, consultants, NGOs, contractors, and bid teams move from an uploaded tender document to a structured compliance checklist, proposal draft, and export-ready submission.
 
 The project is designed as a practical AI product showcase: it demonstrates authentication, project workspaces, file uploads, document parsing, tender intelligence, AI-style drafting, compliance tracking, rich text editing, usage tracking, and DOCX/PDF export.
@@ -188,6 +190,21 @@ npm run db:push
 npm run db:seed
 npm run db:studio
 ```
+
+## Testing and CI
+
+Tests run on Node's built-in test runner (`node --test`) via `npm test`, covering the pure business logic that has no external dependencies:
+
+- Tender intelligence extraction, clause/requirement deduplication, and checklist scoring (`src/features/tender-intelligence/pipeline.test.ts`)
+- Upload validation, including magic-byte sniffing for mislabeled files (`src/features/documents/upload.test.ts`)
+- Tender section parsing (`src/features/documents/parser.test.ts`)
+- Proposal section planning and compliance scoring (`src/features/proposals/tender-proposal.test.ts`)
+- Proposal drafting with Gemini/local fallback (`src/server/proposal-generation.test.ts`)
+- Rate limiting, Gemini error classification, and small shared utilities
+
+`.github/workflows/ci.yml` runs `typecheck`, `lint`, `test`, and `build` on every push and pull request against `dev`, using dummy environment values (no real database or Gemini key is needed since nothing in the suite touches either).
+
+Not yet covered: API route handlers (auth/ownership wiring, request/response shape) and UI components — these are the natural next layer of test coverage, likely via integration tests against a real test database and/or React component tests.
 
 ## Security Notes
 
