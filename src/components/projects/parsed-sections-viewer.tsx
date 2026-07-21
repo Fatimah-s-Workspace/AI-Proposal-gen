@@ -102,7 +102,7 @@ export function ParsedSectionsViewer({ documents }: ParsedSectionsViewerProps) {
                   <summary className="text-sm font-medium cursor-pointer hover:text-primary">
                     View Raw Parsed Text
                   </summary>
-                  <div className="mt-3 max-h-[360px] overflow-y-auto rounded-md bg-slate-950 p-4 text-xs text-white">
+                  <div className="mt-3 max-h-[360px] overflow-y-auto rounded-md border bg-muted/50 p-4 text-xs text-foreground">
                     <pre className="whitespace-pre-wrap break-words">
                       {doc.rawParsedText ||
                         doc.parsedSections
@@ -117,7 +117,7 @@ export function ParsedSectionsViewer({ documents }: ParsedSectionsViewerProps) {
                   <summary className="text-sm font-medium cursor-pointer hover:text-primary">
                     View Parsed JSON
                   </summary>
-                  <div className="mt-3 max-h-[360px] overflow-y-auto rounded-md bg-slate-950 p-4 text-xs text-white">
+                  <div className="mt-3 max-h-[360px] overflow-y-auto rounded-md border bg-muted/50 p-4 text-xs text-foreground">
                     <pre className="whitespace-pre-wrap break-words">
                       {JSON.stringify(
                         doc.parsedJson ?? {

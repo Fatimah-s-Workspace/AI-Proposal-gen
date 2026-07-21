@@ -165,7 +165,7 @@ export function ExtractedRequirementsTable({
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="w-12 bg-gray-200 rounded-full h-2">
+                      <div className="w-12 bg-muted rounded-full h-2">
                         <div
                           className="bg-primary h-2 rounded-full"
                           style={{ width: `${req.confidence * 100}%` }}

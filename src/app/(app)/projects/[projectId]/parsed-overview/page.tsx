@@ -189,7 +189,7 @@ export default async function ParsedOverviewPage({ params }: Props) {
               <CardTitle>Parser payload</CardTitle>
             </CardHeader>
             <CardContent>
-              <pre className="max-h-[560px] overflow-auto rounded-md bg-slate-950 p-4 text-xs text-white">
+              <pre className="max-h-[560px] overflow-auto rounded-md border bg-muted/50 p-4 text-xs text-foreground">
                 {JSON.stringify(
                   {
                     documents: documents.map((doc) => ({

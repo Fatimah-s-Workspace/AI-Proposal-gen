@@ -196,7 +196,7 @@ export function AiToolsProposalEditor({
 
           {section.wordTarget > 0 && (
             <div className="flex-1 max-w-xs">
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-muted rounded-full h-2">
                 <div
                   className={cn(
                     "h-2 rounded-full transition-all duration-300",

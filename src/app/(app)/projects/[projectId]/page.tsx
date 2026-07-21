@@ -189,7 +189,7 @@ export default async function ProjectPage({
                   <summary className="cursor-pointer text-sm font-medium">
                     View raw document payload
                   </summary>
-                  <pre className="mt-4 max-h-[320px] overflow-auto rounded-md bg-slate-950 p-3 text-xs text-white">
+                  <pre className="mt-4 max-h-[320px] overflow-auto rounded-md border bg-muted/50 p-3 text-xs text-foreground">
                     {JSON.stringify(
                       {
                         parsedSections: project.documents[0].parsedSections,
