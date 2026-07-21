@@ -298,6 +298,13 @@ export function ProposalEditor({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
     "idle",
   );
+  const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
+  const latestDraftOrigin = useMemo(() => {
+    const latestGenerated = selectedSection?.versions.find(
+      (version) => version.contentType === "proposal_section",
+    );
+    return latestGenerated ? describeProvider(latestGenerated.provider) : null;
+  }, [selectedSection]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedIdRef = useRef<string | null>(initialSectionId);
 
@@ -361,6 +368,34 @@ export function ProposalEditor({
     onError: () => setSaveState("idle"),
   });
 
+  const versionPreviewQuery = useQuery({
+    queryKey: ["section-version", selectedSection?.id, previewVersionId],
+    enabled: Boolean(selectedSection?.id && previewVersionId),
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/proposal-sections/${selectedSection?.id}/versions/${previewVersionId}`,
+      );
+      if (!response.ok) throw new Error("Failed to load version");
+      return response.json() as Promise<{
+        version: Version & { output: string };
+      }>;
+    },
+  });
+
+  function restoreVersion(output: string) {
+    const sectionId = selectedIdRef.current;
+    if (!sectionId || !editor) return;
+    editor.commands.setContent(output, { emitUpdate: false });
+    setLocalSections((current) =>
+      current.map((section) =>
+        section.id === sectionId
+          ? { ...section, content: output, status: "drafting" }
+          : section,
+      ),
+    );
+    saveMutation.mutate({ sectionId, content: output });
+  }
+
   const regenerateMutation = useMutation({
     mutationFn: async (sectionId: string) => {
       const response = await fetch(
@@ -398,9 +433,9 @@ export function ProposalEditor({
             : section,
         ),
       );
-      editor?.commands.setContent(
-        updated.content || emptySection(updated.title),
-      );
+      editor?.commands.setContent(updated.content || emptySection(updated.title), {
+        emitUpdate: false,
+      });
     },
   });
 
@@ -435,6 +470,7 @@ export function ProposalEditor({
         setSelectedSectionId(selected.id);
         editor?.commands.setContent(
           selected.content || emptySection(selected.title),
+          { emitUpdate: false },
         );
       }
     },
@@ -471,13 +507,19 @@ export function ProposalEditor({
     }
   }, [localSections, selectedSectionId, setSelectedSectionId]);
 
+  const [previewSectionId, setPreviewSectionId] = useState(selectedSectionId);
+  if (previewSectionId !== selectedSectionId) {
+    setPreviewSectionId(selectedSectionId);
+    setPreviewVersionId(null);
+  }
+
   useEffect(() => {
     if (!editor || !selectedSection) return;
     selectedIdRef.current = selectedSection.id;
     const nextContent =
       selectedSection.content || emptySection(selectedSection.title);
     if (editor.getHTML() !== nextContent) {
-      editor.commands.setContent(nextContent);
+      editor.commands.setContent(nextContent, { emitUpdate: false });
     }
   }, [editor, selectedSection]);
 
@@ -559,6 +601,21 @@ export function ProposalEditor({
                   className="text-xs"
                 >
                   {complianceScore}% compliant
+                </Badge>
+              )}
+              {latestDraftOrigin && (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs",
+                    providerBadgeClass(latestDraftOrigin.tone),
+                  )}
+                  title={latestDraftOrigin.detail}
+                >
+                  {latestDraftOrigin.tone === "warn" && (
+                    <AlertTriangle className="mr-1 size-3" />
+                  )}
+                  {latestDraftOrigin.label}
                 </Badge>
               )}
               <Popover>
@@ -1074,30 +1131,107 @@ export function ProposalEditor({
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium">Version History</h4>
                   <p className="text-xs text-muted-foreground">
-                    Track saved drafts, regenerations, and AI versions.
+                    Click a version to preview it or load it back into the
+                    editor.
                   </p>
                 </div>
-                <div className="space-y-3 max-h-72 overflow-y-auto">
+                <div className="space-y-3 max-h-96 overflow-y-auto">
                   {selectedSection.versions.length ? (
-                    selectedSection.versions.map((version) => (
-                      <div
-                        key={version.id}
-                        className="rounded-lg border bg-background p-3 text-xs"
-                      >
-                        <p className="font-medium">
-                          v{version.version} ·{" "}
-                          {version.contentType.replace("_", " ")}
-                        </p>
-                        <p className="mt-1 text-muted-foreground">
-                          {new Intl.DateTimeFormat("en-NG", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }).format(new Date(version.createdAt))}
-                        </p>
-                      </div>
-                    ))
+                    selectedSection.versions.map((version) => {
+                      const isOpen = previewVersionId === version.id;
+                      const preview = isOpen
+                        ? versionPreviewQuery.data?.version
+                        : null;
+                      return (
+                        <div
+                          key={version.id}
+                          className="rounded-lg border bg-background text-xs"
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPreviewVersionId(isOpen ? null : version.id)
+                            }
+                            className="flex w-full items-start justify-between gap-2 p-3 text-left transition-colors hover:bg-muted/50"
+                            aria-expanded={isOpen}
+                          >
+                            <span>
+                              <span className="flex items-center gap-1.5 font-medium">
+                                v{version.version}
+                                {(() => {
+                                  const origin =
+                                    version.contentType === "manual_edit"
+                                      ? describeProvider("local")
+                                      : describeProvider(version.provider);
+                                  return (
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "px-1.5 py-0 text-[10px]",
+                                        providerBadgeClass(origin.tone),
+                                      )}
+                                      title={origin.detail}
+                                    >
+                                      {origin.label}
+                                    </Badge>
+                                  );
+                                })()}
+                              </span>
+                              <span className="mt-1 block text-muted-foreground">
+                                {new Intl.DateTimeFormat("en-NG", {
+                                  day: "numeric",
+                                  month: "short",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }).format(new Date(version.createdAt))}
+                              </span>
+                            </span>
+                            <ChevronDown
+                              className={cn(
+                                "mt-0.5 h-3 w-3 shrink-0 text-muted-foreground transition-transform",
+                                isOpen && "rotate-180",
+                              )}
+                            />
+                          </button>
+                          {isOpen ? (
+                            <div className="border-t p-3 space-y-2">
+                              {versionPreviewQuery.isPending ? (
+                                <p className="flex items-center gap-2 text-muted-foreground">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Loading version…
+                                </p>
+                              ) : versionPreviewQuery.isError ? (
+                                <p className="text-destructive">
+                                  Could not load this version.
+                                </p>
+                              ) : preview ? (
+                                <>
+                                  <div
+                                    className="editor-content max-h-48 overflow-y-auto rounded-md border bg-muted/30 p-2"
+                                    dangerouslySetInnerHTML={{
+                                      __html: preview.output,
+                                    }}
+                                  />
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="w-full"
+                                    disabled={saveMutation.isPending}
+                                    onClick={() =>
+                                      restoreVersion(preview.output)
+                                    }
+                                  >
+                                    <RotateCw className="mr-1 h-3 w-3" />
+                                    Load into editor
+                                  </Button>
+                                </>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })
                   ) : (
                     <p className="text-xs text-muted-foreground">
                       Saved edits and generated versions will appear here.
@@ -1139,6 +1273,40 @@ function ToolMenuButton({
       {label}
     </button>
   );
+}
+
+function describeProvider(provider: string): {
+  label: string;
+  tone: "ai" | "warn" | "muted";
+  detail: string;
+} {
+  if (provider === "gemini") {
+    return {
+      label: "AI draft",
+      tone: "ai",
+      detail: "Generated with Gemini from the tender context.",
+    };
+  }
+  if (provider === "gemini-fallback") {
+    return {
+      label: "Template draft",
+      tone: "warn",
+      detail:
+        "The AI provider was unavailable (quota reached or no API key), so a local template draft was generated. Regenerate later to try AI again.",
+    };
+  }
+  return {
+    label: "Manual edit",
+    tone: "muted",
+    detail: "Saved from a manual edit in the editor.",
+  };
+}
+
+function providerBadgeClass(tone: "ai" | "warn" | "muted") {
+  if (tone === "ai") return "border-transparent bg-primary/15 text-primary";
+  if (tone === "warn")
+    return "border-transparent bg-amber-500/15 text-amber-600 dark:text-amber-400";
+  return "border-transparent bg-muted text-muted-foreground";
 }
 
 function normalizeSection(section: ApiSection): Section {
