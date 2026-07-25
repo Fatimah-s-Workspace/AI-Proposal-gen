@@ -2,7 +2,7 @@
 
 import { FileUp, Loader2, UploadCloud, X, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { ChangeEvent, DragEvent, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -32,9 +32,25 @@ const documentTypes = [
 ];
 
 type UploadResultDocument = {
-  clauseCount?: number;
-  requirementCount?: number;
+  id: string;
+  originalName: string;
 };
+
+type StatusDocument = {
+  id: string;
+  originalName: string;
+  parsingStatus: string;
+  parsingError: string | null;
+  clauseCount: number;
+  requirementCount: number;
+};
+
+const POLL_INTERVAL_MS = 3000;
+const MAX_POLL_ATTEMPTS = 40; // ~2 minutes
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export function UploadDropzone({
   projectId,
@@ -43,8 +59,9 @@ export function UploadDropzone({
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const stopPollingRef = useRef(false);
   const [dragging, setDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "uploading" | "processing">("idle");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -52,11 +69,18 @@ export function UploadDropzone({
   const [isPrimary, setIsPrimary] = useState(false);
   const [revisionNotes, setRevisionNotes] = useState("");
 
+  useEffect(() => {
+    return () => {
+      stopPollingRef.current = true;
+    };
+  }, []);
+
   async function upload() {
     if (!selectedFiles.length) return;
     const controller = new AbortController();
     abortControllerRef.current = controller;
-    setUploading(true);
+    stopPollingRef.current = false;
+    setPhase("uploading");
     setError(null);
     setNotice(null);
 
@@ -77,7 +101,7 @@ export function UploadDropzone({
       });
     } catch (fetchError) {
       abortControllerRef.current = null;
-      setUploading(false);
+      setPhase("idle");
       if (fetchError instanceof DOMException && fetchError.name === "AbortError") {
         setNotice("Upload cancelled. Your selected files were kept.");
       } else {
@@ -91,58 +115,113 @@ export function UploadDropzone({
 
     if (!response.ok) {
       setError(result.error || "Upload failed.");
-      setUploading(false);
+      setPhase("idle");
       return;
     }
 
-    const processedDocuments = Array.isArray(result.documents)
+    const uploadedDocuments = Array.isArray(result.documents)
       ? (result.documents as UploadResultDocument[])
       : [];
-    const totalClauses = processedDocuments.reduce(
-      (sum, doc) => sum + (doc.clauseCount || 0),
-      0,
-    );
-    const totalRequirements = processedDocuments.reduce(
-      (sum, doc) => sum + (doc.requirementCount || 0),
-      0,
-    );
-    const duplicateClauses = Number(result.duplicateClauseCount ?? 0);
-    const duplicateRequirements = Number(result.duplicateRequirementCount ?? 0);
-    const hadDuplicates = duplicateClauses > 0 || duplicateRequirements > 0;
 
-    if (totalClauses === 0 && totalRequirements === 0 && hadDuplicates) {
-      setNotice(
-        `Processed ${processedDocuments.length} document(s), but every clause and requirement already existed in this project — nothing new was added.`,
-      );
-    } else if (totalClauses === 0 && totalRequirements === 0) {
-      setError(
-        `Documents uploaded but no clauses were extracted. The document may not contain procurement language, or try selecting "Tender Pack" as the document type.`,
-      );
-    } else {
-      const duplicateNote = hadDuplicates
-        ? ` (${duplicateClauses + duplicateRequirements} duplicate item(s) skipped)`
-        : "";
-      setNotice(
-        `Processed ${processedDocuments.length} document(s): ${totalClauses} clauses and ${totalRequirements} requirements extracted${duplicateNote}.`,
-      );
-    }
-
-    setUploading(false);
     setSelectedFiles([]);
     setRevisionNotes("");
     setIsPrimary(false);
     onUploadComplete?.();
     router.refresh();
+
+    if (!result.processing || !uploadedDocuments.length) {
+      setNotice(`Uploaded ${uploadedDocuments.length} document(s).`);
+      setPhase("idle");
+      return;
+    }
+
+    setPhase("processing");
+    setNotice(
+      `Uploaded ${uploadedDocuments.length} document(s) - analysing in the background…`,
+    );
+    await pollUntilDone(uploadedDocuments.map((document) => document.id));
+  }
+
+  async function pollUntilDone(documentIds: string[]) {
+    for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt += 1) {
+      await sleep(POLL_INTERVAL_MS);
+      if (stopPollingRef.current) return;
+
+      let statusResponse: Response;
+      try {
+        statusResponse = await fetch(
+          `/api/projects/${projectId}/documents?ids=${documentIds.join(",")}`,
+        );
+      } catch {
+        continue; // transient network hiccup - just try again next tick
+      }
+      if (stopPollingRef.current) return;
+      if (!statusResponse.ok) continue;
+
+      const data = (await statusResponse.json()) as { documents?: StatusDocument[] };
+      const documents = data.documents ?? [];
+      const stillProcessing = documents.some((doc) => doc.parsingStatus === "processing");
+
+      if (!stillProcessing) {
+        finalizeNotice(documents);
+        setPhase("idle");
+        router.refresh();
+        return;
+      }
+    }
+
+    setNotice(
+      "Still analysing in the background. This is taking longer than usual - refresh the page shortly to see the results.",
+    );
+    setPhase("idle");
+    router.refresh();
+  }
+
+  function finalizeNotice(documents: StatusDocument[]) {
+    const failed = documents.filter((doc) => doc.parsingStatus === "failed");
+    const totalClauses = documents.reduce((sum, doc) => sum + doc.clauseCount, 0);
+    const totalRequirements = documents.reduce(
+      (sum, doc) => sum + doc.requirementCount,
+      0,
+    );
+
+    if (failed.length) {
+      setError(
+        `${failed.length} document(s) failed to process: ${failed
+          .map((doc) => doc.originalName)
+          .join(", ")}. ${failed[0].parsingError ?? ""}`.trim(),
+      );
+      return;
+    }
+
+    if (totalClauses === 0 && totalRequirements === 0) {
+      setNotice(
+        `Processed ${documents.length} document(s), but no new clauses or requirements were found — they may already exist in this project, or try selecting "Tender Pack" as the document type.`,
+      );
+      return;
+    }
+
+    setNotice(
+      `Processed ${documents.length} document(s): ${totalClauses} clauses and ${totalRequirements} requirements added.`,
+    );
   }
 
   function cancelUpload() {
-    abortControllerRef.current?.abort();
+    if (phase === "uploading") {
+      abortControllerRef.current?.abort();
+      return;
+    }
+    // Processing already runs server-side regardless of this client; there's
+    // nothing to cancel, just stop watching for it.
+    stopPollingRef.current = true;
+    setPhase("idle");
+    setNotice("Still analysing in the background - refresh the page later to see the results.");
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setDragging(false);
-    if (uploading) return;
+    if (phase !== "idle") return;
     addFiles(Array.from(event.dataTransfer.files));
   }
 
@@ -152,18 +231,19 @@ export function UploadDropzone({
   }
 
   function addFiles(files: File[]) {
-    if (!files.length || uploading) return;
+    if (!files.length || phase !== "idle") return;
     setNotice(null);
     setSelectedFiles((prev) => [...prev, ...files]);
   }
 
   function removeFile(index: number) {
-    if (uploading) return;
+    if (phase !== "idle") return;
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
+  const busy = phase !== "idle";
   const hasFiles = selectedFiles.length > 0;
-  const canUpload = hasFiles && !uploading;
+  const canUpload = hasFiles && !busy;
   const needsRevisionNotes =
     documentType === "addendum" || documentType === "revision";
 
@@ -176,11 +256,11 @@ export function UploadDropzone({
             ? "border-primary bg-primary/5"
             : "border-muted-foreground/25 hover:border-muted-foreground/50",
           hasFiles && "border-primary/50",
-          uploading && "pointer-events-none opacity-60",
+          busy && "pointer-events-none opacity-60",
         )}
         onDragOver={(event) => {
           event.preventDefault();
-          if (!uploading) setDragging(true);
+          if (!busy) setDragging(true);
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
@@ -189,7 +269,7 @@ export function UploadDropzone({
           ref={inputRef}
           type="file"
           multiple
-          disabled={uploading}
+          disabled={busy}
           accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
           onChange={handleFileChange}
           className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
@@ -221,7 +301,7 @@ export function UploadDropzone({
                 <span className="shrink-0 text-muted-foreground">
                   {(file.size / 1024 / 1024).toFixed(1)}MB
                 </span>
-                {!uploading && (
+                {!busy && (
                   <button
                     type="button"
                     onClick={() => removeFile(index)}
@@ -239,7 +319,7 @@ export function UploadDropzone({
             <Select
               value={documentType}
               onValueChange={setDocumentType}
-              disabled={uploading}
+              disabled={busy}
             >
               <SelectTrigger
                 className="h-8 w-44 text-xs"
@@ -261,8 +341,7 @@ export function UploadDropzone({
                 htmlFor="is-primary"
                 className={cn(
                   "flex cursor-pointer items-center gap-2 text-xs font-normal",
-                  (selectedFiles.length > 1 || uploading) &&
-                    "text-muted-foreground",
+                  (selectedFiles.length > 1 || busy) && "text-muted-foreground",
                 )}
               >
                 <Checkbox
@@ -271,7 +350,7 @@ export function UploadDropzone({
                   onCheckedChange={(checked) =>
                     setIsPrimary(checked as boolean)
                   }
-                  disabled={selectedFiles.length > 1 || uploading}
+                  disabled={selectedFiles.length > 1 || busy}
                 />
                 Primary tender pack
               </Label>
@@ -284,19 +363,19 @@ export function UploadDropzone({
                 placeholder="What changed?"
                 className="h-8 w-52 text-xs"
                 aria-label="Revision notes"
-                disabled={uploading}
+                disabled={busy}
               />
             )}
 
-            {uploading ? (
+            {busy ? (
               <div className="ml-auto flex items-center gap-3">
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Loader2 className="size-3.5 animate-spin" />
-                  Uploading & analysing…
+                  {phase === "uploading" ? "Uploading…" : "Analysing…"}
                 </span>
                 <Button onClick={cancelUpload} variant="outline" size="sm">
                   <XCircle className="mr-2 size-4" />
-                  Stop upload
+                  {phase === "uploading" ? "Stop upload" : "Stop watching"}
                 </Button>
               </div>
             ) : (

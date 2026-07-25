@@ -121,6 +121,14 @@ Parsed text and sections are stored on `TenderDocument` and `ParsedSection`. Pro
 
 Production improvement: add OCR for scanned PDFs, because scanned tenders may not contain machine-readable text.
 
+### Background processing
+
+Saving the file and creating the `TenderDocument` row happens synchronously (the upload API responds as soon as this is done, with `parsingStatus: "processing"`). The slow part - Gemini analysis, then clause/requirement extraction and project-wide dedup (`src/server/document-processing.ts`) - runs afterward via `next/server`'s `after()`, so the request doesn't wait for it and can't time out on a large tender pack or multi-file batch.
+
+The upload UI (`src/components/projects/upload-dropzone.tsx`) polls `GET /api/projects/[projectId]/documents?ids=...` every few seconds until every uploaded document reaches a terminal `parsingStatus` (`completed` or `failed`), then shows the final clause/requirement counts. Processing continues server-side even if the user navigates away or the browser tab closes - polling only affects when the client finds out, not whether the work happens.
+
+The upload route sets `maxDuration = 60` (Vercel Hobby's ceiling) since the deferred work still runs within the same function invocation. If batches are consistently larger, raise this on a paid Vercel plan (up to 300s on Pro) rather than relying on default limits.
+
 ## File Storage
 
 `src/lib/storage` saves uploaded tender documents and generated exports to Supabase Storage when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set, and falls back to local disk (`UPLOAD_DIR`/`EXPORT_DIR`) otherwise - the same graceful-fallback pattern used for Gemini.
@@ -236,6 +244,7 @@ Tests run on Node's built-in test runner (`node --test`) via `npm test`, coverin
 - Tender section parsing (`src/features/documents/parser.test.ts`)
 - Proposal section planning and compliance scoring (`src/features/proposals/tender-proposal.test.ts`)
 - Proposal drafting with Gemini/local fallback (`src/server/proposal-generation.test.ts`)
+- Document processing and project-wide clause/requirement dedup (`src/server/document-processing.test.ts`)
 - Rate limiting, Gemini error classification, and small shared utilities
 
 `.github/workflows/ci.yml` runs `typecheck`, `lint`, `test`, and `build` on every push and pull request against `dev`, using dummy environment values (no real database or Gemini key is needed since nothing in the suite touches either).
@@ -289,7 +298,7 @@ Before rolling out to real users, i will complete:
 - OCR for scanned PDF tenders.
 - Prompt/cost observability, retries, and token budgeting for Gemini calls.
 - Automated tests for API route handlers and UI components (pure business logic is covered; see [Testing and CI](#testing-and-ci)).
-- Background/async processing for uploads - parsing, Gemini analysis, and checklist generation all happen synchronously in one request, risking a timeout on large tender packs.
+- A real job queue (e.g. Upstash QStash) if upload volume grows enough that background processing via `after()` within a single function invocation isn't sufficient - see [Background processing](#background-processing).
 - Password reset and transactional email (welcome, verification).
 - Usage limit enforcement (limits are displayed but not yet blocked at the API level).
 - Terms of Service and Privacy Policy pages.

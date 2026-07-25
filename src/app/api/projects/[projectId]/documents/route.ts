@@ -1,28 +1,34 @@
+import { after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { incrementUsage } from "@/server/usage";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { deleteStoredFile } from "@/lib/storage";
+import { captureError } from "@/lib/monitoring";
 import {
   extractTextFromBuffer,
   parseTenderSections,
 } from "@/features/documents/parser";
 import { saveUploadedFile, validateUpload } from "@/features/documents/upload";
-import type { ExtractedRequirement, ParsedSection } from "@/features/ai";
 import {
   buildTextDedupeKey,
   calculateChecklistScore,
-  detectEvidenceMatchesForRequirements,
-  explainTenderClause,
-  extractRequirementsFromClauses,
-  extractTenderClausesFromSections,
-  mergeEvidenceMatches,
 } from "@/features/tender-intelligence/pipeline";
 import { syncProposalSectionsFromTender } from "@/server/tender-proposal";
-import { analyseTenderDocumentWithGemini } from "@/features/tender-intelligence/gemini";
+import {
+  processUploadedDocument,
+  procurementDocumentTypes,
+  type DedupeState,
+} from "@/server/document-processing";
 
 export const runtime = "nodejs";
+// The heavy part of processing (Gemini calls, per-clause/requirement DB
+// writes) runs after the response via after(), but it still runs within
+// this same function invocation - raise the ceiling above the platform
+// default so a multi-file batch has room to finish. Vercel Hobby allows up
+// to 60s; Pro/Enterprise can go higher if batches are consistently larger.
+export const maxDuration = 60;
 
 const bulkDeleteSchema = z.object({
   documentIds: z.array(z.string().min(1)).min(1).max(100),
@@ -68,12 +74,49 @@ export async function DELETE(
   return Response.json({ deleted: count });
 }
 
-const procurementDocumentTypes = new Set([
-  "tender_pack",
-  "addendum",
-  "clarification",
-  "revision",
-]);
+// Lets the client poll for completion after the fast upload response, since
+// processing continues in the background (see the POST handler below).
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ projectId: string }> },
+) {
+  const user = await requireApiUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { projectId } = await params;
+  const ids = new URL(request.url).searchParams.get("ids");
+  if (!ids) {
+    return Response.json({ error: "Missing ids query parameter" }, { status: 400 });
+  }
+
+  const documents = await prisma.tenderDocument.findMany({
+    where: {
+      id: { in: ids.split(",").filter(Boolean).slice(0, 100) },
+      projectId,
+      project: { userId: user.id },
+    },
+    select: {
+      id: true,
+      originalName: true,
+      parsingStatus: true,
+      parsingError: true,
+      _count: { select: { parsedSections: true, clauses: true, requirements: true } },
+    },
+  });
+
+  return Response.json({
+    documents: documents.map((document) => ({
+      id: document.id,
+      originalName: document.originalName,
+      parsingStatus: document.parsingStatus,
+      parsingError: document.parsingError,
+      parsedSectionCount: document._count.parsedSections,
+      clauseCount: document._count.clauses,
+      requirementCount: document._count.requirements,
+    })),
+  });
+}
+
 const evidenceDocumentTypes = new Set(["supporting_evidence", "evidence"]);
 
 async function getNextVersion(projectId: string, parentId?: string | null) {
@@ -150,35 +193,20 @@ export async function POST(
       return Response.json({ error: validationError }, { status: 400 });
   }
 
-  const uploaded = [];
   const existingPrimaryId = await getPrimaryTenderId(projectId);
 
-  // Seed dedup keys from clauses/requirements already in the project so
-  // re-uploading the same tender pack (or an addendum that repeats text
-  // from the main pack) does not create duplicate checklist items.
-  const [existingClauses, existingRequirements] = await Promise.all([
-    prisma.tenderClause.findMany({
-      where: { projectId },
-      select: { id: true, originalText: true },
-    }),
-    prisma.requirement.findMany({
-      where: { projectId },
-      select: { title: true, description: true },
-    }),
-  ]);
-  const clauseIdByKey = new Map<string, string>(
-    existingClauses.map((clause) => [
-      buildTextDedupeKey(clause.originalText, 120),
-      clause.id,
-    ]),
-  );
-  const seenRequirementKeys = new Set(
-    existingRequirements.map((requirement) =>
-      buildTextDedupeKey(`${requirement.title} ${requirement.description}`, 160),
-    ),
-  );
-  let duplicateClauseCount = 0;
-  let duplicateRequirementCount = 0;
+  // Phase 1 (synchronous): save each file and create its TenderDocument row
+  // as "processing". This is the only part the client waits for - the slow
+  // part (Gemini analysis, clause/requirement extraction) is deferred to
+  // after() below so a large or multi-file batch can't time out the request.
+  const pending: Array<{
+    documentId: string;
+    documentVersion: number;
+    documentName: string;
+    extractedText: string;
+    localSections: ReturnType<typeof parseTenderSections>;
+  }> = [];
+  const uploaded = [];
 
   for (const file of files) {
     const saved = await saveUploadedFile(file, projectId);
@@ -188,21 +216,7 @@ export async function POST(
       file.name,
     );
     const localSections = parseTenderSections(extractedText);
-    const aiIntelligence = procurementDocumentTypes.has(documentType)
-      ? await analyseTenderDocumentWithGemini({
-          project,
-          documentName: file.name,
-          documentType,
-          text: extractedText,
-          localSections,
-        }).catch((error) => {
-          console.error("Gemini tender intelligence failed", error);
-          return null;
-        })
-      : null;
-    const sections = aiIntelligence?.sections.length
-      ? aiIntelligence.sections
-      : localSections;
+
     const shouldBecomePrimary =
       documentType === "tender_pack" &&
       files.length === 1 &&
@@ -234,211 +248,142 @@ export async function POST(
         revisionNotes,
         version: await getNextVersion(projectId, parentId),
         extractedText,
-        sections,
-        status: "processed",
-        parsingStatus: "completed",
+        sections: localSections,
+        status: "uploaded",
+        parsingStatus: procurementDocumentTypes.has(documentType) || evidenceDocumentTypes.has(documentType)
+          ? "processing"
+          : "completed",
         parsingError: null,
-        parsedAt: new Date(),
+        parsedAt: procurementDocumentTypes.has(documentType) || evidenceDocumentTypes.has(documentType)
+          ? null
+          : new Date(),
       },
     });
 
-    const createdSections = [];
-    for (const section of sections) {
-      createdSections.push(
-        await prisma.parsedSection.create({
-          data: {
-            projectId,
-            documentId: document.id,
-            title: section.title,
-            body: section.body,
-            order: section.order,
-          },
-        }),
-      );
-    }
-
-    let createdClauseCount = 0;
-    let createdRequirementCount = 0;
-    let detectedEvidenceCount = 0;
-
-    if (procurementDocumentTypes.has(documentType)) {
-      let extractedClauses = aiIntelligence?.clauses.length
-        ? aiIntelligence.clauses
-        : extractTenderClausesFromSections(sections);
-
-      // If no sections were found or no clauses extracted, try extracting from the entire document
-      if (sections.length === 0 || extractedClauses.length === 0) {
-        const fullDocumentSection: ParsedSection = {
-          title: "Full Document",
-          body: extractedText,
-          order: 1,
-        };
-        extractedClauses = extractTenderClausesFromSections([
-          fullDocumentSection,
-        ]);
-      }
-
-      const createdClauses: Array<{
-        extraction: (typeof extractedClauses)[number];
-        row: { id: string; title: string | null; originalText: string };
-      }> = [];
-
-      for (const clause of extractedClauses) {
-        const dedupeKey = buildTextDedupeKey(clause.originalText, 120);
-        const existingClauseId = clauseIdByKey.get(dedupeKey);
-
-        if (existingClauseId) {
-          duplicateClauseCount += 1;
-          createdClauses.push({
-            extraction: clause,
-            row: {
-              id: existingClauseId,
-              title: clause.title,
-              originalText: clause.originalText,
-            },
-          });
-          continue;
-        }
-
-        const explanation = explainTenderClause(clause);
-        const section = createdSections.find(
-          (item) => item.order === clause.parsedSectionOrder,
-        );
-        const row = await prisma.tenderClause.create({
-          data: {
-            projectId,
-            documentId: document.id,
-            parsedSectionId: section?.id,
-            title: clause.title,
-            originalText: clause.originalText,
-            clauseType: clause.clauseType,
-            importance: clause.importance,
-            riskLevel: clause.riskLevel,
-            confidence: clause.confidence,
-            explanation: explanation.plainEnglish,
-            actionsRequired: clause.actionsRequired,
-            metadata: {
-              sourceSection: section?.title ?? null,
-              documentType,
-              version: document.version,
-              aiProvider: aiIntelligence?.provider ?? "local",
-              aiModel: aiIntelligence?.model ?? null,
-            },
-          },
-        });
-        clauseIdByKey.set(dedupeKey, row.id);
-        createdClauses.push({ extraction: clause, row });
-      }
-
-      createdClauseCount = createdClauses.length - duplicateClauseCount;
-      const candidateRequirements = aiIntelligence?.requirements.length
-        ? aiIntelligence.requirements.map((requirement) => ({
-            ...requirement,
-            sourceClauseId: matchRequirementToClauseId(
-              requirement,
-              createdClauses,
-            ),
-          }))
-        : extractRequirementsFromClauses(
-            createdClauses.map(({ extraction, row }) => ({
-              ...extraction,
-              id: row.id,
-            })),
-          );
-
-      for (const requirement of candidateRequirements) {
-        const dedupeKey = buildTextDedupeKey(
-          `${requirement.title} ${requirement.description}`,
-          160,
-        );
-        if (seenRequirementKeys.has(dedupeKey)) {
-          duplicateRequirementCount += 1;
-          continue;
-        }
-        seenRequirementKeys.add(dedupeKey);
-
-        await prisma.requirement.create({
-          data: {
-            projectId,
-            documentId: document.id,
-            sourceClauseId: requirement.sourceClauseId,
-            title: requirement.title,
-            description: requirement.description,
-            category: requirement.category,
-            sourceClause: requirement.sourceClause,
-            priority: requirement.priority,
-            confidence: requirement.confidence,
-            evidenceNeeded: requirement.evidenceNeeded,
-            status: "in_progress",
-          },
-        });
-        createdRequirementCount += 1;
-      }
-    }
-
-    if (evidenceDocumentTypes.has(documentType)) {
-      const requirements = await prisma.requirement.findMany({
-        where: { projectId },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          evidenceNeeded: true,
-          evidenceMatches: true,
-          status: true,
-        },
+    if (procurementDocumentTypes.has(documentType) || evidenceDocumentTypes.has(documentType)) {
+      pending.push({
+        documentId: document.id,
+        documentVersion: document.version,
+        documentName: file.name,
+        extractedText,
+        localSections,
       });
-      const matches = detectEvidenceMatchesForRequirements({
-        requirements,
-        evidenceDocument: {
-          id: document.id,
-          originalName: document.originalName,
-          extractedText,
+    }
+
+    uploaded.push(document);
+  }
+
+  await incrementUsage(user.id, projectId, { uploads: files.length });
+
+  if (pending.length) {
+    after(() =>
+      finishProcessingBatch({
+        projectId,
+        project,
+        userId: user.id,
+        documentType,
+        pending,
+      }),
+    );
+  }
+
+  return Response.json({
+    message: pending.length
+      ? `${uploaded.length} document(s) uploaded - analysis is running in the background.`
+      : `${uploaded.length} document(s) uploaded.`,
+    documents: uploaded,
+    processing: pending.length > 0,
+  });
+}
+
+async function finishProcessingBatch(input: {
+  projectId: string;
+  project: NonNullable<Awaited<ReturnType<typeof prisma.project.findFirst>>>;
+  userId: string;
+  documentType: string;
+  pending: Array<{
+    documentId: string;
+    documentVersion: number;
+    documentName: string;
+    extractedText: string;
+    localSections: ReturnType<typeof parseTenderSections>;
+  }>;
+}) {
+  const { projectId, project, userId, documentType, pending } = input;
+
+  // Seed dedup keys from clauses/requirements already in the project so
+  // re-uploading the same tender pack (or an addendum that repeats text
+  // from the main pack) does not create duplicate checklist items. Shared
+  // across every document in this batch, so duplicates within the batch
+  // itself are also caught, not just duplicates against pre-existing data.
+  const [existingClauses, existingRequirements] = await Promise.all([
+    prisma.tenderClause.findMany({
+      where: { projectId },
+      select: { id: true, originalText: true },
+    }),
+    prisma.requirement.findMany({
+      where: { projectId },
+      select: { title: true, description: true },
+    }),
+  ]);
+  const dedupe: DedupeState = {
+    clauseIdByKey: new Map(
+      existingClauses.map((clause) => [
+        buildTextDedupeKey(clause.originalText, 120),
+        clause.id,
+      ]),
+    ),
+    seenRequirementKeys: new Set(
+      existingRequirements.map((requirement) =>
+        buildTextDedupeKey(`${requirement.title} ${requirement.description}`, 160),
+      ),
+    ),
+  };
+
+  let totalAiGenerations = 0;
+  let totalTokens = 0;
+
+  for (const item of pending) {
+    try {
+      const result = await processUploadedDocument({
+        projectId,
+        project,
+        documentId: item.documentId,
+        documentVersion: item.documentVersion,
+        documentName: item.documentName,
+        documentType,
+        extractedText: item.extractedText,
+        localSections: item.localSections,
+        dedupe,
+      });
+
+      await prisma.tenderDocument.update({
+        where: { id: item.documentId },
+        data: {
+          sections: result.sections,
+          status: "processed",
+          parsingStatus: "completed",
+          parsedAt: new Date(),
         },
       });
 
-      for (const { requirementId, match } of matches) {
-        const requirement = requirements.find(
-          (item) => item.id === requirementId,
-        );
-        if (!requirement) continue;
-        await prisma.supportingEvidence.create({
-          data: {
-            projectId,
-            documentId: document.id,
-            requirementId,
-            detectedType: match.detectedType,
-            confidence: match.confidence,
-            status: match.confidence >= 0.82 ? "matched" : "possible_match",
-            notes: match.reason,
-          },
-        });
-        await prisma.requirement.update({
-          where: { id: requirementId },
-          data: {
-            evidenceMatches: mergeEvidenceMatches(
-              requirement.evidenceMatches,
-              match,
-            ),
-            status:
-              match.confidence >= 0.82
-                ? "met"
-                : requirement.status === "blocked"
-                  ? "blocked"
-                  : "in_progress",
-          },
-        });
-        detectedEvidenceCount += 1;
-      }
-    }
+      totalAiGenerations += result.clauseCount + result.requirementCount;
+      totalTokens += Math.ceil(item.extractedText.length / 4);
+    } catch (error) {
+      console.error("Document processing failed", error);
+      captureError(error, { route: "documents:processing", documentId: item.documentId });
 
-    uploaded.push({
-      ...document,
-      parsedSectionCount: createdSections.length,
-      clauseCount: createdClauseCount,
-      requirementCount: createdRequirementCount,
-      evidenceMatchCount: detectedEvidenceCount,
-    });
+      await prisma.tenderDocument
+        .update({
+          where: { id: item.documentId },
+          data: {
+            parsingStatus: "failed",
+            parsingError:
+              error instanceof Error ? error.message : "Processing failed unexpectedly.",
+          },
+        })
+        .catch(() => {});
+    }
   }
 
   const projectRequirements = await prisma.requirement.findMany({
@@ -457,52 +402,16 @@ export async function POST(
   });
 
   if (projectRequirements.length) {
-    await syncProposalSectionsFromTender(projectId);
+    await syncProposalSectionsFromTender(projectId).catch((error) => {
+      console.error("Proposal section sync failed", error);
+      captureError(error, { route: "documents:processing", projectId });
+    });
   }
 
-  await incrementUsage(user.id, projectId, {
-    uploads: files.length,
-    aiGenerations: uploaded.reduce(
-      (total, document) =>
-        total + document.clauseCount + document.requirementCount,
-      0,
-    ),
-    tokensUsed: uploaded.reduce(
-      (total, document) =>
-        total + Math.ceil((document.extractedText?.length ?? 0) / 4),
-      0,
-    ),
-  });
-
-  return Response.json({
-    message: `${uploaded.length} document(s) processed`,
-    documents: uploaded,
-    duplicateClauseCount,
-    duplicateRequirementCount,
-    complianceScore,
-  });
-}
-
-
-function matchRequirementToClauseId(
-  requirement: ExtractedRequirement,
-  clauses: Array<{ row: { id: string; title: string | null; originalText: string } }>,
-) {
-  const source = `${requirement.sourceClause ?? ""} ${requirement.description}`
-    .toLowerCase()
-    .replace(/\W+/g, " ")
-    .trim();
-  if (!source) return undefined;
-
-  const match = clauses.find(({ row }) => {
-    const clauseText = `${row.title ?? ""} ${row.originalText}`
-      .toLowerCase()
-      .replace(/\W+/g, " ");
-    return (
-      clauseText.includes(source.slice(0, 80)) ||
-      source.includes(clauseText.slice(0, 80))
-    );
-  });
-
-  return match?.row.id;
+  if (totalAiGenerations || totalTokens) {
+    await incrementUsage(userId, projectId, {
+      aiGenerations: totalAiGenerations,
+      tokensUsed: totalTokens,
+    });
+  }
 }
