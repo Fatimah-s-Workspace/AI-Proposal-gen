@@ -1,6 +1,6 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
-import { unlink } from "fs/promises";
+import { deleteStoredFile } from "@/lib/storage";
 import { z } from "zod";
 
 const updateDocumentSchema = z.object({
@@ -70,13 +70,7 @@ export async function DELETE(
     return Response.json({ error: "Document not found" }, { status: 404 });
   }
 
-  // Delete the file from disk
-  try {
-    await unlink(document.storagePath);
-  } catch (error) {
-    console.warn("Failed to delete file from disk:", error);
-    // Continue with DB deletion even if file deletion fails
-  }
+  await deleteStoredFile("uploads", document.storagePath);
 
   // Delete from database (this will cascade to parsedSections and requirements)
   await prisma.tenderDocument.delete({

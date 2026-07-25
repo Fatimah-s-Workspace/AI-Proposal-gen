@@ -2,7 +2,7 @@ import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { createProjectSchema } from "@/lib/validations";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { unlink } from "fs/promises";
+import { deleteStoredFile } from "@/lib/storage";
 
 export async function PATCH(
   request: Request,
@@ -71,6 +71,7 @@ export async function DELETE(
     },
     include: {
       documents: true,
+      exports: true,
     },
   });
 
@@ -78,14 +79,11 @@ export async function DELETE(
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
 
-  // Delete all document files
-  for (const document of project.documents) {
-    try {
-      await unlink(document.storagePath);
-    } catch (error) {
-      console.warn("Failed to delete file from disk:", error);
-    }
-  }
+  // Delete all stored document and export files
+  await Promise.all([
+    ...project.documents.map((document) => deleteStoredFile("uploads", document.storagePath)),
+    ...project.exports.map((exportRecord) => deleteStoredFile("exports", exportRecord.filePath)),
+  ]);
 
   // Delete project (this will cascade to all related records)
   await prisma.project.delete({

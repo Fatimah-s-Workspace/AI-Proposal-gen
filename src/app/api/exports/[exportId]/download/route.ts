@@ -1,4 +1,4 @@
-import { readFile } from "fs/promises";
+import { readStoredFile } from "@/lib/storage";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 
@@ -20,9 +20,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ exp
 
   let file: Buffer;
   try {
-    file = await readFile(history.filePath);
+    file = await readStoredFile("exports", history.filePath);
   } catch {
-    return Response.json({ error: "Export file is no longer available on local storage." }, { status: 404 });
+    return Response.json({ error: "Export file is no longer available." }, { status: 404 });
   }
   const mimeType =
     history.format === "pdf"

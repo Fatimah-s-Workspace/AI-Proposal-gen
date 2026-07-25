@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "fs/promises";
+import { saveFile } from "@/lib/storage";
 
 type ExportSection = {
   title: string;
@@ -14,19 +14,18 @@ type ExportProject = {
   proposalSections: ExportSection[];
 };
 
-export async function exportProposal(project: ExportProject, format: "docx" | "pdf") {
-  const exportRoot = process.env.EXPORT_DIR ?? "exports";
-  await mkdir(exportRoot, { recursive: true });
+const mimeTypeByFormat: Record<"docx" | "pdf", string> = {
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pdf: "application/pdf"
+};
 
+export async function exportProposal(project: ExportProject, format: "docx" | "pdf") {
   const baseName = `${slugify(project.title)}-${Date.now()}`;
   const fileName = `${baseName}.${format}`;
-  const filePath = joinStoragePath(exportRoot, fileName);
+  const relativePath = `${project.id}/${fileName}`;
 
-  if (format === "docx") {
-    await exportDocx(project, filePath);
-  } else {
-    await exportPdf(project, filePath);
-  }
+  const buffer = format === "docx" ? await exportDocx(project) : await exportPdf(project);
+  const filePath = await saveFile("exports", relativePath, buffer, mimeTypeByFormat[format]);
 
   return {
     fileName,
@@ -34,15 +33,7 @@ export async function exportProposal(project: ExportProject, format: "docx" | "p
   };
 }
 
-function joinStoragePath(...parts: string[]) {
-  const prefix = parts[0]?.startsWith("/") ? "/" : "";
-  return prefix + parts
-    .map((part) => part.replace(/^\/+|\/+$/g, ""))
-    .filter(Boolean)
-    .join("/");
-}
-
-async function exportDocx(project: ExportProject, filePath: string) {
+async function exportDocx(project: ExportProject): Promise<Buffer> {
   const { Document, HeadingLevel, Packer, Paragraph, TextRun } = await import("docx");
   const doc = new Document({
     sections: [
@@ -66,11 +57,10 @@ async function exportDocx(project: ExportProject, filePath: string) {
     ]
   });
 
-  const buffer = await Packer.toBuffer(doc);
-  await writeFile(filePath, buffer);
+  return Packer.toBuffer(doc);
 }
 
-async function exportPdf(project: ExportProject, filePath: string) {
+async function exportPdf(project: ExportProject): Promise<Buffer> {
   const PDFDocument = (await import("pdfkit")).default;
   const doc = new PDFDocument({ margin: 56 });
   const chunks: Buffer[] = [];
@@ -95,7 +85,7 @@ async function exportPdf(project: ExportProject, filePath: string) {
   doc.end();
 
   await done;
-  await writeFile(filePath, Buffer.concat(chunks));
+  return Buffer.concat(chunks);
 }
 
 function htmlToParagraphs(html: string) {

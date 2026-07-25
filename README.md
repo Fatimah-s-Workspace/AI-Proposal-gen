@@ -111,7 +111,7 @@ Every proposal generation attempt is recorded in `ProposalGeneration` with the p
 
 ## Document Processing
 
-Uploaded documents are validated by MIME type and size, saved locally under `UPLOAD_DIR`, then parsed:
+Uploaded documents are validated by MIME type, size, and content (magic-byte sniffing rejects mislabeled or corrupted files), saved via `src/lib/storage`, then parsed:
 
 - PDF files use `pdf-parse`.
 - DOCX files use `mammoth`.
@@ -120,6 +120,18 @@ Uploaded documents are validated by MIME type and size, saved locally under `UPL
 Parsed text and sections are stored on `TenderDocument` and `ParsedSection`. Procurement clauses are stored as `TenderClause`. Checklist items are stored as `Requirement`.
 
 Production improvement: add OCR for scanned PDFs, because scanned tenders may not contain machine-readable text.
+
+## File Storage
+
+`src/lib/storage` saves uploaded tender documents and generated exports to Supabase Storage when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set, and falls back to local disk (`UPLOAD_DIR`/`EXPORT_DIR`) otherwise - the same graceful-fallback pattern used for Gemini.
+
+**Local disk storage only works for local development.** Serverless hosts like Vercel have a read-only filesystem outside `/tmp`, and `/tmp` does not persist between requests, so uploads and exports will fail or silently disappear without cloud storage configured.
+
+To set up Supabase Storage:
+
+1. In your Supabase project, go to Project Settings → API and copy the Project URL and the `service_role` secret key (not the `anon` key - this uses the service role because the app authenticates via NextAuth, not Supabase Auth, so there's no user JWT to attach to storage requests).
+2. Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in your environment (locally in `.env`, or in Vercel's Production environment variables).
+3. Run `npm run storage:setup` once to create the required `uploads` and `exports` buckets (both private).
 
 ## Data Model
 
@@ -214,18 +226,18 @@ Not yet covered: API route handlers (auth/ownership wiring, request/response sha
 - Upload MIME type and size checks are enforced.
 - API actions include local rate limiting.
 - Passwords are hashed with `bcryptjs`.
+- File uploads and exports use Supabase Storage in production (see [File Storage](#file-storage)).
 
 Production improvements:
 
-- Replace local file storage with S3, Cloudflare R2, Supabase Storage, or another object store.
-- Replace in-memory rate limiting with Redis or another persistent limiter.
+- Replace in-memory rate limiting with Redis or another persistent limiter (in-memory buckets don't survive across serverless instances).
 - Add antivirus/malware scanning for uploaded files.
 - Add audit logs for generation, edits, exports, and downloads.
 - Add role-based access for teams.
 
 ## Exporting
 
-Exports are generated locally into `EXPORT_DIR`.
+Exports are generated via `src/lib/storage` (Supabase Storage in production, local disk in development).
 
 - DOCX export uses `docx`.
 - PDF export uses `pdfkit`.
@@ -252,9 +264,11 @@ Before rolling out to real users, i will complete:
 
 - OCR for scanned PDF tenders.
 - Prompt/cost observability, retries, and token budgeting for Gemini calls.
-- Automated tests for parsing, extraction, API permissions, and exports.
-- Cloud file storage.
-- Persistent rate limiting.
+- Automated tests for API route handlers and UI components (pure business logic is covered; see [Testing and CI](#testing-and-ci)).
+- Persistent rate limiting (Redis) - current in-memory limiting doesn't survive across serverless instances.
+- Password reset and transactional email (welcome, verification).
+- Usage limit enforcement (limits are displayed but not yet blocked at the API level).
+- Payment/billing integration (e.g. Paystack or Flutterwave for the target market).
 - Team workspaces and roles.
 - Better export templates with branding, cover pages, headers, footers, and tables.
 - Billing/subscription enforcement.

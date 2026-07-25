@@ -1,9 +1,9 @@
-import { unlink } from "fs/promises";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { incrementUsage } from "@/server/usage";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { deleteStoredFile } from "@/lib/storage";
 import {
   extractTextFromBuffer,
   parseTenderSections,
@@ -58,11 +58,7 @@ export async function DELETE(
   }
 
   await Promise.all(
-    documents.map((document) =>
-      unlink(document.storagePath).catch((error) => {
-        console.warn("Failed to delete file from disk:", error);
-      }),
-    ),
+    documents.map((document) => deleteStoredFile("uploads", document.storagePath)),
   );
 
   const { count } = await prisma.tenderDocument.deleteMany({

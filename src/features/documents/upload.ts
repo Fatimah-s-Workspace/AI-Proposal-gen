@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
+import { saveFile } from "@/lib/storage";
 
 const allowedExtensionsByMime: Record<string, string> = {
   "application/pdf": "pdf",
@@ -82,26 +82,15 @@ export async function saveUploadedFile(file: File, projectId: string) {
   const buffer = Buffer.from(await file.arrayBuffer());
   const safeName = sanitizeFileName(file.name);
   const filename = `${Date.now()}-${randomUUID()}-${safeName}`;
-  const uploadRoot = process.env.UPLOAD_DIR ?? "uploads";
-  const projectDir = joinStoragePath(uploadRoot, projectId);
-  const storagePath = joinStoragePath(projectDir, filename);
+  const relativePath = `${projectId}/${filename}`;
 
-  await mkdir(projectDir, { recursive: true });
-  await writeFile(storagePath, buffer);
+  const storagePath = await saveFile("uploads", relativePath, buffer, file.type);
 
   return {
     buffer,
     filename,
     storagePath
   };
-}
-
-function joinStoragePath(...parts: string[]) {
-  const prefix = parts[0]?.startsWith("/") ? "/" : "";
-  return prefix + parts
-    .map((part) => part.replace(/^\/+|\/+$/g, ""))
-    .filter(Boolean)
-    .join("/");
 }
 
 function sanitizeFileName(name: string) {
