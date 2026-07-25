@@ -19,32 +19,37 @@ export default async function WorkspacePage({
 }) {
   const user = await requireUser();
   const { projectId } = await params;
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: user.id },
-    include: {
-      requirements: {
-        orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
-      },
-      proposalSections: {
-        orderBy: { order: "asc" },
-        include: {
-          generatedContents: {
-            orderBy: { createdAt: "desc" },
-            take: 5,
+  // These two queries are independent (each fetches its own Project shape
+  // with a different include), so run them in parallel instead of paying
+  // for two sequential round trips to the database.
+  const [project, proposalContext] = await Promise.all([
+    prisma.project.findFirst({
+      where: { id: projectId, userId: user.id },
+      include: {
+        requirements: {
+          orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+        },
+        proposalSections: {
+          orderBy: { order: "asc" },
+          include: {
+            generatedContents: {
+              orderBy: { createdAt: "desc" },
+              take: 5,
+            },
           },
         },
+        clauses: {
+          orderBy: { createdAt: "asc" },
+        },
+        generatedContents: {
+          where: { contentType: "clause_explanations" },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
-      clauses: {
-        orderBy: { createdAt: "asc" },
-      },
-      generatedContents: {
-        where: { contentType: "clause_explanations" },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-      },
-    },
-  });
-  const proposalContext = await loadTenderProposalContext(projectId, user.id);
+    }),
+    loadTenderProposalContext(projectId, user.id),
+  ]);
 
   if (!project) notFound();
 
