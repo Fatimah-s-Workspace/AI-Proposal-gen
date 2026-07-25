@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const limit = rateLimit(`project:create:${user.id}`, 20, 60_000);
+  const limit = await rateLimit(`project:create:${user.id}`, 20, 60_000);
   if (!limit.allowed) return rateLimitResponse();
 
   const body = await request.json();

@@ -63,7 +63,7 @@ export async function POST(
     }
 
     const { projectId } = await context.params;
-    const { allowed } = rateLimit(user.id);
+    const { allowed } = await rateLimit(user.id);
 
     if (!allowed) {
       return NextResponse.json(

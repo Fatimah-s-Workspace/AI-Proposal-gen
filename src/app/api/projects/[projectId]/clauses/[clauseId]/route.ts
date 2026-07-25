@@ -24,7 +24,7 @@ export async function POST(
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId, clauseId } = await params;
-  const limit = rateLimit(`clause:explain:${user.id}:${clauseId}`, 30, 60_000);
+  const limit = await rateLimit(`clause:explain:${user.id}:${clauseId}`, 30, 60_000);
   if (!limit.allowed) return rateLimitResponse();
 
   const clause = await prisma.tenderClause.findFirst({
@@ -96,7 +96,7 @@ export async function PATCH(
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId, clauseId } = await params;
-  const limit = rateLimit(`clause:update:${user.id}:${clauseId}`, 60, 60_000);
+  const limit = await rateLimit(`clause:update:${user.id}:${clauseId}`, 60, 60_000);
   if (!limit.allowed) return rateLimitResponse();
 
   const parsed = updateClauseSchema.safeParse(await request.json());

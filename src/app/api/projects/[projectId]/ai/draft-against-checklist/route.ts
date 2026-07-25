@@ -13,7 +13,7 @@ export async function POST(
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId } = await params;
-  const limit = rateLimit(
+  const limit = await rateLimit(
     `ai:draft-checklist:${user.id}:${projectId}`,
     20,
     60_000,

@@ -6,7 +6,7 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get("x-forwarded-for") ?? "local";
-    const limit = rateLimit(`signup:${ip}`, 8, 60_000);
+    const limit = await rateLimit(`signup:${ip}`, 8, 60_000);
     if (!limit.allowed) return rateLimitResponse();
 
     const body = await request.json();

@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId } = await params;
-  const limit = rateLimit(`export:${user.id}:${projectId}`, 10, 60_000);
+  const limit = await rateLimit(`export:${user.id}:${projectId}`, 10, 60_000);
   if (!limit.allowed) return rateLimitResponse();
 
   const body = await request.json();

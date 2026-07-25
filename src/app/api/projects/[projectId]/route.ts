@@ -11,7 +11,7 @@ export async function PATCH(
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const limit = rateLimit(`project:update:${user.id}`, 50, 60_000);
+  const limit = await rateLimit(`project:update:${user.id}`, 50, 60_000);
   if (!limit.allowed) return rateLimitResponse();
 
   const { projectId } = await params;

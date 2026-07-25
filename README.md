@@ -133,6 +133,18 @@ To set up Supabase Storage:
 2. Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in your environment (locally in `.env`, or in Vercel's Production environment variables).
 3. Run `npm run storage:setup` once to create the required `uploads` and `exports` buckets (both private).
 
+## Rate Limiting
+
+`src/lib/rate-limit.ts` uses Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are set, and falls back to an in-memory counter otherwise - the same graceful-fallback pattern used for Gemini and file storage.
+
+**The in-memory fallback only works for local development.** On serverless hosts like Vercel, each invocation can run in a fresh instance, so an in-memory counter barely persists between requests - without Upstash configured, uploads, AI generations, and every other rate-limited action are effectively unlimited in production.
+
+To set up Upstash:
+
+1. Create a free Redis database at [upstash.com](https://upstash.com) (or via the Vercel Marketplace integration).
+2. Copy the REST URL and REST token from the database's "REST API" section.
+3. Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in your environment.
+
 ## Data Model
 
 The Prisma schema lives in `prisma/schema.prisma`.
@@ -224,13 +236,12 @@ Not yet covered: API route handlers (auth/ownership wiring, request/response sha
 - API routes call `requireApiUser()`.
 - Inputs are validated with Zod.
 - Upload MIME type and size checks are enforced.
-- API actions include local rate limiting.
+- API actions are rate limited (Upstash Redis in production, in-memory in local dev - see [Rate Limiting](#rate-limiting)).
 - Passwords are hashed with `bcryptjs`.
 - File uploads and exports use Supabase Storage in production (see [File Storage](#file-storage)).
 
 Production improvements:
 
-- Replace in-memory rate limiting with Redis or another persistent limiter (in-memory buckets don't survive across serverless instances).
 - Add antivirus/malware scanning for uploaded files.
 - Add audit logs for generation, edits, exports, and downloads.
 - Add role-based access for teams.
@@ -265,9 +276,12 @@ Before rolling out to real users, i will complete:
 - OCR for scanned PDF tenders.
 - Prompt/cost observability, retries, and token budgeting for Gemini calls.
 - Automated tests for API route handlers and UI components (pure business logic is covered; see [Testing and CI](#testing-and-ci)).
-- Persistent rate limiting (Redis) - current in-memory limiting doesn't survive across serverless instances.
+- Error monitoring (e.g. Sentry) - nothing currently surfaces production failures.
+- Background/async processing for uploads - parsing, Gemini analysis, and checklist generation all happen synchronously in one request, risking a timeout on large tender packs.
 - Password reset and transactional email (welcome, verification).
 - Usage limit enforcement (limits are displayed but not yet blocked at the API level).
+- Terms of Service and Privacy Policy pages.
+- Payment integration (e.g. Paystack or Flutterwave) for paid plans.
 - Payment/billing integration (e.g. Paystack or Flutterwave for the target market).
 - Team workspaces and roles.
 - Better export templates with branding, cover pages, headers, footers, and tables.

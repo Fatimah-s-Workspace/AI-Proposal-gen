@@ -14,7 +14,7 @@ export async function POST(
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId } = await params;
-  const limit = rateLimit(`proposal-plan:${user.id}:${projectId}`, 15, 60_000);
+  const limit = await rateLimit(`proposal-plan:${user.id}:${projectId}`, 15, 60_000);
   if (!limit.allowed) return rateLimitResponse();
 
   const context = await loadTenderProposalContext(projectId, user.id);

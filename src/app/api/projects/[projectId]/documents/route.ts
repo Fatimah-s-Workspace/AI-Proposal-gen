@@ -105,7 +105,7 @@ export async function POST(
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId } = await params;
-  const limit = rateLimit(`upload:${user.id}:${projectId}`, 10, 60_000);
+  const limit = await rateLimit(`upload:${user.id}:${projectId}`, 10, 60_000);
   if (!limit.allowed) return rateLimitResponse();
 
   const project = await prisma.project.findFirst({

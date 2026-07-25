@@ -51,7 +51,7 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId, sectionId } = await context.params;
-  const limit = rateLimit(`proposal-section:update:${user.id}:${sectionId}`, 60, 60_000);
+  const limit = await rateLimit(`proposal-section:update:${user.id}:${sectionId}`, 60, 60_000);
   if (!limit.allowed) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
 
   const body = await req.json().catch(() => ({}));
@@ -95,7 +95,7 @@ export async function POST(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId, sectionId } = await context.params;
-  const limit = rateLimit(`proposal-section:generate:${user.id}:${sectionId}`, 20, 60_000);
+  const limit = await rateLimit(`proposal-section:generate:${user.id}:${sectionId}`, 20, 60_000);
   if (!limit.allowed) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
 
   const body = await req.json().catch(() => ({}));
@@ -143,7 +143,7 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId, sectionId } = await context.params;
-  const limit = rateLimit(`proposal-section:delete:${user.id}:${sectionId}`, 20, 60_000);
+  const limit = await rateLimit(`proposal-section:delete:${user.id}:${sectionId}`, 20, 60_000);
   if (!limit.allowed) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
 
   const section = await prisma.proposalSection.findFirst({

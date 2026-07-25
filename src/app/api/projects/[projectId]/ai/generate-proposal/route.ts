@@ -14,7 +14,7 @@ export async function POST(
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId } = await params;
-  const limit = rateLimit(`ai:proposal:${user.id}:${projectId}`, 20, 60_000);
+  const limit = await rateLimit(`ai:proposal:${user.id}:${projectId}`, 20, 60_000);
   if (!limit.allowed) return rateLimitResponse();
 
   const body = await request.json().catch(() => ({}));

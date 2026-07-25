@@ -12,7 +12,7 @@ export async function PATCH(
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId, requirementId } = await params;
-  const limit = rateLimit(`requirement:update:${user.id}:${requirementId}`, 60, 60_000);
+  const limit = await rateLimit(`requirement:update:${user.id}:${requirementId}`, 60, 60_000);
   if (!limit.allowed) return rateLimitResponse();
 
   const parsed = updateRequirementSchema.safeParse(await request.json());
@@ -61,7 +61,7 @@ export async function DELETE(
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId, requirementId } = await params;
-  const limit = rateLimit(`requirement:delete:${user.id}:${requirementId}`, 30, 60_000);
+  const limit = await rateLimit(`requirement:delete:${user.id}:${requirementId}`, 30, 60_000);
   if (!limit.allowed) return rateLimitResponse();
 
   const requirement = await prisma.requirement.findFirst({

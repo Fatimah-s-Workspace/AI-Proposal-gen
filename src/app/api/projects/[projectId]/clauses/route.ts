@@ -42,7 +42,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId } = await params;
-  const limit = rateLimit(`clause:create:${user.id}:${projectId}`, 30, 60_000);
+  const limit = await rateLimit(`clause:create:${user.id}:${projectId}`, 30, 60_000);
   if (!limit.allowed) return rateLimitResponse();
 
   const parsed = createClauseSchema.safeParse(await request.json());

@@ -12,13 +12,17 @@ jobs:
     env:
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/tenderflow_ci?schema=public"
       AUTH_SECRET: "ci-test-secret-do-not-use-in-production"
-      AUTH_URL: "http://localhost:3000"
+      NEXTAUTH_URL: "http://localhost:3000"
       NEXT_PUBLIC_APP_URL: "http://localhost:3000"
       UPLOAD_DIR: "./uploads"
       EXPORT_DIR: "./exports"
       MAX_UPLOAD_MB: "15"
       GEMINI_API_KEY: ""
       GEMINI_MODEL: "gemini-2.5-flash"
+      UPSTASH_REDIS_REST_URL: ""
+      UPSTASH_REDIS_REST_TOKEN: ""
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
     steps:
       - name: Checkout
         uses: actions/checkout@v4

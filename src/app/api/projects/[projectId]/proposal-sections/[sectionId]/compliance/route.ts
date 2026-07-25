@@ -10,7 +10,7 @@ export async function POST(
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { projectId, sectionId } = await params;
-  const limit = rateLimit(
+  const limit = await rateLimit(
     `ai:live-compliance:${user.id}:${projectId}`,
     30,
     60_000, // 30 requests per minute
