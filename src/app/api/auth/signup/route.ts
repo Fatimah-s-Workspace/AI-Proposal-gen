@@ -3,6 +3,8 @@ import { prisma } from "@/server/db";
 import { signUpSchema } from "@/lib/validations";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { captureError } from "@/lib/monitoring";
+import { sendEmail } from "@/lib/email";
+import { welcomeEmail } from "@/lib/email/templates";
 
 export async function POST(request: Request) {
   try {
@@ -51,6 +53,9 @@ export async function POST(request: Request) {
         },
       },
     });
+
+    const { subject, text, html } = welcomeEmail(parsed.data.name);
+    await sendEmail({ to: email, subject, text, html });
 
     return Response.json({ ok: true }, { status: 201 });
   } catch (error) {

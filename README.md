@@ -165,6 +165,21 @@ To set up Sentry:
 2. Copy the DSN from Settings → Client Keys, and set both `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` to it.
 3. Optional, for readable production stack traces: set `SENTRY_ORG`, `SENTRY_PROJECT`, and an auth token (`SENTRY_AUTH_TOKEN`) so `next build` can upload source maps.
 
+## Password Reset & Email
+
+`src/lib/email/index.ts` sends transactional email (password reset, welcome-on-signup) via Resend when `RESEND_API_KEY` is set. Without it, `sendEmail()` logs the message to the server console instead - the same graceful-fallback pattern used for Gemini, file storage, rate limiting, and error monitoring, so the signup/reset flows work end-to-end in local dev without a Resend account.
+
+Password reset reuses the existing `VerificationToken` table (originally a NextAuth adapter table) rather than adding a new migration:
+
+- `POST /api/auth/forgot-password` always returns the same generic response regardless of whether the email has an account, to prevent email enumeration. If the account exists, it deletes any existing reset tokens for that email, stores a SHA-256 hash of a new random token (so a database leak doesn't expose usable tokens directly), and emails the raw token as a link valid for 1 hour.
+- `POST /api/auth/reset-password` hashes the incoming token, looks it up, checks expiry, updates the password, and deletes the token so it can't be reused.
+- Pages: `/auth/forgot-password` and `/auth/reset-password`, linked from a "Forgot password?" link on the sign-in page.
+
+To set up Resend:
+
+1. Create a free account at [resend.com](https://resend.com) and generate an API key.
+2. Set `RESEND_API_KEY`. Optionally set `EMAIL_FROM` to a verified sender/domain (defaults to Resend's sandbox address, which only delivers to your own verified test recipients).
+
 ## Data Model
 
 The Prisma schema lives in `prisma/schema.prisma`.
@@ -245,6 +260,7 @@ Tests run on Node's built-in test runner (`node --test`) via `npm test`, coverin
 - Proposal section planning and compliance scoring (`src/features/proposals/tender-proposal.test.ts`)
 - Proposal drafting with Gemini/local fallback (`src/server/proposal-generation.test.ts`)
 - Document processing and project-wide clause/requirement dedup (`src/server/document-processing.test.ts`)
+- Email templates and the Resend/dev-console fallback (`src/lib/email/*.test.ts`)
 - Rate limiting, Gemini error classification, and small shared utilities
 
 `.github/workflows/ci.yml` runs `typecheck`, `lint`, `test`, and `build` on every push and pull request against `dev`, using dummy environment values (no real database or Gemini key is needed since nothing in the suite touches either).
@@ -259,6 +275,7 @@ Not yet covered: API route handlers (auth/ownership wiring, request/response sha
 - Upload MIME type and size checks are enforced.
 - API actions are rate limited (Upstash Redis in production, in-memory in local dev - see [Rate Limiting](#rate-limiting)).
 - Passwords are hashed with `bcryptjs`.
+- Password reset tokens are single-use, expire after 1 hour, and are stored as SHA-256 hashes (see [Password Reset & Email](#password-reset--email)). The forgot-password endpoint responds identically whether or not an account exists, to prevent email enumeration.
 - File uploads and exports use Supabase Storage in production (see [File Storage](#file-storage)).
 - Unhandled errors and explicitly-captured failures are reported to Sentry in production (see [Error Monitoring](#error-monitoring)).
 
@@ -299,7 +316,6 @@ Before rolling out to real users, i will complete:
 - Prompt/cost observability, retries, and token budgeting for Gemini calls.
 - Automated tests for API route handlers and UI components (pure business logic is covered; see [Testing and CI](#testing-and-ci)).
 - A real job queue (e.g. Upstash QStash) if upload volume grows enough that background processing via `after()` within a single function invocation isn't sufficient - see [Background processing](#background-processing).
-- Password reset and transactional email (welcome, verification).
 - Usage limit enforcement (limits are displayed but not yet blocked at the API level).
 - Terms of Service and Privacy Policy pages.
 - Payment integration (e.g. Paystack or Flutterwave) for paid plans.

@@ -28,6 +28,8 @@ jobs:
       SENTRY_ORG: ""
       SENTRY_PROJECT: ""
       SENTRY_AUTH_TOKEN: ""
+      RESEND_API_KEY: ""
+      EMAIL_FROM: "TenderFlow AI <onboarding@resend.dev>"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
