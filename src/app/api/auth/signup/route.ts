@@ -2,6 +2,7 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/server/db";
 import { signUpSchema } from "@/lib/validations";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { captureError } from "@/lib/monitoring";
 
 export async function POST(request: Request) {
   try {
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
     return Response.json({ ok: true }, { status: 201 });
   } catch (error) {
     console.error("SIGNUP ERROR:", error);
+    captureError(error, { route: "auth/signup" });
 
     return Response.json(
       {

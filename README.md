@@ -145,6 +145,18 @@ To set up Upstash:
 2. Copy the REST URL and REST token from the database's "REST API" section.
 3. Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in your environment.
 
+## Error Monitoring
+
+Sentry (`@sentry/nextjs`) is wired up via `instrumentation.ts` (server/edge), `instrumentation-client.ts` (browser), and `src/app/global-error.tsx` (root-level React error boundary). Without `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` set, Sentry is explicitly disabled and everything behaves exactly as before - no build or runtime errors.
+
+Next.js's automatic instrumentation only reports errors that throw uncaught. Several routes in this app catch their own errors and return a JSON 500 response instead of throwing, so those call `captureError()` (`src/lib/monitoring.ts`) explicitly in their catch block. Expected degraded-mode operation - like a Gemini call failing and falling back to the local rule-based provider - is deliberately *not* reported as an error, since that's a working fallback, not a failure.
+
+To set up Sentry:
+
+1. Create a free project at [sentry.io](https://sentry.io) (platform: Next.js).
+2. Copy the DSN from Settings → Client Keys, and set both `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` to it.
+3. Optional, for readable production stack traces: set `SENTRY_ORG`, `SENTRY_PROJECT`, and an auth token (`SENTRY_AUTH_TOKEN`) so `next build` can upload source maps.
+
 ## Data Model
 
 The Prisma schema lives in `prisma/schema.prisma`.
@@ -239,6 +251,7 @@ Not yet covered: API route handlers (auth/ownership wiring, request/response sha
 - API actions are rate limited (Upstash Redis in production, in-memory in local dev - see [Rate Limiting](#rate-limiting)).
 - Passwords are hashed with `bcryptjs`.
 - File uploads and exports use Supabase Storage in production (see [File Storage](#file-storage)).
+- Unhandled errors and explicitly-captured failures are reported to Sentry in production (see [Error Monitoring](#error-monitoring)).
 
 Production improvements:
 
@@ -276,7 +289,6 @@ Before rolling out to real users, i will complete:
 - OCR for scanned PDF tenders.
 - Prompt/cost observability, retries, and token budgeting for Gemini calls.
 - Automated tests for API route handlers and UI components (pure business logic is covered; see [Testing and CI](#testing-and-ci)).
-- Error monitoring (e.g. Sentry) - nothing currently surfaces production failures.
 - Background/async processing for uploads - parsing, Gemini analysis, and checklist generation all happen synchronously in one request, risking a timeout on large tender packs.
 - Password reset and transactional email (welcome, verification).
 - Usage limit enforcement (limits are displayed but not yet blocked at the API level).

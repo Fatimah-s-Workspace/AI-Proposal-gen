@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { rateLimit } from "@/lib/rate-limit";
+import { captureError } from "@/lib/monitoring";
 
 const createSectionSchema = z.object({
   title: z.string().min(1),
@@ -45,6 +46,7 @@ export async function GET(
     return NextResponse.json(sections);
   } catch (error) {
     console.error("Error fetching proposal sections:", error);
+    captureError(error, { route: "proposal-sections:GET" });
     return NextResponse.json(
       { error: "Failed to fetch proposal sections" },
       { status: 500 }
@@ -113,6 +115,7 @@ export async function POST(
       );
     }
     console.error("Error creating proposal section:", error);
+    captureError(error, { route: "proposal-sections:POST" });
     return NextResponse.json(
       { error: "Failed to create proposal section" },
       { status: 500 }

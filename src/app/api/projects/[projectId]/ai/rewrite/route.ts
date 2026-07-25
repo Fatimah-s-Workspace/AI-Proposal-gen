@@ -1,6 +1,7 @@
 import { requireApiUser } from "@/server/session";
 import { incrementUsage } from "@/server/usage";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { captureError } from "@/lib/monitoring";
 
 export async function POST(
   request: Request,
@@ -60,6 +61,7 @@ export async function POST(
     return Response.json({ rewritten });
   } catch (error) {
     console.error("Rewrite error:", error);
+    captureError(error, { route: "ai/rewrite", projectId });
     return Response.json(
       { error: "Failed to rewrite content" },
       { status: 500 },

@@ -23,6 +23,11 @@ jobs:
       UPSTASH_REDIS_REST_TOKEN: ""
       SUPABASE_URL: ""
       SUPABASE_SERVICE_ROLE_KEY: ""
+      SENTRY_DSN: ""
+      NEXT_PUBLIC_SENTRY_DSN: ""
+      SENTRY_ORG: ""
+      SENTRY_PROJECT: ""
+      SENTRY_AUTH_TOKEN: ""
     steps:
       - name: Checkout
         uses: actions/checkout@v4
