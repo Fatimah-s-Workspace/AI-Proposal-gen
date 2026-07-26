@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Modal } from "@/components/ui/modal";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { EditRequirementForm } from "@/components/projects/edit-requirement-form";
 
@@ -94,16 +95,15 @@ export function ChecklistDashboard({
         </CardContent>
       </Card>
 
-      {editing ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Edit checklist item</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <EditRequirementForm requirement={editing} projectId={projectId} onCancel={() => setEditing(null)} />
-          </CardContent>
-        </Card>
-      ) : null}
+      <Modal
+        isOpen={editing !== null}
+        onClose={() => setEditing(null)}
+        title="Edit checklist item"
+      >
+        {editing ? (
+          <EditRequirementForm requirement={editing} projectId={projectId} onCancel={() => setEditing(null)} />
+        ) : null}
+      </Modal>
 
       <div className="space-y-3">
         {requirements.map((requirement) => (

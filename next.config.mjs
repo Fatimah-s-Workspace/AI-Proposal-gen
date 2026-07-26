@@ -15,6 +15,18 @@ const nextConfig = {
   typedRoutes: true,
   turbopack: {
     root: process.cwd()
+  },
+  experimental: {
+    // Next 15+ defaults the client Router Cache's dynamic stale time to 0,
+    // meaning every dashboard/projects/etc. page refetches from the server
+    // even navigating right back with nothing changed. Restoring a short
+    // stale window lets recently-visited pages render instantly from cache;
+    // pages that mutate data already force a full reload after saving, so
+    // this doesn't risk showing stale data after an edit.
+    staleTimes: {
+      dynamic: 30,
+      static: 180
+    }
   }
 };
 
