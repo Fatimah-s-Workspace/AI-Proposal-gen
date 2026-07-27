@@ -12,7 +12,7 @@ export function LegalPageShell({
 }) {
   return (
     <main className="min-h-svh bg-background">
-      <header className="border-b">
+      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-5">
           <Link href="/" className="text-lg font-semibold">
             TenderFlow AI
