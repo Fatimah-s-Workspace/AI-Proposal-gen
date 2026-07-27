@@ -318,6 +318,12 @@ export default function HomePage() {
             <Link href="/auth/sign-up" className="hover:text-foreground">
               Create account
             </Link>
+            <Link href="/terms" className="hover:text-foreground">
+              Terms
+            </Link>
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
           </div>
         </div>
       </footer>

@@ -73,6 +73,8 @@ The project is designed as a practical AI product showcase: it demonstrates auth
 - `/projects/[projectId]/workspace` - edit proposal sections and review AI assistant data
 - `/projects/[projectId]/export` - export proposal to DOCX or PDF
 - `/usage` - usage tracking
+- `/terms` - Terms of Service
+- `/privacy` - Privacy Policy
 
 ## Where The AI Lives
 
@@ -339,7 +341,6 @@ Before rolling out to real users, i will complete:
 - Prompt/cost observability, retries, and token budgeting for Gemini calls.
 - Automated tests for API route handlers and UI components (pure business logic is covered; see [Testing and CI](#testing-and-ci)).
 - A real job queue (e.g. Upstash QStash) if upload volume grows enough that background processing via `after()` within a single function invocation isn't sufficient - see [Background processing](#background-processing).
-- Terms of Service and Privacy Policy pages.
 - Payment integration (e.g. Paystack or Flutterwave) for paid plans.
 - Payment/billing integration (e.g. Paystack or Flutterwave for the target market).
 - Team workspaces and roles.
