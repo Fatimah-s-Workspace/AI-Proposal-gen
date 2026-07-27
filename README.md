@@ -153,6 +153,12 @@ To set up Upstash:
 2. Copy the REST URL and REST token from the database's "REST API" section.
 3. Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in your environment.
 
+## Usage Limits
+
+Each `Subscription` row carries `monthlyUploadLimit` and `monthlyProposalLimit` (defaults: 100 uploads, 10 AI generations). `src/server/usage.ts` sums a user's `UsageTracking` rows across all their projects for the current month and enforces these before the four actions that consume quota: document upload, and the three AI generation endpoints (`generate-proposal`, `rewrite`, `draft-against-checklist`). A blocked request gets a `402` with a message to upgrade or wait until next month.
+
+It's a soft cap, not an exact one: the check runs *before* the action, comparing current usage against the limit, rather than trying to predict the action's exact output size (a single proposal-generation call can produce several sections at once, and the count isn't known until after it runs). So a user sitting one generation under their limit can still go slightly over in a single call; the next call is what gets blocked. Exports are tracked in the same `UsageTracking` table but have no limit field or enforcement - they're informational only, matching the existing Usage page UI (no meter is shown for exports).
+
 ## Error Monitoring
 
 Sentry (`@sentry/nextjs`) is wired up via `instrumentation.ts` (server/edge), `instrumentation-client.ts` (browser), and `src/app/global-error.tsx` (root-level React error boundary). Without `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` set, Sentry is explicitly disabled and everything behaves exactly as before - no build or runtime errors.
@@ -278,7 +284,7 @@ Tests run on Node's built-in test runner (`node --test`) via `npm test`, coverin
 - Proposal drafting with Gemini/local fallback (`src/server/proposal-generation.test.ts`)
 - Document processing and project-wide clause/requirement dedup (`src/server/document-processing.test.ts`)
 - Email templates and the Brevo/dev-console fallback (`src/lib/email/*.test.ts`)
-- Rate limiting, Gemini error classification, and small shared utilities
+- Rate limiting, usage limit enforcement, Gemini error classification, and small shared utilities
 
 `.github/workflows/ci.yml` runs `typecheck`, `lint`, `test`, and `build` on every push and pull request against `dev`, using dummy environment values (no real database or Gemini key is needed since nothing in the suite touches either).
 
@@ -333,7 +339,6 @@ Before rolling out to real users, i will complete:
 - Prompt/cost observability, retries, and token budgeting for Gemini calls.
 - Automated tests for API route handlers and UI components (pure business logic is covered; see [Testing and CI](#testing-and-ci)).
 - A real job queue (e.g. Upstash QStash) if upload volume grows enough that background processing via `after()` within a single function invocation isn't sufficient - see [Background processing](#background-processing).
-- Usage limit enforcement (limits are displayed but not yet blocked at the API level).
 - Terms of Service and Privacy Policy pages.
 - Payment integration (e.g. Paystack or Flutterwave) for paid plans.
 - Payment/billing integration (e.g. Paystack or Flutterwave for the target market).

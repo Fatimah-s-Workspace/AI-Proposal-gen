@@ -4,7 +4,7 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { generateTenderSectionsForProject } from "@/server/tender-proposal";
-import { incrementUsage } from "@/server/usage";
+import { checkUsageLimit, incrementUsage, usageLimitResponse } from "@/server/usage";
 
 export async function POST(
   request: Request,
@@ -16,6 +16,9 @@ export async function POST(
   const { projectId } = await params;
   const limit = await rateLimit(`ai:proposal:${user.id}:${projectId}`, 20, 60_000);
   if (!limit.allowed) return rateLimitResponse();
+
+  const usageLimit = await checkUsageLimit(user, "aiGenerations");
+  if (!usageLimit.allowed) return usageLimitResponse("aiGenerations");
 
   const body = await request.json().catch(() => ({}));
   const parsed = generateProposalSchema.safeParse(body);

@@ -1,5 +1,5 @@
 import { requireApiUser } from "@/server/session";
-import { incrementUsage } from "@/server/usage";
+import { checkUsageLimit, incrementUsage, usageLimitResponse } from "@/server/usage";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { captureError } from "@/lib/monitoring";
 
@@ -13,6 +13,9 @@ export async function POST(
   const { projectId } = await params;
   const limit = await rateLimit(`ai:rewrite:${user.id}:${projectId}`, 20, 60_000);
   if (!limit.allowed) return rateLimitResponse();
+
+  const usageLimit = await checkUsageLimit(user, "aiGenerations");
+  if (!usageLimit.allowed) return usageLimitResponse("aiGenerations");
 
   const body = await request.json().catch(() => ({}));
   const { content, instruction } = body;

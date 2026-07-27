@@ -3,7 +3,7 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { loadTenderProposalContext } from "@/server/tender-proposal";
-import { incrementUsage } from "@/server/usage";
+import { checkUsageLimit, incrementUsage, usageLimitResponse } from "@/server/usage";
 
 export async function POST(
   request: Request,
@@ -19,6 +19,9 @@ export async function POST(
     60_000,
   );
   if (!limit.allowed) return rateLimitResponse();
+
+  const usageLimit = await checkUsageLimit(user, "aiGenerations");
+  if (!usageLimit.allowed) return usageLimitResponse("aiGenerations");
 
   const context = await loadTenderProposalContext(projectId, user.id);
   if (!context) return Response.json({ error: "Project not found" }, { status: 404 });

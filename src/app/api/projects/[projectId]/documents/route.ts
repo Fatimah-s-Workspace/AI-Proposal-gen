@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
-import { incrementUsage } from "@/server/usage";
+import { checkUsageLimit, incrementUsage, usageLimitResponse } from "@/server/usage";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { deleteStoredFile } from "@/lib/storage";
 import { captureError } from "@/lib/monitoring";
@@ -160,6 +160,9 @@ export async function POST(
 
   if (!project)
     return Response.json({ error: "Project not found" }, { status: 404 });
+
+  const uploadLimit = await checkUsageLimit(user, "uploads");
+  if (!uploadLimit.allowed) return usageLimitResponse("uploads");
 
   const formData = await request.formData();
   const multiFiles = formData
