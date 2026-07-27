@@ -167,7 +167,9 @@ To set up Sentry:
 
 ## Password Reset & Email
 
-`src/lib/email/index.ts` sends transactional email (password reset, welcome-on-signup) via Resend when `RESEND_API_KEY` is set. Without it, `sendEmail()` logs the message to the server console instead - the same graceful-fallback pattern used for Gemini, file storage, rate limiting, and error monitoring, so the signup/reset flows work end-to-end in local dev without a Resend account.
+`src/lib/email/index.ts` sends transactional email (password reset, welcome-on-signup) via [Brevo](https://www.brevo.com)'s REST API (plain `fetch`, no SDK dependency) when `BREVO_API_KEY` is set. Without it, `sendEmail()` logs the message to the server console instead - the same graceful-fallback pattern used for Gemini, file storage, rate limiting, and error monitoring, so the signup/reset flows work end-to-end in local dev without a Brevo account.
+
+Brevo was chosen over Resend specifically because it doesn't require owning a domain: Resend needs DNS records (SPF/DKIM) added to a domain you control to send to real recipients, which isn't available on a $0 budget without a paid domain. Brevo's free tier (300 emails/day, no card required) only needs a single verified **sender email address** - no DNS access needed.
 
 Password reset reuses the existing `VerificationToken` table (originally a NextAuth adapter table) rather than adding a new migration:
 
@@ -175,10 +177,12 @@ Password reset reuses the existing `VerificationToken` table (originally a NextA
 - `POST /api/auth/reset-password` hashes the incoming token, looks it up, checks expiry, updates the password, and deletes the token so it can't be reused.
 - Pages: `/auth/forgot-password` and `/auth/reset-password`, linked from a "Forgot password?" link on the sign-in page.
 
-To set up Resend:
+To set up Brevo:
 
-1. Create a free account at [resend.com](https://resend.com) and generate an API key.
-2. Set `RESEND_API_KEY`. Optionally set `EMAIL_FROM` to a verified sender/domain (defaults to Resend's sandbox address, which only delivers to your own verified test recipients).
+1. Create a free account at [brevo.com](https://www.brevo.com) (no credit card required).
+2. Go to Settings -> Senders, Domains & Dedicated IPs -> Senders -> Add a sender, using any email address you can receive mail at (e.g. a personal Gmail). Click the verification link Brevo sends to it.
+3. Go to Settings -> SMTP & API -> API Keys -> Generate a new API key, and set `BREVO_API_KEY` to it.
+4. Set `EMAIL_FROM` to exactly the verified sender's email address (e.g. `TenderFlow AI <you@example.com>`) - Brevo rejects sends from an unverified address.
 
 ## Data Model
 
@@ -216,6 +220,19 @@ Point `DATABASE_URL` at a running PostgreSQL instance:
 ```bash
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/tenderflow_ai?schema=public"
 ```
+
+**Use a local database for day-to-day development, not a remote/hosted one.** Developing against a remote Postgres (e.g. a hosted Supabase project) adds real network round-trip latency to every query - a page that does 3-4 queries can take multiple seconds to load purely from that latency, which looks like a caching or performance bug but isn't one. A local instance turns that into single-digit milliseconds. If port 5432 is already taken by another local Postgres install, run this one on a different port (e.g. 5433) instead of fighting over the port:
+
+```bash
+brew install postgresql@16
+# if port 5432 is free, skip this and use the default port instead
+sed -i '' 's/^#port = 5432/port = 5433/' /opt/homebrew/var/postgresql@16/postgresql.conf
+brew services start postgresql@16
+psql -h localhost -p 5433 -U "$(whoami)" -d postgres -c "CREATE ROLE postgres WITH LOGIN SUPERUSER PASSWORD 'postgres';"
+psql -h localhost -p 5433 -U "$(whoami)" -d postgres -c "CREATE DATABASE tenderflow_ai OWNER postgres;"
+```
+
+Then set `DATABASE_URL="postgresql://postgres:postgres@localhost:5433/tenderflow_ai?schema=public"` (adjust the port to whatever you used).
 
 Optionally set `GEMINI_API_KEY` to enable AI-backed analysis and drafting (the app falls back to the local rule-based provider without it).
 
@@ -260,7 +277,7 @@ Tests run on Node's built-in test runner (`node --test`) via `npm test`, coverin
 - Proposal section planning and compliance scoring (`src/features/proposals/tender-proposal.test.ts`)
 - Proposal drafting with Gemini/local fallback (`src/server/proposal-generation.test.ts`)
 - Document processing and project-wide clause/requirement dedup (`src/server/document-processing.test.ts`)
-- Email templates and the Resend/dev-console fallback (`src/lib/email/*.test.ts`)
+- Email templates and the Brevo/dev-console fallback (`src/lib/email/*.test.ts`)
 - Rate limiting, Gemini error classification, and small shared utilities
 
 `.github/workflows/ci.yml` runs `typecheck`, `lint`, `test`, and `build` on every push and pull request against `dev`, using dummy environment values (no real database or Gemini key is needed since nothing in the suite touches either).
