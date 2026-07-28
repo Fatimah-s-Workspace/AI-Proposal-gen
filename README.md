@@ -231,6 +231,21 @@ Core models:
 - `GeneratedContent` - generated drafts and version history.
 - `ExportHistory` - generated DOCX/PDF files.
 - `UsageTracking` - monthly usage counters.
+- `Payment` - Paystack checkout/payment records.
+
+## Database Migrations
+
+Schema changes go through Prisma Migrate, not `prisma db push`. `db push` is still there for quick local prototyping (trying out a schema change before committing to it), but once a change is worth keeping, generate a real migration:
+
+```bash
+npm run db:migrate:dev    # local dev: creates + applies a migration, prompts for a name
+npm run db:migrate:deploy # production/CI: applies any pending migrations, no prompts
+npm run db:migrate:status # check which migrations are applied where
+```
+
+`prisma migrate deploy` is a manual step before deploying schema changes, not wired into `npm run build` - this app has a single production database and no separate staging DB, so auto-running migrations on every build (including preview deployments) would be a real risk rather than a convenience. Run `db:migrate:deploy` against production deliberately, only when a migration is actually ready to ship.
+
+The migration history starts from `20260728130147_init`, a baseline of the schema as it existed at that point - both the local dev and production databases already had this schema applied via `db push` over time, so that migration was marked as already-applied (`prisma migrate resolve --applied`) rather than re-run, which would have failed against tables that already exist. Everything from here on goes through a real migration.
 
 ## Quick Start
 
@@ -270,7 +285,7 @@ Optionally set `GEMINI_API_KEY` to enable AI-backed analysis and drafting (the a
 Prepare the database:
 
 ```bash
-npm run db:push
+npm run db:migrate:dev
 npm run db:seed
 ```
 
@@ -293,7 +308,9 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
-npm run db:push
+npm run db:migrate:dev
+npm run db:migrate:deploy
+npm run db:migrate:status
 npm run db:seed
 npm run db:studio
 ```
