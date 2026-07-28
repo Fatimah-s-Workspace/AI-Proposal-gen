@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { UpgradeCard } from "@/components/billing/upgrade-card";
+import { PRO_PLAN } from "@/lib/payments/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -178,6 +180,14 @@ export default async function UsagePage() {
           </div>
         </CardContent>
       </Card>
+
+      {subscription?.plan !== PRO_PLAN.id && (
+        <UpgradeCard
+          priceNgn={PRO_PLAN.priceNgn}
+          uploadLimit={PRO_PLAN.monthlyUploadLimit}
+          proposalLimit={PRO_PLAN.monthlyProposalLimit}
+        />
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => (

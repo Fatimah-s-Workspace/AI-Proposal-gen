@@ -30,6 +30,8 @@ jobs:
       SENTRY_AUTH_TOKEN: ""
       BREVO_API_KEY: ""
       EMAIL_FROM: "TenderFlow AI <no-reply@example.com>"
+      PAYSTACK_SECRET_KEY: ""
+      PRO_PLAN_PRICE_NGN: "5000"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

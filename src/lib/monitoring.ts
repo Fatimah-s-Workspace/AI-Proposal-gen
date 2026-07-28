@@ -8,8 +8,16 @@ import * as Sentry from "@sentry/nextjs";
  * response needs to report it explicitly or it's invisible in Sentry.
  *
  * A no-op when SENTRY_DSN isn't configured (Sentry.captureException on an
- * uninitialized/disabled client is a safe no-op).
+ * uninitialized/disabled client is a safe no-op). Also swallows any error
+ * from Sentry itself (e.g. running outside the Next.js runtime, such as in
+ * the unit test suite, where @sentry/nextjs isn't fully initialized) -
+ * error reporting must never be able to crash the code path it's meant to
+ * be safely observing.
  */
 export function captureError(error: unknown, context?: Record<string, unknown>) {
-  Sentry.captureException(error, context ? { extra: context } : undefined);
+  try {
+    Sentry.captureException(error, context ? { extra: context } : undefined);
+  } catch {
+    // Intentionally ignored - see doc comment above.
+  }
 }

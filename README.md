@@ -72,7 +72,8 @@ The project is designed as a practical AI product showcase: it demonstrates auth
 - `/projects/[projectId]/parsed-overview` - inspect parsed sections and clauses
 - `/projects/[projectId]/workspace` - edit proposal sections and review AI assistant data
 - `/projects/[projectId]/export` - export proposal to DOCX or PDF
-- `/usage` - usage tracking
+- `/usage` - usage tracking and Pro plan upgrade
+- `/billing/success` / `/billing/failed` - post-checkout redirect targets
 - `/terms` - Terms of Service
 - `/privacy` - Privacy Policy
 
@@ -160,6 +161,28 @@ To set up Upstash:
 Each `Subscription` row carries `monthlyUploadLimit` and `monthlyProposalLimit` (defaults: 100 uploads, 10 AI generations). `src/server/usage.ts` sums a user's `UsageTracking` rows across all their projects for the current month and enforces these before the four actions that consume quota: document upload, and the three AI generation endpoints (`generate-proposal`, `rewrite`, `draft-against-checklist`). A blocked request gets a `402` with a message to upgrade or wait until next month.
 
 It's a soft cap, not an exact one: the check runs *before* the action, comparing current usage against the limit, rather than trying to predict the action's exact output size (a single proposal-generation call can produce several sections at once, and the count isn't known until after it runs). So a user sitting one generation under their limit can still go slightly over in a single call; the next call is what gets blocked. Exports are tracked in the same `UsageTracking` table but have no limit field or enforcement - they're informational only, matching the existing Usage page UI (no meter is shown for exports).
+
+## Payments
+
+Users can pay for a Pro plan (higher upload/AI-generation limits, `src/lib/payments/plans.ts`) via [Paystack](https://paystack.com), chosen because it's free to integrate - no monthly fee, only a percentage of real successful transactions - and is the standard choice for the Nigeria/Africa target market. `src/lib/payments/paystack.ts` calls Paystack's REST API directly with `fetch` rather than pulling in their SDK.
+
+The flow:
+
+1. `POST /api/billing/checkout` creates a `Payment` row (status `pending`, with a reference we generate ourselves) and calls Paystack's initialize-transaction endpoint, returning a checkout URL the client redirects to.
+2. The user pays on Paystack's hosted page.
+3. Paystack redirects the browser back to `GET /api/billing/callback`, **and** independently calls `POST /api/billing/webhook` server-to-server. Both converge on the same `finalizePayment()` (`src/server/billing.ts`), which re-verifies the transaction with Paystack (never trusts the redirect alone), checks the paid amount matches what was initialized, and is idempotent - whichever of the two arrives first applies the upgrade; the other is a no-op. This matters because a user can close their browser right after paying, before the redirect completes, and the webhook is what still finalizes the upgrade in that case.
+4. On success, the user's `Subscription` is updated to the Pro plan with a 30-day `renewsAt`.
+
+There's no recurring billing or webhook-driven renewal yet - it's a one-off 30-day payment. Since there's also no cron job in this app, expiry is checked lazily: `requireUser`/`requireApiUser` (`src/server/session.ts`) revert an expired Pro subscription back to Starter the next time that user's data is loaded, rather than on a schedule.
+
+Unlike every other external service in this app, payment state is **never** faked in a dev-mode fallback: without `PAYSTACK_SECRET_KEY`, checkout returns a `503` instead of silently granting Pro access, since faking a successful payment carries a real abuse risk that faking an AI response or an email send doesn't.
+
+To set up Paystack:
+
+1. Create a free account at [paystack.com](https://paystack.com).
+2. Copy the secret key from Settings → API Keys & Webhooks (use the test key while developing - test-mode transactions don't move real money) and set `PAYSTACK_SECRET_KEY`.
+3. Add this app's `/api/billing/webhook` URL as a webhook endpoint in the same settings page.
+4. Optionally set `PRO_PLAN_PRICE_NGN` (defaults to 5000) to change the price without a code change.
 
 ## Error Monitoring
 
@@ -286,6 +309,7 @@ Tests run on Node's built-in test runner (`node --test`) via `npm test`, coverin
 - Proposal drafting with Gemini/local fallback (`src/server/proposal-generation.test.ts`)
 - Document processing and project-wide clause/requirement dedup (`src/server/document-processing.test.ts`)
 - Email templates and the Brevo/dev-console fallback (`src/lib/email/*.test.ts`)
+- Paystack webhook signature verification and idempotent payment finalization (`src/lib/payments/paystack.test.ts`, `src/server/billing.test.ts`)
 - Rate limiting, usage limit enforcement, Gemini error classification, and small shared utilities
 
 `.github/workflows/ci.yml` runs `typecheck`, `lint`, `test`, and `build` on every push and pull request against `dev`, using dummy environment values (no real database or Gemini key is needed since nothing in the suite touches either).
@@ -341,11 +365,8 @@ Before rolling out to real users, i will complete:
 - Prompt/cost observability, retries, and token budgeting for Gemini calls.
 - Automated tests for API route handlers and UI components (pure business logic is covered; see [Testing and CI](#testing-and-ci)).
 - A real job queue (e.g. Upstash QStash) if upload volume grows enough that background processing via `after()` within a single function invocation isn't sufficient - see [Background processing](#background-processing).
-- Payment integration (e.g. Paystack or Flutterwave) for paid plans.
-- Payment/billing integration (e.g. Paystack or Flutterwave for the target market).
 - Team workspaces and roles.
 - Better export templates with branding, cover pages, headers, footers, and tables.
-- Billing/subscription enforcement.
 - Background jobs for large document parsing and AI generation.
 - More robust error handling and retry flows.
 - Human review workflow before final submission.
