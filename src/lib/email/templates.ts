@@ -35,3 +35,20 @@ export function welcomeEmail(name: string) {
   );
   return { subject, text, html };
 }
+
+export function renewalReminderEmail(daysRemaining: number, billingUrl: string) {
+  const subject =
+    daysRemaining <= 0
+      ? "Your TenderFlow AI Pro plan expires today"
+      : `Your TenderFlow AI Pro plan expires in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`;
+  const text = `${subject}. Renew now to keep your Pro upload and AI generation limits: ${billingUrl}\n\nIf you don't renew, your account reverts to the Starter plan's limits when it expires - your data and projects are unaffected.`;
+  const html = wrapper(
+    subject,
+    `<p style="font-size: 14px; color: #3f3f46;">Renew now to keep your Pro upload and AI generation limits.</p>
+     <p style="margin: 24px 0;">
+       <a href="${billingUrl}" style="background: #18181b; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">Renew Pro plan</a>
+     </p>
+     <p style="font-size: 12px; color: #71717a;">If you don't renew, your account reverts to the Starter plan's limits when it expires - your data and projects are unaffected.</p>`,
+  );
+  return { subject, text, html };
+}

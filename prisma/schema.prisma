@@ -391,6 +391,11 @@ model Subscription {
   renewsAt             DateTime?
   monthlyProposalLimit Int      @default(10)
   monthlyUploadLimit   Int      @default(100)
+  // Set when a renewal-reminder email has been sent for the current
+  // renewsAt, so the daily cron doesn't re-send it every day until the
+  // subscription actually expires. Cleared on every successful payment
+  // (finalizePayment sets a new renewsAt), so it naturally resets each cycle.
+  reminderSentAt       DateTime?
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

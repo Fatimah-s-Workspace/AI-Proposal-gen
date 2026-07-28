@@ -32,6 +32,7 @@ jobs:
       EMAIL_FROM: "TenderFlow AI <no-reply@example.com>"
       PAYSTACK_SECRET_KEY: ""
       PRO_PLAN_PRICE_NGN: "5000"
+      CRON_SECRET: "ci-test-cron-secret"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

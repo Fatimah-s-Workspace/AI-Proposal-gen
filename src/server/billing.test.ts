@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { finalizePayment } from "./billing";
+import { finalizePayment, sendRenewalReminders } from "./billing";
 import { PRO_PLAN } from "@/lib/payments/plans";
 import type { prisma } from "@/server/db";
 import type { verifyTransaction } from "@/lib/payments/paystack";
+import type { sendEmail } from "@/lib/email";
 
 function createFakePrisma(initialPayment: { reference: string; userId: string; amount: number; status: string }) {
   const payments = new Map([[initialPayment.reference, { ...initialPayment }]]);
@@ -136,4 +137,118 @@ test("finalizePayment rejects a mismatched paid amount", async () => {
 
   assert.deepEqual(result, { ok: false, reason: "amount_mismatch" });
   assert.equal(payments.get("tf_tampered")?.status, "failed");
+});
+
+type FakeSubscription = {
+  id: string;
+  plan: string;
+  status: string;
+  renewsAt: Date | null;
+  reminderSentAt: Date | null;
+  user: { email: string };
+};
+
+function createReminderFakePrisma(subscriptions: FakeSubscription[]) {
+  const rows = new Map(subscriptions.map((s) => [s.id, { ...s }]));
+
+  const db = {
+    subscription: {
+      findMany: async ({ where }: { where: { plan: string; status: string; renewsAt: { gte: Date; lte: Date }; reminderSentAt: null } }) =>
+        [...rows.values()].filter(
+          (row) =>
+            row.plan === where.plan &&
+            row.status === where.status &&
+            row.reminderSentAt === null &&
+            row.renewsAt !== null &&
+            row.renewsAt >= where.renewsAt.gte &&
+            row.renewsAt <= where.renewsAt.lte,
+        ),
+      update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+        const existing = rows.get(where.id)!;
+        const updated = { ...existing, ...data };
+        rows.set(where.id, updated as FakeSubscription);
+        return updated;
+      },
+    },
+  };
+
+  return { db: db as unknown as typeof prisma, rows };
+}
+
+function fakeSendEmail(delivered: boolean) {
+  return (async () => (delivered ? { delivered: true } : { delivered: false, reason: "send_failed" })) as typeof sendEmail;
+}
+
+function daysFromNow(days: number) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+}
+
+test("sendRenewalReminders emails a pro subscription renewing within the reminder window", async () => {
+  const { db, rows } = createReminderFakePrisma([
+    {
+      id: "sub-1",
+      plan: PRO_PLAN.id,
+      status: "active",
+      renewsAt: daysFromNow(2),
+      reminderSentAt: null,
+      user: { email: "user@example.com" },
+    },
+  ]);
+
+  const result = await sendRenewalReminders({ prismaClient: db, sendEmailFn: fakeSendEmail(true) });
+
+  assert.deepEqual(result, { checked: 1, sent: 1 });
+  assert.ok(rows.get("sub-1")?.reminderSentAt instanceof Date);
+});
+
+test("sendRenewalReminders skips a subscription outside the reminder window", async () => {
+  const { db } = createReminderFakePrisma([
+    {
+      id: "sub-far",
+      plan: PRO_PLAN.id,
+      status: "active",
+      renewsAt: daysFromNow(20),
+      reminderSentAt: null,
+      user: { email: "user@example.com" },
+    },
+  ]);
+
+  const result = await sendRenewalReminders({ prismaClient: db, sendEmailFn: fakeSendEmail(true) });
+
+  assert.deepEqual(result, { checked: 0, sent: 0 });
+});
+
+test("sendRenewalReminders skips a subscription that already got its reminder this cycle", async () => {
+  const { db } = createReminderFakePrisma([
+    {
+      id: "sub-already",
+      plan: PRO_PLAN.id,
+      status: "active",
+      renewsAt: daysFromNow(1),
+      reminderSentAt: new Date(),
+      user: { email: "user@example.com" },
+    },
+  ]);
+
+  const result = await sendRenewalReminders({ prismaClient: db, sendEmailFn: fakeSendEmail(true) });
+
+  assert.deepEqual(result, { checked: 0, sent: 0 });
+});
+
+test("sendRenewalReminders does not mark reminderSentAt when the email fails to send", async () => {
+  const { db, rows } = createReminderFakePrisma([
+    {
+      id: "sub-fail",
+      plan: PRO_PLAN.id,
+      status: "active",
+      renewsAt: daysFromNow(1),
+      reminderSentAt: null,
+      user: { email: "user@example.com" },
+    },
+  ]);
+
+  const result = await sendRenewalReminders({ prismaClient: db, sendEmailFn: fakeSendEmail(false) });
+
+  assert.deepEqual(result, { checked: 1, sent: 0 });
+  assert.equal(rows.get("sub-fail")?.reminderSentAt, null);
 });

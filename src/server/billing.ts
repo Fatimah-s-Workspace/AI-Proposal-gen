@@ -2,6 +2,10 @@ import { prisma } from "@/server/db";
 import { captureError } from "@/lib/monitoring";
 import { verifyTransaction } from "@/lib/payments/paystack";
 import { PRO_PLAN } from "@/lib/payments/plans";
+import { sendEmail } from "@/lib/email";
+import { renewalReminderEmail } from "@/lib/email/templates";
+
+const REMINDER_WINDOW_DAYS = 3;
 
 type FinalizeResult =
   | { ok: true; alreadyProcessed: boolean }
@@ -70,9 +74,60 @@ export async function finalizePayment(
         renewsAt,
         monthlyUploadLimit: PRO_PLAN.monthlyUploadLimit,
         monthlyProposalLimit: PRO_PLAN.monthlyProposalLimit,
+        // A fresh renewsAt means a new billing cycle - clear any reminder
+        // sent for the previous one so the next cycle's reminder can fire.
+        reminderSentAt: null,
       },
     }),
   ]);
 
   return { ok: true, alreadyProcessed: false };
+}
+
+// Sends a renewal reminder to every active Pro subscription whose renewsAt
+// falls within the reminder window, once per billing cycle - guarded by
+// reminderSentAt, which finalizePayment() clears on every successful
+// renewal. Meant to be called from a scheduled trigger (see
+// /api/cron/billing-reminders), not from anything a user's own request
+// would hit, since the whole point is to reach users who haven't visited.
+export async function sendRenewalReminders(deps?: {
+  prismaClient?: typeof prisma;
+  sendEmailFn?: typeof sendEmail;
+}) {
+  const db = deps?.prismaClient ?? prisma;
+  const send = deps?.sendEmailFn ?? sendEmail;
+
+  const now = new Date();
+  const windowEnd = new Date(now.getTime() + REMINDER_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+  const subscriptions = await db.subscription.findMany({
+    where: {
+      plan: PRO_PLAN.id,
+      status: "active",
+      renewsAt: { gte: now, lte: windowEnd },
+      reminderSentAt: null,
+    },
+    include: { user: true },
+  });
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  let sent = 0;
+
+  for (const subscription of subscriptions) {
+    const daysRemaining = Math.ceil(
+      (subscription.renewsAt!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
+    );
+    const { subject, text, html } = renewalReminderEmail(daysRemaining, `${baseUrl}/usage`);
+
+    const result = await send({ to: subscription.user.email, subject, text, html });
+    if (result.delivered) {
+      await db.subscription.update({
+        where: { id: subscription.id },
+        data: { reminderSentAt: now },
+      });
+      sent += 1;
+    }
+  }
+
+  return { checked: subscriptions.length, sent };
 }

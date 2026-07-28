@@ -173,7 +173,7 @@ The flow:
 3. Paystack redirects the browser back to `GET /api/billing/callback`, **and** independently calls `POST /api/billing/webhook` server-to-server. Both converge on the same `finalizePayment()` (`src/server/billing.ts`), which re-verifies the transaction with Paystack (never trusts the redirect alone), checks the paid amount matches what was initialized, and is idempotent - whichever of the two arrives first applies the upgrade; the other is a no-op. This matters because a user can close their browser right after paying, before the redirect completes, and the webhook is what still finalizes the upgrade in that case.
 4. On success, the user's `Subscription` is updated to the Pro plan with a 30-day `renewsAt`.
 
-There's no recurring billing or webhook-driven renewal yet - it's a one-off 30-day payment. Since there's also no cron job in this app, expiry is checked lazily: `requireUser`/`requireApiUser` (`src/server/session.ts`) revert an expired Pro subscription back to Starter the next time that user's data is loaded, rather than on a schedule.
+There's no recurring billing or webhook-driven renewal yet - it's a one-off 30-day payment. Expiry itself is checked lazily: `requireUser`/`requireApiUser` (`src/server/session.ts`) revert an expired Pro subscription back to Starter the next time that user's data is loaded, rather than on a schedule.
 
 Unlike every other external service in this app, payment state is **never** faked in a dev-mode fallback: without `PAYSTACK_SECRET_KEY`, checkout returns a `503` instead of silently granting Pro access, since faking a successful payment carries a real abuse risk that faking an AI response or an email send doesn't.
 
@@ -183,6 +183,12 @@ To set up Paystack:
 2. Copy the secret key from Settings → API Keys & Webhooks (use the test key while developing - test-mode transactions don't move real money) and set `PAYSTACK_SECRET_KEY`.
 3. Add this app's `/api/billing/webhook` URL as a webhook endpoint in the same settings page.
 4. Optionally set `PRO_PLAN_PRICE_NGN` (defaults to 5000) to change the price without a code change.
+
+### Renewal reminders
+
+Since renewal is manual, `sendRenewalReminders()` (`src/server/billing.ts`) emails any active Pro subscription renewing within 3 days, once per billing cycle (guarded by `reminderSentAt`, which `finalizePayment()` clears on every successful renewal so the next cycle's reminder can fire again). It's triggered by `GET /api/cron/billing-reminders`, scheduled daily via `vercel.json`'s `crons` config - Vercel Cron is free on the Hobby tier.
+
+The route is protected by `CRON_SECRET`: set it as a project env var and Vercel automatically sends it back as `Authorization: Bearer <value>` on every cron invocation, which the route checks before doing anything. Without `CRON_SECRET` configured, the route returns `503` rather than running unauthenticated - the same "never silently do the sensitive thing without real configuration" rule as the rest of the payments code.
 
 ## Error Monitoring
 
@@ -326,7 +332,7 @@ Tests run on Node's built-in test runner (`node --test`) via `npm test`, coverin
 - Proposal drafting with Gemini/local fallback (`src/server/proposal-generation.test.ts`)
 - Document processing and project-wide clause/requirement dedup (`src/server/document-processing.test.ts`)
 - Email templates and the Brevo/dev-console fallback (`src/lib/email/*.test.ts`)
-- Paystack webhook signature verification and idempotent payment finalization (`src/lib/payments/paystack.test.ts`, `src/server/billing.test.ts`)
+- Paystack webhook signature verification, idempotent payment finalization, and renewal-reminder eligibility (`src/lib/payments/paystack.test.ts`, `src/server/billing.test.ts`)
 - Rate limiting, usage limit enforcement, Gemini error classification, and small shared utilities
 
 `.github/workflows/ci.yml` runs `typecheck`, `lint`, `test`, and `build` on every push and pull request against `dev`, using dummy environment values (no real database or Gemini key is needed since nothing in the suite touches either).
