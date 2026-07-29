@@ -346,9 +346,21 @@ Tests run on Node's built-in test runner (`node --test`) via `npm test`, coverin
 - Audit log writes and their failure-tolerance (`src/server/audit.test.ts`)
 - Rate limiting, usage limit enforcement, Gemini error classification, and small shared utilities
 
-`.github/workflows/ci.yml` runs `typecheck`, `lint`, `test`, and `build` on every push and pull request against `dev`, using dummy environment values (no real database or Gemini key is needed since nothing in the suite touches either).
+### Integration tests
 
-Not yet covered: API route handlers (auth/ownership wiring, request/response shape) and UI components — these are the natural next layer of test coverage, likely via integration tests against a real test database and/or React component tests.
+`npm test` alone can't cover the highest-risk API routes (auth, billing, uploads): they call `requireApiUser()` / `getServerSession()` directly rather than through an injectable dependency, and NextAuth v4's CJS/ESM interop only resolves correctly when Next.js's own bundler processes it - not under a plain Node/tsx import. So `integration-tests/` takes a different approach: real HTTP requests against an actually-running, actually-built server, backed by a real Postgres database.
+
+- `integration-tests/auth.test.ts` - signup, duplicate email rejection, input validation, forgot/reset-password (including that a reset token is genuinely single-use)
+- `integration-tests/billing.test.ts` - checkout's auth boundary, the callback's redirect-when-unauthenticated behavior, the webhook's signature check
+- `integration-tests/uploads.test.ts` - the document routes' auth and ownership checks
+
+Run them with `npm run test:integration`. `scripts/run-integration-tests.mjs` builds the app, starts a production server (`next start`, not `next dev` - dev's on-demand route compilation plus running multiple test files in parallel caused a real compilation pileup, observed locally as simple 401 checks taking 200+ seconds), runs the suite against it with `--test-concurrency=1`, and always tears the server down afterward, including on failure or Ctrl-C. Needs a real `DATABASE_URL` pointing at Postgres with the schema already migrated (`npx prisma migrate deploy`) - there's no mocking here, so a route that touches the database needs the database to actually exist.
+
+`.github/workflows/ci.yml` runs `typecheck`, `lint`, `test`, `build`, and `test:integration` (against a real `postgres:16` service container, reusing the build from the previous step via `SKIP_INTEGRATION_BUILD`) on every push and pull request against `dev`.
+
+Not yet covered: UI components. That's the natural next layer, likely via React component tests.
+
+**A real bug this caught**: applying migrations to a genuinely fresh database (exactly what a new CI run or a new environment does) applied them out of order - `20260728123738_add_subscription_reminder_sent_at` sorted before `20260728130147_init` even though `init` has to run first (it creates the tables everything else alters). The cause was a timezone mismatch: the `init` baseline's timestamp was generated manually using local time, while every migration `prisma migrate dev` creates afterward uses UTC - on a UTC+1 machine, that's enough to flip the ordering. Fixed by renaming the migration folder to sort correctly and updating the `migration_name` recorded in both databases' `_prisma_migrations` tables to match. Worth knowing if you ever generate a migration folder name yourself instead of letting Prisma generate it.
 
 ## Security Notes
 
