@@ -3,6 +3,7 @@ import { requireApiUser } from "@/server/session";
 import { updateRequirementSchema } from "@/lib/validations";
 import { calculateChecklistScore } from "@/features/tender-intelligence/pipeline";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
 
 export async function PATCH(
   request: Request,
@@ -50,6 +51,14 @@ export async function PATCH(
     data: { complianceScore },
   });
 
+  await logAudit({
+    userId: user.id,
+    action: AUDIT_ACTIONS.requirementUpdate,
+    entityType: "Requirement",
+    entityId: requirementId,
+    metadata: { projectId, fields: Object.keys(parsed.data) },
+  });
+
   return Response.json({ requirement: updated, complianceScore });
 }
 
@@ -84,6 +93,14 @@ export async function DELETE(
   await prisma.project.update({
     where: { id: projectId },
     data: { complianceScore },
+  });
+
+  await logAudit({
+    userId: user.id,
+    action: AUDIT_ACTIONS.requirementDelete,
+    entityType: "Requirement",
+    entityId: requirementId,
+    metadata: { projectId, title: requirement.title },
   });
 
   return Response.json({ ok: true, complianceScore });

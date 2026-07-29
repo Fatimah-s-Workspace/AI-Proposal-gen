@@ -4,6 +4,7 @@ import { requireApiUser } from "@/server/session";
 import { exportProposalSchema } from "@/lib/validations";
 import { incrementUsage } from "@/server/usage";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
 
 export const runtime = "nodejs";
 
@@ -46,6 +47,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
 
   await incrementUsage(user.id, projectId, {
     exports: 1
+  });
+
+  await logAudit({
+    userId: user.id,
+    action: AUDIT_ACTIONS.exportCreate,
+    entityType: "ExportHistory",
+    entityId: history.id,
+    metadata: { projectId, format: parsed.data.format },
   });
 
   return Response.json({ export: history });

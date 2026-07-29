@@ -4,6 +4,7 @@ import { verifyTransaction } from "@/lib/payments/paystack";
 import { PRO_PLAN } from "@/lib/payments/plans";
 import { sendEmail } from "@/lib/email";
 import { renewalReminderEmail } from "@/lib/email/templates";
+import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
 
 const REMINDER_WINDOW_DAYS = 3;
 
@@ -80,6 +81,17 @@ export async function finalizePayment(
       },
     }),
   ]);
+
+  await logAudit(
+    {
+      userId: payment.userId,
+      action: AUDIT_ACTIONS.paymentSuccess,
+      entityType: "Payment",
+      entityId: payment.id,
+      metadata: { reference, amount: payment.amount, plan: PRO_PLAN.id },
+    },
+    db,
+  );
 
   return { ok: true, alreadyProcessed: false };
 }

@@ -26,6 +26,7 @@ model User {
   subscription   Subscription?
   usageTracking  UsageTracking[]
   payments       Payment[]
+  auditLogs      AuditLog[]
 
   @@index([email])
 }
@@ -417,6 +418,22 @@ model Payment {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// One row per notable action a user takes - generation, edit, export,
+// delete, payment. Written best-effort: logAudit() swallows its own
+// errors so a logging failure can never break the action it's recording.
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model UsageTracking {

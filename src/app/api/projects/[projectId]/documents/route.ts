@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { checkUsageLimit, incrementUsage, usageLimitResponse } from "@/server/usage";
+import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { deleteStoredFile } from "@/lib/storage";
 import { captureError } from "@/lib/monitoring";
@@ -69,6 +70,14 @@ export async function DELETE(
 
   const { count } = await prisma.tenderDocument.deleteMany({
     where: { id: { in: documents.map((document) => document.id) } },
+  });
+
+  await logAudit({
+    userId: user.id,
+    action: AUDIT_ACTIONS.documentDelete,
+    entityType: "Project",
+    entityId: projectId,
+    metadata: { count, documentIds: documents.map((document) => document.id) },
   });
 
   return Response.json({ deleted: count });
@@ -277,6 +286,14 @@ export async function POST(
   }
 
   await incrementUsage(user.id, projectId, { uploads: files.length });
+
+  await logAudit({
+    userId: user.id,
+    action: AUDIT_ACTIONS.documentUpload,
+    entityType: "Project",
+    entityId: projectId,
+    metadata: { count: uploaded.length, documentType },
+  });
 
   if (pending.length) {
     after(() =>

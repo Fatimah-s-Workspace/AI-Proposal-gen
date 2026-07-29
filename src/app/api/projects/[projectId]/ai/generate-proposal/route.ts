@@ -5,6 +5,7 @@ import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { generateTenderSectionsForProject } from "@/server/tender-proposal";
 import { checkUsageLimit, incrementUsage, usageLimitResponse } from "@/server/usage";
+import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
 
 export async function POST(
   request: Request,
@@ -79,6 +80,14 @@ export async function POST(
       (total, section) => total + Math.ceil((section.content?.length ?? 0) / 4),
       0,
     ),
+  });
+
+  await logAudit({
+    userId: user.id,
+    action: AUDIT_ACTIONS.proposalGenerate,
+    entityType: "Project",
+    entityId: projectId,
+    metadata: { sectionCount: result.sections.length, tone: parsed.data.tone },
   });
 
   const primarySection = result.sections[0];

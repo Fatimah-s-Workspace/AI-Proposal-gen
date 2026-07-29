@@ -2,6 +2,7 @@ import { requireApiUser } from "@/server/session";
 import { checkUsageLimit, incrementUsage, usageLimitResponse } from "@/server/usage";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { captureError } from "@/lib/monitoring";
+import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
 
 export async function POST(
   request: Request,
@@ -59,6 +60,14 @@ export async function POST(
     await incrementUsage(user.id, projectId, {
       aiGenerations: 1,
       tokensUsed: Math.ceil((content.length + rewritten.length) / 4),
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: AUDIT_ACTIONS.proposalRewrite,
+      entityType: "Project",
+      entityId: projectId,
+      metadata: { instruction },
     });
 
     return Response.json({ rewritten });

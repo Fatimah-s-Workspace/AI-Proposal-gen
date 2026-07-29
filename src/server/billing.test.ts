@@ -7,9 +7,10 @@ import type { prisma } from "@/server/db";
 import type { verifyTransaction } from "@/lib/payments/paystack";
 import type { sendEmail } from "@/lib/email";
 
-function createFakePrisma(initialPayment: { reference: string; userId: string; amount: number; status: string }) {
-  const payments = new Map([[initialPayment.reference, { ...initialPayment }]]);
+function createFakePrisma(initialPayment: { id?: string; reference: string; userId: string; amount: number; status: string }) {
+  const payments = new Map([[initialPayment.reference, { id: "payment-1", ...initialPayment }]]);
   const subscriptions = new Map<string, Record<string, unknown>>();
+  const auditLogs: Record<string, unknown>[] = [];
 
   const db = {
     payment: {
@@ -38,10 +39,17 @@ function createFakePrisma(initialPayment: { reference: string; userId: string; a
         return row;
       },
     },
+    auditLog: {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const row = { id: `audit-${auditLogs.length + 1}`, ...data };
+        auditLogs.push(row);
+        return row;
+      },
+    },
     $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
   };
 
-  return { db: db as unknown as typeof prisma, payments, subscriptions };
+  return { db: db as unknown as typeof prisma, payments, subscriptions, auditLogs };
 }
 
 function fakeVerify(result: Awaited<ReturnType<typeof verifyTransaction>>) {
@@ -65,7 +73,7 @@ test("finalizePayment is idempotent for an already-successful payment", async ()
 });
 
 test("finalizePayment activates the pro plan on a verified successful payment", async () => {
-  const { db, subscriptions } = createFakePrisma({
+  const { db, subscriptions, auditLogs } = createFakePrisma({
     reference: "tf_success",
     userId: "user-1",
     amount: PRO_PLAN.priceNgn * 100,
@@ -89,6 +97,9 @@ test("finalizePayment activates the pro plan on a verified successful payment", 
   assert.equal(subscription?.plan, PRO_PLAN.id);
   assert.equal(subscription?.status, "active");
   assert.equal(subscription?.monthlyUploadLimit, PRO_PLAN.monthlyUploadLimit);
+
+  assert.equal(auditLogs.length, 1);
+  assert.equal(auditLogs[0].action, "payment.success");
 });
 
 test("finalizePayment marks the payment failed when Paystack reports it wasn't successful", async () => {

@@ -4,6 +4,7 @@ import {
   BarChart3,
   ChevronDown,
   FolderKanban,
+  History,
   Home,
   ChevronsRightIcon,
   ChevronsLeftIcon,
@@ -53,6 +54,7 @@ const navItems: Array<{
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/usage", label: "Usage", icon: BarChart3 },
+  { href: "/activity", label: "Activity", icon: History },
 ];
 
 function SignoutContent({ user }: { user: User }) {

@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { updateProposalSectionSchema } from "@/lib/validations";
+import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ sectionId: string }> }) {
   const user = await requireApiUser();
@@ -52,6 +53,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
         take: 5
       }
     }
+  });
+
+  await logAudit({
+    userId: user.id,
+    action: AUDIT_ACTIONS.proposalSectionEdit,
+    entityType: "ProposalSection",
+    entityId: sectionId,
+    metadata: { projectId: section.projectId, status: parsed.data.status },
   });
 
   return Response.json(updated);

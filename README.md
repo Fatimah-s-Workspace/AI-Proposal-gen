@@ -73,6 +73,7 @@ The project is designed as a practical AI product showcase: it demonstrates auth
 - `/projects/[projectId]/workspace` - edit proposal sections and review AI assistant data
 - `/projects/[projectId]/export` - export proposal to DOCX or PDF
 - `/usage` - usage tracking and Pro plan upgrade
+- `/activity` - audit log of generation, edit, export, delete, and payment actions
 - `/billing/success` / `/billing/failed` - post-checkout redirect targets
 - `/terms` - Terms of Service
 - `/privacy` - Privacy Policy
@@ -162,6 +163,14 @@ Each `Subscription` row carries `monthlyUploadLimit` and `monthlyProposalLimit` 
 
 It's a soft cap, not an exact one: the check runs *before* the action, comparing current usage against the limit, rather than trying to predict the action's exact output size (a single proposal-generation call can produce several sections at once, and the count isn't known until after it runs). So a user sitting one generation under their limit can still go slightly over in a single call; the next call is what gets blocked. Exports are tracked in the same `UsageTracking` table but have no limit field or enforcement - they're informational only, matching the existing Usage page UI (no meter is shown for exports).
 
+## Audit Logging
+
+Generation, edit, export, delete, and payment actions are recorded to an `AuditLog` table via `logAudit()` (`src/server/audit.ts`), visible to each user on their own `/activity` page. Logged actions: document upload/delete, requirement update/delete, proposal section edit, the three AI generation endpoints, export creation, and successful payments.
+
+`logAudit()` is best-effort - it catches its own errors so a logging failure can never break the action it's recording - but every call site `await`s it rather than firing it and forgetting. This app deploys to Vercel, where a serverless function can be frozen or torn down right after it returns a response, so a genuinely fire-and-forget write risks silently never happening.
+
+There's no separate `/api/audit-logs` endpoint - the `/activity` page queries `AuditLog` directly server-side (with simple page-based pagination), the same pattern already used by the Dashboard and Usage pages, rather than adding an API layer nothing else needs yet.
+
 ## Payments
 
 Users can pay for a Pro plan (higher upload/AI-generation limits, `src/lib/payments/plans.ts`) via [Paystack](https://paystack.com), chosen because it's free to integrate - no monthly fee, only a percentage of real successful transactions - and is the standard choice for the Nigeria/Africa target market. `src/lib/payments/paystack.ts` calls Paystack's REST API directly with `fetch` rather than pulling in their SDK.
@@ -238,6 +247,7 @@ Core models:
 - `ExportHistory` - generated DOCX/PDF files.
 - `UsageTracking` - monthly usage counters.
 - `Payment` - Paystack checkout/payment records.
+- `AuditLog` - generation, edit, export, delete, and payment activity per user.
 
 ## Database Migrations
 
@@ -333,6 +343,7 @@ Tests run on Node's built-in test runner (`node --test`) via `npm test`, coverin
 - Document processing and project-wide clause/requirement dedup (`src/server/document-processing.test.ts`)
 - Email templates and the Brevo/dev-console fallback (`src/lib/email/*.test.ts`)
 - Paystack webhook signature verification, idempotent payment finalization, and renewal-reminder eligibility (`src/lib/payments/paystack.test.ts`, `src/server/billing.test.ts`)
+- Audit log writes and their failure-tolerance (`src/server/audit.test.ts`)
 - Rate limiting, usage limit enforcement, Gemini error classification, and small shared utilities
 
 `.github/workflows/ci.yml` runs `typecheck`, `lint`, `test`, and `build` on every push and pull request against `dev`, using dummy environment values (no real database or Gemini key is needed since nothing in the suite touches either).
@@ -350,11 +361,11 @@ Not yet covered: API route handlers (auth/ownership wiring, request/response sha
 - Password reset tokens are single-use, expire after 1 hour, and are stored as SHA-256 hashes (see [Password Reset & Email](#password-reset--email)). The forgot-password endpoint responds identically whether or not an account exists, to prevent email enumeration.
 - File uploads and exports use Supabase Storage in production (see [File Storage](#file-storage)).
 - Unhandled errors and explicitly-captured failures are reported to Sentry in production (see [Error Monitoring](#error-monitoring)).
+- Generation, edit, export, delete, and payment actions are recorded per-user (see [Audit Logging](#audit-logging)).
 
 Production improvements:
 
 - Add antivirus/malware scanning for uploaded files.
-- Add audit logs for generation, edits, exports, and downloads.
 - Add role-based access for teams.
 
 ## Exporting
