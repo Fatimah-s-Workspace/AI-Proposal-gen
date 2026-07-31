@@ -137,16 +137,6 @@ export async function generateProposalSectionDraft(input: {
         (await tx.proposalGeneration.count?.({
           where: { sectionId: input.sectionId },
         })) ?? 0;
-      const sectionRecord = await tx.proposalSection.update({
-        where: { id: input.sectionId },
-        data: {
-          title: parsed.title,
-          content: parsed.content,
-          status: "drafting",
-          version: { increment: 1 },
-          generatedAt: new Date(),
-        },
-      });
 
       await tx.proposalGeneration.create({
         data: {
@@ -189,7 +179,26 @@ export async function generateProposalSectionDraft(input: {
         },
       });
 
-      return sectionRecord;
+      // include here (rather than a separate findUnique after the
+      // transaction commits) is what lets callers that need the fresh
+      // generatedContents list - e.g. generateTenderSectionsForProject's
+      // loop over sections - skip an extra per-section round trip.
+      return tx.proposalSection.update({
+        where: { id: input.sectionId },
+        data: {
+          title: parsed.title,
+          content: parsed.content,
+          status: "drafting",
+          version: { increment: 1 },
+          generatedAt: new Date(),
+        },
+        include: {
+          generatedContents: {
+            orderBy: { createdAt: "desc" },
+            take: 5,
+          },
+        },
+      });
     });
 
     return {

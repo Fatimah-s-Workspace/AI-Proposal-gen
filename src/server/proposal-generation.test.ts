@@ -33,7 +33,25 @@ function createFakePrisma() {
   };
 
   const prisma: FakePrisma = {
-    $transaction: async (fn) => fn(prisma),
+    // Mirrors real Prisma's atomicity: if the callback throws, every write
+    // made through `tx` inside it is discarded, regardless of which
+    // statement ran first - this fake previously only "rolled back" by
+    // accident when the failing call happened to run before any writes.
+    $transaction: async (fn) => {
+      const snapshot = {
+        section: { ...state.section },
+        generation: state.generation ? { ...state.generation } : null,
+        generatedContents: [...state.generatedContents],
+      };
+      try {
+        return await fn(prisma);
+      } catch (error) {
+        state.section = snapshot.section;
+        state.generation = snapshot.generation;
+        state.generatedContents = snapshot.generatedContents;
+        throw error;
+      }
+    },
     proposalSection: {
       findUnique: async () => state.section,
       update: async ({ data }: { data: Record<string, unknown> }) => {

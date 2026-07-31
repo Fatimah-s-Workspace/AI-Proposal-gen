@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/session";
 import { buildTenderProposalPlan } from "@/features/proposals/tender-proposal";
-import { loadTenderProposalContext } from "@/server/tender-proposal";
+import {
+  mapProjectToTenderProposalContext,
+  tenderProposalContextInclude,
+} from "@/server/tender-proposal";
 
 export const dynamic = "force-dynamic";
 
@@ -19,39 +22,28 @@ export default async function WorkspacePage({
 }) {
   const user = await requireUser();
   const { projectId } = await params;
-  // These two queries are independent (each fetches its own Project shape
-  // with a different include), so run them in parallel instead of paying
-  // for two sequential round trips to the database.
-  const [project, proposalContext] = await Promise.all([
-    prisma.project.findFirst({
-      where: { id: projectId, userId: user.id },
-      include: {
-        requirements: {
-          orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
-        },
-        proposalSections: {
-          orderBy: { order: "asc" },
-          include: {
-            generatedContents: {
-              orderBy: { createdAt: "desc" },
-              take: 5,
-            },
+  // A single fetch covering everything this page and its proposal-context
+  // mapping need, rather than two separate Project queries with
+  // overlapping requirements/clauses/proposalSections includes.
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, userId: user.id },
+    include: {
+      ...tenderProposalContextInclude,
+      proposalSections: {
+        ...tenderProposalContextInclude.proposalSections,
+        include: {
+          generatedContents: {
+            orderBy: { createdAt: "desc" },
+            take: 5,
           },
         },
-        clauses: {
-          orderBy: { createdAt: "asc" },
-        },
-        generatedContents: {
-          where: { contentType: "clause_explanations" },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-        },
       },
-    }),
-    loadTenderProposalContext(projectId, user.id),
-  ]);
+    },
+  });
 
   if (!project) notFound();
+
+  const proposalContext = mapProjectToTenderProposalContext(project);
 
   const clauses = project.clauses.map((clause) => ({
     id: clause.id,
@@ -96,7 +88,7 @@ export default async function WorkspacePage({
     status: requirement.status,
     owner: requirement.owner,
   }));
-  const sectionPlan = proposalContext ? buildTenderProposalPlan(proposalContext) : [];
+  const sectionPlan = buildTenderProposalPlan(proposalContext);
 
   return (
     <div className="space-y-6">

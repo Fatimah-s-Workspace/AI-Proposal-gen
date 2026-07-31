@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import {
   buildTenderProposalAssistant,
@@ -7,40 +8,39 @@ import {
 import type { ExtractedRequirement } from "@/features/ai";
 import { generateProposalSectionDraft } from "@/server/proposal-generation";
 
-export async function loadTenderProposalContext(
-  projectId: string,
-  userId?: string,
-): Promise<TenderProposalContext | null> {
-  const project = await prisma.project.findFirst({
-    where: {
-      id: projectId,
-      ...(userId ? { userId } : {}),
-    },
+export const tenderProposalContextInclude = {
+  documents: {
+    orderBy: [
+      { isPrimary: "desc" },
+      { version: "desc" },
+      { createdAt: "desc" },
+    ],
     include: {
-      documents: {
-        orderBy: [
-          { isPrimary: "desc" },
-          { version: "desc" },
-          { createdAt: "desc" },
-        ],
-        include: {
-          parsedSections: { orderBy: { order: "asc" } },
-        },
-      },
-      requirements: {
-        orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
-      },
-      clauses: {
-        orderBy: [{ importance: "asc" }, { createdAt: "asc" }],
-      },
-      proposalSections: {
-        orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-      },
+      parsedSections: { orderBy: { order: "asc" } },
     },
-  });
+  },
+  requirements: {
+    orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+  },
+  clauses: {
+    orderBy: [{ importance: "asc" }, { createdAt: "asc" }],
+  },
+  proposalSections: {
+    orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+  },
+} satisfies Prisma.ProjectInclude;
 
-  if (!project) return null;
+type ProjectForTenderProposalContext = Prisma.ProjectGetPayload<{
+  include: typeof tenderProposalContextInclude;
+}>;
 
+// Pure mapper, split out from loadTenderProposalContext so callers that
+// already fetched the Project row for their own purposes (e.g. the
+// workspace page) can build the same TenderProposalContext shape without
+// paying for a second, largely-overlapping round trip to the database.
+export function mapProjectToTenderProposalContext(
+  project: ProjectForTenderProposalContext,
+): TenderProposalContext {
   return {
     project: {
       title: project.title,
@@ -115,6 +115,23 @@ export async function loadTenderProposalContext(
   };
 }
 
+export async function loadTenderProposalContext(
+  projectId: string,
+  userId?: string,
+): Promise<TenderProposalContext | null> {
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      ...(userId ? { userId } : {}),
+    },
+    include: tenderProposalContextInclude,
+  });
+
+  if (!project) return null;
+
+  return mapProjectToTenderProposalContext(project);
+}
+
 export async function syncProposalSectionsFromTender(projectId: string) {
   const context = await loadTenderProposalContext(projectId);
   if (!context) throw new Error("Project not found");
@@ -133,16 +150,22 @@ export async function syncProposalSectionsFromTender(projectId: string) {
     ]),
   );
   const plannedSlugs = new Set(plan.map((section) => section.slug));
-  const updatedSections = [];
 
-  for (const sectionPlan of plan) {
-    const existing =
-      existingBySlug.get(sectionPlan.slug) ||
-      existingSections.find((section) => section.slug === sectionPlan.slug);
+  const updatedSections = await Promise.all(
+    plan.map((sectionPlan) => {
+      const existing =
+        existingBySlug.get(sectionPlan.slug) ||
+        existingSections.find((section) => section.slug === sectionPlan.slug);
 
-    if (existing) {
-      updatedSections.push(
-        await prisma.proposalSection.update({
+      const include = {
+        generatedContents: {
+          orderBy: { createdAt: "desc" as const },
+          take: 5,
+        },
+      };
+
+      if (existing) {
+        return prisma.proposalSection.update({
           where: { id: existing.id },
           data: {
             title: sectionPlan.title,
@@ -153,49 +176,43 @@ export async function syncProposalSectionsFromTender(projectId: string) {
             prompt: sectionPlan.prompt,
             status: existing.content?.trim() ? existing.status : "not_started",
           },
-          include: {
-            generatedContents: {
-              orderBy: { createdAt: "desc" },
-              take: 5,
-            },
-          },
-        }),
-      );
-    } else {
-      updatedSections.push(
-        await prisma.proposalSection.create({
-          data: {
-            projectId,
-            title: sectionPlan.title,
-            slug: sectionPlan.slug,
-            sectionType: sectionPlan.sectionType,
-            order: sectionPlan.order,
-            wordTarget: sectionPlan.wordTarget,
-            prompt: sectionPlan.prompt,
-            status: "not_started",
-          },
-          include: {
-            generatedContents: {
-              orderBy: { createdAt: "desc" },
-              take: 5,
-            },
-          },
-        }),
-      );
-    }
-  }
+          include,
+        });
+      }
 
-  for (const section of existingSections) {
-    const hasContent = Boolean(section.content?.trim());
-    const hasVersions = section._count.generatedContents > 0;
-    if (
-      !plannedSlugs.has(section.sectionType) &&
-      !plannedSlugs.has(section.slug) &&
-      !hasContent &&
-      !hasVersions
-    ) {
-      await prisma.proposalSection.delete({ where: { id: section.id } });
-    }
+      return prisma.proposalSection.create({
+        data: {
+          projectId,
+          title: sectionPlan.title,
+          slug: sectionPlan.slug,
+          sectionType: sectionPlan.sectionType,
+          order: sectionPlan.order,
+          wordTarget: sectionPlan.wordTarget,
+          prompt: sectionPlan.prompt,
+          status: "not_started",
+        },
+        include,
+      });
+    }),
+  );
+
+  const staleSectionIds = existingSections
+    .filter((section) => {
+      const hasContent = Boolean(section.content?.trim());
+      const hasVersions = section._count.generatedContents > 0;
+      return (
+        !plannedSlugs.has(section.sectionType) &&
+        !plannedSlugs.has(section.slug) &&
+        !hasContent &&
+        !hasVersions
+      );
+    })
+    .map((section) => section.id);
+
+  if (staleSectionIds.length > 0) {
+    await prisma.proposalSection.deleteMany({
+      where: { id: { in: staleSectionIds } },
+    });
   }
 
   await prisma.generatedContent.create({
@@ -255,17 +272,9 @@ export async function generateTenderSectionsForProject(input: {
       customPrompt: input.customPrompt,
     });
 
-    updatedSections.push(
-      await prisma.proposalSection.findUniqueOrThrow({
-        where: { id: result.section.id },
-        include: {
-          generatedContents: {
-            orderBy: { createdAt: "desc" },
-            take: 5,
-          },
-        },
-      }),
-    );
+    // generateProposalSectionDraft's own update already includes
+    // generatedContents, so no separate re-fetch is needed here.
+    updatedSections.push(result.section);
   }
 
   const refreshedContext = await loadTenderProposalContext(
