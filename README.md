@@ -123,7 +123,7 @@ Uploaded documents are validated by MIME type, size, and content (magic-byte sni
 
 Parsed text and sections are stored on `TenderDocument` and `ParsedSection`. Procurement clauses are stored as `TenderClause`. Checklist items are stored as `Requirement`.
 
-Production improvement: add OCR for scanned PDFs, because scanned tenders may not contain machine-readable text.
+Scanned tenders may not contain machine-readable text - see [OCR spike: evaluated, not built](#ocr-spike-evaluated-not-built) for why an OCR fallback isn't in yet despite being technically straightforward.
 
 ### Background processing
 
@@ -362,6 +362,25 @@ Not yet covered: UI components. That's the natural next layer, likely via React 
 
 **A real bug this caught**: applying migrations to a genuinely fresh database (exactly what a new CI run or a new environment does) applied them out of order - `20260728123738_add_subscription_reminder_sent_at` sorted before `20260728130147_init` even though `init` has to run first (it creates the tables everything else alters). The cause was a timezone mismatch: the `init` baseline's timestamp was generated manually using local time, while every migration `prisma migrate dev` creates afterward uses UTC - on a UTC+1 machine, that's enough to flip the ordering. Fixed by renaming the migration folder to sort correctly and updating the `migration_name` recorded in both databases' `_prisma_migrations` tables to match. Worth knowing if you ever generate a migration folder name yourself instead of letting Prisma generate it.
 
+**Another one, found running the integration suite against a genuinely fresh database rather than trusting a single passing run**: the signup route checks its rate limit *before* validating input, so the "rejects invalid input" test still counted as a hit - 9 total hits against an 8-per-60s limit, all sharing one bucket because plain server-side `fetch()` never sends `x-forwarded-for`, which the rate limiter falls back to a fixed `"local"` key for. It only looked flaky: a slow first run let the 60s window expire before the 9th hit; a faster rerun hit the real limit and failed with a genuine 429. Fixed by sending a randomized `x-forwarded-for` per signup call in `integration-tests/helpers.ts`.
+
+## Query Performance
+
+Auditing the highest-traffic pages (dashboard, projects list, and especially the proposal workspace) turned up two real query-efficiency bugs, since fixed:
+
+- **Duplicate Project fetch on the workspace page.** It ran two separate `prisma.project.findFirst` queries with overlapping `requirements`/`clauses`/`proposalSections` includes - one for the page itself, one inside `loadTenderProposalContext()` for the AI assistant panel. `src/server/tender-proposal.ts` now exports a reusable `tenderProposalContextInclude` and a pure `mapProjectToTenderProposalContext()` mapper, so the workspace page fetches the Project once and derives both shapes from it.
+- **Per-item write loops in `syncProposalSectionsFromTender`.** Proposal sections were updated/created one `await` at a time in a `for` loop; they now run concurrently via `Promise.all`, and the loop that deleted stale sections one-by-one is now a single `deleteMany`. A related redundant re-fetch in `generateTenderSectionsForProject` - re-fetching each section right after generating it - was removed by having the draft-generation transaction return the section with `generatedContents` already included, instead of a second query after the fact.
+
+### Connection pooling
+
+Supabase's free tier has a hard ceiling of 60 concurrent database connections (`SHOW max_connections`). Checking `pg_stat_activity` in production showed the app's own traffic was using close to zero of those - the connections that did exist were entirely Supabase's own infrastructure (Supavisor, `pg_cron`, `pg_net`, PostgREST's authenticator, monitoring). Given that headroom, `connection_limit` on the pooled `DATABASE_URL` was raised from `1` to `3`: at `connection_limit=1`, every `Promise.all` in the codebase - including the ones above - still serialized on a single connection per warm serverless instance, so the parallelism only saved round-trip overhead, not real concurrency. `3` lets genuinely parallel queries run in parallel while staying safely under the ceiling even at a couple dozen concurrent Vercel instances.
+
+### OCR spike: evaluated, not built
+
+Scanned/photocopied tender PDFs have no embedded text layer, so `pdf-parse` returns near-empty text for them - and today, nothing detects that; the near-empty text silently flows into Gemini analysis as if it were real content. Before building an OCR fallback, I spiked whether Tesseract.js would actually be accurate enough to trust for compliance-critical data: took real tender PDFs from this app's own `uploads/`, rasterized them, applied simulated scan degradation (rotation skew, blur, noise, lossy re-encoding), ran Tesseract.js against both the clean and degraded versions, and scored the output against `pdf-parse`'s own text as ground truth.
+
+Result: ~90% word-level accuracy, which held up surprisingly well under degradation. But the failure mode that mattered more than the average: on one sample, OCR silently dropped an entire two-column table containing the submission deadline and budget range - exactly the kind of number a compliance tool can't afford to get wrong, and exactly the kind of small tabular fragment Tesseract's layout detection struggles with. Conclusion: OCR is technically viable and free (fits this project's zero-cost constraint), but shipping it safely needs two things the app doesn't have yet - detection of low-text-quality PDFs so OCR only runs when actually needed, and a "this was OCR'd, please verify" UI treatment rather than feeding OCR output straight into automated extraction. Tracked under Production Readiness below rather than rushed in.
+
 ## Security Notes
 
 - Protected pages call `requireUser()`.
@@ -407,7 +426,7 @@ This project is not fully production-ready yet.
 
 Before rolling out to real users, i will complete:
 
-- OCR for scanned PDF tenders.
+- OCR for scanned PDF tenders (evaluated via a spike, not shipped - see [OCR spike](#ocr-spike-evaluated-not-built)).
 - Prompt/cost observability, retries, and token budgeting for Gemini calls.
 - Automated tests for API route handlers and UI components (pure business logic is covered; see [Testing and CI](#testing-and-ci)).
 - A real job queue (e.g. Upstash QStash) if upload volume grows enough that background processing via `after()` within a single function invocation isn't sufficient - see [Background processing](#background-processing).
