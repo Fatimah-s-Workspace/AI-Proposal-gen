@@ -27,6 +27,41 @@ The project is designed as a practical AI product showcase: it demonstrates auth
 9. Users can review mapped requirements, related clauses, compliance issues, suggestions, and version history.
 10. Users export the final proposal to DOCX or PDF.
 
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Upload["1. Upload (synchronous)"]
+        A["Client uploads file"] --> B["Validate: MIME, size, magic bytes"]
+        B --> C["Store via storage abstraction<br/>Supabase Storage or local disk"]
+        C --> D["Create TenderDocument row<br/>parsingStatus = processing"]
+    end
+
+    D -.->|"response returns immediately"| E["Client polls GET /documents?ids=..."]
+
+    subgraph Background["2. Processing (deferred via Next.js after())"]
+        D --> F["Extract text<br/>pdf-parse / mammoth"]
+        F --> G{"Gemini configured<br/>and available?"}
+        G -->|"yes"| H["Gemini: sections, clauses,<br/>requirements, risk"]
+        G -->|"no / quota exceeded"| I["Rule-based pipeline<br/>pipeline.ts"]
+        H --> J["Compliance checklist<br/>+ clause explanations"]
+        I --> J
+        J --> K["parsingStatus = completed"]
+    end
+
+    K -.->|"polling picks this up"| E
+
+    subgraph Workspace["3. Proposal workspace"]
+        J --> L["AI-planned proposal sections"]
+        L --> M["Gemini draft or<br/>rule-based fallback draft"]
+        M --> N["Rich text editor<br/>manual edits + autosave"]
+    end
+
+    N --> O["Export: DOCX / PDF"]
+```
+
+The upload response returns as soon as the file is validated and stored - the slow part (AI analysis, clause/requirement extraction) runs afterward without blocking the request, and the client finds out via polling. See [Background processing](#background-processing) for why, and [Fallback Behavior](#fallback-behavior) for how every Gemini call site degrades to a working rule-based path instead of failing.
+
 ## Key Features
 
 - Project dashboard with compliance and usage metrics.
