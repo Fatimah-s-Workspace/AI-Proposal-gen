@@ -1,4 +1,5 @@
 import type { ParsedSection } from "@/features/ai";
+import { captureError } from "@/lib/monitoring";
 
 const emptyTextMessage =
   "No machine-readable text was found in this document. Upload a text-based PDF/DOCX or run OCR before final analysis.";
@@ -10,6 +11,13 @@ export async function extractTextFromBuffer(buffer: Buffer, mimeType: string, fi
       const parser = new PDFParse({ data: buffer });
       const result = await parser.getText();
       await parser.destroy();
+      if (!result.text) {
+        // pdf-parse succeeded but returned nothing - typically a scanned
+        // PDF with no embedded text layer, but reported so a spike in these
+        // is visible rather than silently indistinguishable from a real
+        // extraction failure below.
+        captureError(new Error("PDF text extraction returned empty text"), { fileName, mimeType });
+      }
       return cleanText(result.text || emptyTextMessage);
     }
 
@@ -26,6 +34,11 @@ export async function extractTextFromBuffer(buffer: Buffer, mimeType: string, fi
       return cleanText(buffer.toString("utf8"));
     }
   } catch (error) {
+    // Previously only console.error'd, which is nearly invisible on
+    // Vercel - a real extraction failure (as opposed to a genuinely
+    // scanned PDF, handled above) looked identical to a scanned document
+    // from the outside, with zero way to tell them apart after the fact.
+    captureError(error, { fileName, mimeType });
     console.error("Document text extraction failed", error);
   }
 
