@@ -7,27 +7,71 @@ datasource db {
 }
 
 model User {
-  id             String          @id @default(cuid())
-  name           String?
-  email          String          @unique
-  emailVerified  DateTime?
-  image          String?
-  hashedPassword String?
-  role           String          @default("user")
-  companyName    String?
-  country        String          @default("Nigeria")
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  accounts       Account[]
-  sessions       Session[]
-  projects       Project[]
-  exports        ExportHistory[]
+  id                  String               @id @default(cuid())
+  name                String?
+  email               String               @unique
+  emailVerified       DateTime?
+  image               String?
+  hashedPassword      String?
+  role                String               @default("user")
+  companyName         String?
+  country             String               @default("Nigeria")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  accounts            Account[]
+  sessions            Session[]
+  exports             ExportHistory[]
   proposalGenerations ProposalGeneration[]
-  subscription   Subscription?
-  usageTracking  UsageTracking[]
-  payments       Payment[]
-  auditLogs      AuditLog[]
+  auditLogs           AuditLog[]
+  memberships         Membership[]
 
+  @@index([email])
+}
+
+model Organization {
+  id            String               @id @default(cuid())
+  name          String
+  slug          String               @unique
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  memberships   Membership[]
+  invites       OrganizationInvite[]
+  projects      Project[]
+  subscription  Subscription?
+  payments      Payment[]
+  usageTracking UsageTracking[]
+  auditLogs     AuditLog[]
+}
+
+// role: "owner" | "admin" | "member"
+model Membership {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  role           String       @default("member")
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+// Not consumed yet (Phase 2 invite flow) - added now so the schema doesn't
+// need a second migration once invites are built. Follows the same
+// hash/expire/delete-on-use shape as VerificationToken.
+model OrganizationInvite {
+  id              String       @id @default(cuid())
+  organizationId  String
+  email           String
+  role            String       @default("member")
+  token           String       @unique
+  invitedByUserId String
+  expires         DateTime
+  createdAt       DateTime     @default(now())
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
   @@index([email])
 }
 
@@ -66,66 +110,66 @@ model VerificationToken {
 }
 
 model Project {
-  id                String             @id @default(cuid())
-  userId            String
-  title             String
-  clientName        String
-  opportunityType   String             @default("Tender")
-  sector            String             @default("General")
-  country           String             @default("Nigeria")
-  authority         String?
-  deadline          DateTime?
-  budgetRange       String?
-  status            String             @default("draft")
-  stage             String             @default("intake")
-  complianceScore   Int                @default(0)
-  summary           String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documents         TenderDocument[]
-  parsedSections    ParsedSection[]
-  requirements      Requirement[]
-  clauses           TenderClause[]
-  supportingEvidence SupportingEvidence[]
-  proposalSections  ProposalSection[]
-  generatedContents GeneratedContent[]
+  id                  String                  @id @default(cuid())
+  organizationId      String
+  title               String
+  clientName          String
+  opportunityType     String                  @default("Tender")
+  sector              String                  @default("General")
+  country             String                  @default("Nigeria")
+  authority           String?
+  deadline            DateTime?
+  budgetRange         String?
+  status              String                  @default("draft")
+  stage               String                  @default("intake")
+  complianceScore     Int                     @default(0)
+  summary             String?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documents           TenderDocument[]
+  parsedSections      ParsedSection[]
+  requirements        Requirement[]
+  clauses             TenderClause[]
+  supportingEvidence  SupportingEvidence[]
+  proposalSections    ProposalSection[]
+  generatedContents   GeneratedContent[]
   proposalGenerations ProposalGeneration[]
-  exports           ExportHistory[]
-  usageTracking     UsageTracking[]
-  complianceAnalyses ComplianceAnalysis[]
-  qualityReviews     ProposalQualityReview[]
-  proposalIssues     ProposalIssue[]
+  exports             ExportHistory[]
+  usageTracking       UsageTracking[]
+  complianceAnalyses  ComplianceAnalysis[]
+  qualityReviews      ProposalQualityReview[]
+  proposalIssues      ProposalIssue[]
 
-  @@index([userId])
+  @@index([organizationId])
   @@index([status])
 }
 
 model TenderDocument {
-  id            String        @id @default(cuid())
-  projectId     String
-  filename      String
-  originalName  String
-  mimeType      String
-  size          Int
-  storagePath   String
-  extractedText String?
-  parsingStatus String        @default("pending")
-  parsingError  String?
-  parsedAt      DateTime?
-  sections      Json?
-  status        String        @default("uploaded")
-  documentType  String        @default("tender_pack") // tender_pack, addendum, clarification, revision, other
-  isPrimary     Boolean       @default(false)
-  version       Int           @default(1)
-  parentId      String?       // For revisions/addendums, references the original document
-  revisionNotes String?       // Notes about what changed in this revision
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  parsedSections ParsedSection[]
-  requirements  Requirement[]
-  clauses       TenderClause[]
+  id                 String               @id @default(cuid())
+  projectId          String
+  filename           String
+  originalName       String
+  mimeType           String
+  size               Int
+  storagePath        String
+  extractedText      String?
+  parsingStatus      String               @default("pending")
+  parsingError       String?
+  parsedAt           DateTime?
+  sections           Json?
+  status             String               @default("uploaded")
+  documentType       String               @default("tender_pack") // tender_pack, addendum, clarification, revision, other
+  isPrimary          Boolean              @default(false)
+  version            Int                  @default(1)
+  parentId           String? // For revisions/addendums, references the original document
+  revisionNotes      String? // Notes about what changed in this revision
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  project            Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parsedSections     ParsedSection[]
+  requirements       Requirement[]
+  clauses            TenderClause[]
   supportingEvidence SupportingEvidence[]
 
   @@index([projectId])
@@ -134,46 +178,46 @@ model TenderDocument {
 }
 
 model ParsedSection {
-  id         String        @id @default(cuid())
+  id         String         @id @default(cuid())
   projectId  String
   documentId String
   title      String
   body       String
   order      Int
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  project    Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   document   TenderDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   clauses    TenderClause[]
 
+  @@unique([documentId, order])
   @@index([projectId])
   @@index([documentId])
-  @@unique([documentId, order])
 }
 
 model Requirement {
-  id                String          @id @default(cuid())
-  projectId         String
-  documentId        String?
-  sourceClauseId    String?
-  title             String
-  description       String
-  category          String          @default("mandatory")
-  confidence        Float           @default(0.0)
-  sourceClause      String?
-  priority          String          @default("medium")
-  status            String          @default("in_progress")
-  dueDate           DateTime?
-  evidenceNeeded    Json?
-  evidenceMatches   Json?
-  reviewNotes       String?
-  owner             String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  document          TenderDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
-  sourceClauseRef   TenderClause?   @relation(fields: [sourceClauseId], references: [id], onDelete: SetNull)
-  supportingEvidence SupportingEvidence[]
+  id                  String               @id @default(cuid())
+  projectId           String
+  documentId          String?
+  sourceClauseId      String?
+  title               String
+  description         String
+  category            String               @default("mandatory")
+  confidence          Float                @default(0.0)
+  sourceClause        String?
+  priority            String               @default("medium")
+  status              String               @default("in_progress")
+  dueDate             DateTime?
+  evidenceNeeded      Json?
+  evidenceMatches     Json?
+  reviewNotes         String?
+  owner               String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  project             Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document            TenderDocument?      @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  sourceClauseRef     TenderClause?        @relation(fields: [sourceClauseId], references: [id], onDelete: SetNull)
+  supportingEvidence  SupportingEvidence[]
   requirementMappings RequirementMapping[]
 
   @@index([projectId])
@@ -183,7 +227,7 @@ model Requirement {
 }
 
 model TenderClause {
-  id              String   @id @default(cuid())
+  id              String         @id @default(cuid())
   projectId       String
   documentId      String
   parsedSectionId String?
@@ -193,12 +237,12 @@ model TenderClause {
   clauseType      String?
   importance      String?
   riskLevel       String?
-  confidence      Float    @default(0.0)
+  confidence      Float          @default(0.0)
   actions         Json?
   actionsRequired Json?
   metadata        Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   project         Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   document        TenderDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   parsedSection   ParsedSection? @relation(fields: [parsedSectionId], references: [id], onDelete: SetNull)
@@ -211,19 +255,19 @@ model TenderClause {
 }
 
 model SupportingEvidence {
-  id            String          @id @default(cuid())
+  id            String         @id @default(cuid())
   projectId     String
   documentId    String
   requirementId String?
   detectedType  String
-  confidence    Float           @default(0.0)
-  status        String          @default("detected")
+  confidence    Float          @default(0.0)
+  status        String         @default("detected")
   notes         String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  document      TenderDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  requirement   Requirement?    @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document      TenderDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  requirement   Requirement?   @relation(fields: [requirementId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([documentId])
@@ -231,25 +275,25 @@ model SupportingEvidence {
 }
 
 model ProposalSection {
-  id                String             @id @default(cuid())
-  projectId         String
-  title             String
-  slug              String
-  order             Int
-  content           String?
-  sectionType       String             @default("custom")
-  version           Int                @default(1)
-  generatedAt       DateTime?
-  prompt            String?
-  status            String             @default("not_started")
-  wordTarget        Int                @default(350)              
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  generatedContents GeneratedContent[]
+  id                  String                  @id @default(cuid())
+  projectId           String
+  title               String
+  slug                String
+  order               Int
+  content             String?
+  sectionType         String                  @default("custom")
+  version             Int                     @default(1)
+  generatedAt         DateTime?
+  prompt              String?
+  status              String                  @default("not_started")
+  wordTarget          Int                     @default(350)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  project             Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  generatedContents   GeneratedContent[]
   proposalGenerations ProposalGeneration[]
   requirementMappings RequirementMapping[]
-  qualityReviews     ProposalQualityReview[]
+  qualityReviews      ProposalQualityReview[]
   proposalIssues      ProposalIssue[]
 
   @@index([projectId])
@@ -273,54 +317,54 @@ model RequirementMapping {
 }
 
 model ComplianceAnalysis {
-  id                String   @id @default(cuid())
-  projectId         String
-  overall           Int
-  technical         Int
-  completeness      Int
-  documentation     Int
-  details           Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  projectId     String
+  overall       Int
+  technical     Int
+  completeness  Int
+  documentation Int
+  details       Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
 }
 
 model ProposalQualityReview {
-  id                    String             @id @default(cuid())
-  projectId             String
-  sectionId             String?
-  qualityScore          Int
-  repetitivenessScore   Int
-  genericLanguageScore  Int
-  weakStatementScore    Int
-  recommendations       Json?
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
-  project               Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  section               ProposalSection?   @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  issues                ProposalIssue[]
+  id                   String           @id @default(cuid())
+  projectId            String
+  sectionId            String?
+  qualityScore         Int
+  repetitivenessScore  Int
+  genericLanguageScore Int
+  weakStatementScore   Int
+  recommendations      Json?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  project              Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  section              ProposalSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  issues               ProposalIssue[]
 
   @@index([projectId])
   @@index([sectionId])
 }
 
 model ProposalIssue {
-  id               String                @id @default(cuid())
-  projectId        String
-  sectionId        String?
-  qualityReviewId  String?
-  issueType        String
-  severity         String
-  affectedText     String
-  recommendation   String
-  details          Json?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  project          Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  section          ProposalSection?      @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  qualityReview    ProposalQualityReview? @relation(fields: [qualityReviewId], references: [id], onDelete: SetNull)
+  id              String                 @id @default(cuid())
+  projectId       String
+  sectionId       String?
+  qualityReviewId String?
+  issueType       String
+  severity        String
+  affectedText    String
+  recommendation  String
+  details         Json?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  project         Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  section         ProposalSection?       @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  qualityReview   ProposalQualityReview? @relation(fields: [qualityReviewId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([sectionId])
@@ -328,20 +372,20 @@ model ProposalIssue {
 }
 
 model ProposalGeneration {
-  id          String           @id @default(cuid())
-  projectId   String
-  sectionId   String?
-  userId      String?
-  provider    String           @default("gemini")
-  status      String           @default("pending")
-  prompt      String
-  response    String
-  metadata    Json?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  section     ProposalSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id        String           @id @default(cuid())
+  projectId String
+  sectionId String?
+  userId    String?
+  provider  String           @default("gemini")
+  status    String           @default("pending")
+  prompt    String
+  response  String
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  section   ProposalSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([sectionId])
@@ -384,20 +428,20 @@ model ExportHistory {
 }
 
 model Subscription {
-  id                   String   @id @default(cuid())
-  userId               String   @unique
-  plan                 String   @default("starter")
-  status               String   @default("trialing")
-  startedAt            DateTime @default(now())
+  id                   String       @id @default(cuid())
+  organizationId       String       @unique
+  plan                 String       @default("starter")
+  status               String       @default("trialing")
+  startedAt            DateTime     @default(now())
   renewsAt             DateTime?
-  monthlyProposalLimit Int      @default(10)
-  monthlyUploadLimit   Int      @default(100)
+  monthlyProposalLimit Int          @default(10)
+  monthlyUploadLimit   Int          @default(100)
   // Set when a renewal-reminder email has been sent for the current
   // renewsAt, so the daily cron doesn't re-send it every day until the
   // subscription actually expires. Cleared on every successful payment
   // (finalizePayment sets a new renewsAt), so it naturally resets each cycle.
   reminderSentAt       DateTime?
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 // One row per Paystack checkout attempt. `reference` is generated by us
@@ -405,51 +449,58 @@ model Subscription {
 // and finalize a payment idempotently from either the browser callback
 // redirect or the server-to-server webhook, whichever arrives first.
 model Payment {
-  id        String    @id @default(cuid())
-  userId    String
-  reference String    @unique
-  amount    Int
-  currency  String    @default("NGN")
-  plan      String
-  status    String    @default("pending")
-  paidAt    DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String       @id @default(cuid())
+  organizationId    String
+  // Who clicked checkout - distinct from organizationId (who's billed).
+  // Plain field, not a relation: purely informational, shouldn't block
+  // deleting a user who's since left the org.
+  initiatedByUserId String
+  reference         String       @unique
+  amount            Int
+  currency          String       @default("NGN")
+  plan              String
+  status            String       @default("pending")
+  paidAt            DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([organizationId])
 }
 
 // One row per notable action a user takes - generation, edit, export,
 // delete, payment. Written best-effort: logAudit() swallows its own
 // errors so a logging failure can never break the action it's recording.
 model AuditLog {
-  id         String   @id @default(cuid())
-  userId     String
-  action     String
-  entityType String?
-  entityId   String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  action         String
+  entityType     String?
+  entityId       String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([organizationId, createdAt])
 }
 
 model UsageTracking {
-  id            String   @id @default(cuid())
-  userId        String
-  projectId     String?
-  period        String
-  uploads       Int      @default(0)
-  aiGenerations Int      @default(0)
-  exports       Int      @default(0)
-  tokensUsed    Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project       Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  id             String       @id @default(cuid())
+  organizationId String
+  projectId      String?
+  period         String
+  uploads        Int          @default(0)
+  aiGenerations  Int          @default(0)
+  exports        Int          @default(0)
+  tokensUsed     Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  @@unique([userId, projectId, period])
-  @@index([userId])
+  @@unique([organizationId, projectId, period])
+  @@index([organizationId, period])
 }

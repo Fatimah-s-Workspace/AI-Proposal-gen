@@ -29,7 +29,7 @@ export async function PATCH(
   const existingProject = await prisma.project.findFirst({
     where: {
       id: projectId,
-      userId: user.id,
+      organizationId: user.organizationId,
     },
   });
 
@@ -67,7 +67,7 @@ export async function DELETE(
   const project = await prisma.project.findFirst({
     where: {
       id: projectId,
-      userId: user.id,
+      organizationId: user.organizationId,
     },
     include: {
       documents: true,

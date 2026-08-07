@@ -4,29 +4,39 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { PRO_PLAN, STARTER_PLAN } from "@/lib/payments/plans";
 
-type UserWithSubscription = Awaited<ReturnType<typeof fetchUser>>;
-
-function fetchUser(id: string) {
-  return prisma.user.findUnique({
-    where: { id },
-    include: { subscription: true },
+// A user has exactly one Organization (their personal workspace) until the
+// Phase 2 invite flow lets them join others. Resolving via the earliest
+// Membership is a cheap, indexed, always-correct default for now; once
+// switching orgs is possible this is where an active-org preference (e.g.
+// from the session) would be consulted instead.
+function fetchMembership(userId: string) {
+  return prisma.membership.findFirst({
+    where: { userId },
+    orderBy: { createdAt: "asc" },
+    include: {
+      user: true,
+      organization: { include: { subscription: true } },
+    },
   });
 }
+
+type Membership = NonNullable<Awaited<ReturnType<typeof fetchMembership>>>;
+type Organization = Membership["organization"];
 
 // There's no recurring billing/webhook for renewals yet - a pro
 // subscription just has a fixed renewsAt from the payment that activated
 // it. Rather than a cron job, expiry is checked lazily here: the very next
-// time the user's data is loaded after renewsAt has passed, revert them to
+// time the org's data is loaded after renewsAt has passed, revert it to
 // the starter plan. This only ever writes when a pro subscription has
 // actually expired, so it doesn't add a DB write to every normal request.
-async function downgradeIfExpired(user: UserWithSubscription): Promise<UserWithSubscription> {
-  const sub = user?.subscription;
+async function downgradeIfExpired(organization: Organization): Promise<Organization> {
+  const sub = organization.subscription;
   if (!sub || sub.plan !== PRO_PLAN.id || !sub.renewsAt || sub.renewsAt > new Date()) {
-    return user;
+    return organization;
   }
 
   const subscription = await prisma.subscription.update({
-    where: { userId: user!.id },
+    where: { organizationId: organization.id },
     data: {
       plan: STARTER_PLAN.id,
       status: "trialing",
@@ -36,16 +46,33 @@ async function downgradeIfExpired(user: UserWithSubscription): Promise<UserWithS
     },
   });
 
-  return { ...user!, subscription };
+  return { ...organization, subscription };
+}
+
+// Returns the current User merged with their active Organization context.
+// `subscription` stays available at the top level (mirroring the old
+// user.subscription shape) so existing call sites reading plan limits don't
+// need to change; `organizationId`/`organization`/`organizationRole` are the
+// new fields for org-scoped access checks.
+async function resolveCurrentUser(userId: string) {
+  const membership = await fetchMembership(userId);
+  if (!membership) return null;
+
+  const organization = await downgradeIfExpired(membership.organization);
+
+  return {
+    ...membership.user,
+    organizationId: membership.organizationId,
+    organizationRole: membership.role,
+    organization,
+    subscription: organization.subscription,
+  };
 }
 
 export async function getCurrentUser() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return null;
-
-  const user = await fetchUser(session.user.id);
-  if (!user) return null;
-  return downgradeIfExpired(user);
+  return resolveCurrentUser(session.user.id);
 }
 
 export async function requireUser() {
@@ -61,8 +88,7 @@ export async function requireApiUser() {
   if (!session?.user?.id) {
     return null;
   }
-
-  const user = await fetchUser(session.user.id);
-  if (!user) return null;
-  return downgradeIfExpired(user);
+  return resolveCurrentUser(session.user.id);
 }
+
+export type CurrentUser = NonNullable<Awaited<ReturnType<typeof resolveCurrentUser>>>;

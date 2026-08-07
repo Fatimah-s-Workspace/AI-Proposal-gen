@@ -57,13 +57,14 @@ export async function POST(
         rewritten = content;
     }
 
-    await incrementUsage(user.id, projectId, {
+    await incrementUsage(user.organizationId, projectId, {
       aiGenerations: 1,
       tokensUsed: Math.ceil((content.length + rewritten.length) / 4),
     });
 
     await logAudit({
       userId: user.id,
+    organizationId: user.organizationId,
       action: AUDIT_ACTIONS.proposalRewrite,
       entityType: "Project",
       entityId: projectId,

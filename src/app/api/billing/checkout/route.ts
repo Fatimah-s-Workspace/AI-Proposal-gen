@@ -30,7 +30,8 @@ export async function POST() {
 
   await prisma.payment.create({
     data: {
-      userId: user.id,
+      organizationId: user.organizationId,
+      initiatedByUserId: user.id,
       reference,
       amount: amountKobo,
       currency: "NGN",

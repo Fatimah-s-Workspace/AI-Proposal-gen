@@ -28,7 +28,7 @@ export default async function DashboardPage() {
   const currentPeriod = new Date().toISOString().slice(0, 7);
   const [projects, usageThisPeriod] = await Promise.all([
     prisma.project.findMany({
-      where: { userId: user.id },
+      where: { organizationId: user.organizationId },
       orderBy: { updatedAt: "desc" },
       take: RECENT_PROJECT_LIMIT,
       include: {
@@ -42,7 +42,7 @@ export default async function DashboardPage() {
       },
     }),
     prisma.usageTracking.findMany({
-      where: { userId: user.id, period: currentPeriod },
+      where: { organizationId: user.organizationId, period: currentPeriod },
     }),
   ]);
 

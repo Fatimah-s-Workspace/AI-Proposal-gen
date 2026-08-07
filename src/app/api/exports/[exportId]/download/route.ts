@@ -9,10 +9,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ exp
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { exportId } = await params;
+  // Access is by org membership, not by who originally ran the export - any
+  // teammate in the same org can download a colleague's export.
   const history = await prisma.exportHistory.findFirst({
     where: {
       id: exportId,
-      userId: user.id
+      project: { organizationId: user.organizationId },
     }
   });
 

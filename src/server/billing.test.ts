@@ -7,7 +7,7 @@ import type { prisma } from "@/server/db";
 import type { verifyTransaction } from "@/lib/payments/paystack";
 import type { sendEmail } from "@/lib/email";
 
-function createFakePrisma(initialPayment: { id?: string; reference: string; userId: string; amount: number; status: string }) {
+function createFakePrisma(initialPayment: { id?: string; reference: string; organizationId: string; initiatedByUserId: string; amount: number; status: string }) {
   const payments = new Map([[initialPayment.reference, { id: "payment-1", ...initialPayment }]]);
   const subscriptions = new Map<string, Record<string, unknown>>();
   const auditLogs: Record<string, unknown>[] = [];
@@ -29,13 +29,13 @@ function createFakePrisma(initialPayment: { id?: string; reference: string; user
         create,
         update,
       }: {
-        where: { userId: string };
+        where: { organizationId: string };
         create: Record<string, unknown>;
         update: Record<string, unknown>;
       }) => {
-        const existing = subscriptions.get(where.userId);
+        const existing = subscriptions.get(where.organizationId);
         const row = existing ? { ...existing, ...update } : { ...create };
-        subscriptions.set(where.userId, row);
+        subscriptions.set(where.organizationId, row);
         return row;
       },
     },
@@ -57,7 +57,7 @@ function fakeVerify(result: Awaited<ReturnType<typeof verifyTransaction>>) {
 }
 
 test("finalizePayment returns not_found for an unknown reference", async () => {
-  const { db } = createFakePrisma({ reference: "tf_known", userId: "user-1", amount: 500000, status: "pending" });
+  const { db } = createFakePrisma({ reference: "tf_known", organizationId: "org-1", initiatedByUserId: "user-1", amount: 500000, status: "pending" });
 
   const result = await finalizePayment("tf_missing", { prismaClient: db, verifyTransactionFn: fakeVerify({ ok: false, reason: "request_failed" }) });
 
@@ -65,7 +65,7 @@ test("finalizePayment returns not_found for an unknown reference", async () => {
 });
 
 test("finalizePayment is idempotent for an already-successful payment", async () => {
-  const { db } = createFakePrisma({ reference: "tf_done", userId: "user-1", amount: 500000, status: "success" });
+  const { db } = createFakePrisma({ reference: "tf_done", organizationId: "org-1", initiatedByUserId: "user-1", amount: 500000, status: "success" });
 
   const result = await finalizePayment("tf_done", { prismaClient: db, verifyTransactionFn: fakeVerify({ ok: false, reason: "request_failed" }) });
 
@@ -75,7 +75,8 @@ test("finalizePayment is idempotent for an already-successful payment", async ()
 test("finalizePayment activates the pro plan on a verified successful payment", async () => {
   const { db, subscriptions, auditLogs } = createFakePrisma({
     reference: "tf_success",
-    userId: "user-1",
+    organizationId: "org-1",
+    initiatedByUserId: "user-1",
     amount: PRO_PLAN.priceNgn * 100,
     status: "pending",
   });
@@ -93,7 +94,7 @@ test("finalizePayment activates the pro plan on a verified successful payment", 
   });
 
   assert.deepEqual(result, { ok: true, alreadyProcessed: false });
-  const subscription = subscriptions.get("user-1");
+  const subscription = subscriptions.get("org-1");
   assert.equal(subscription?.plan, PRO_PLAN.id);
   assert.equal(subscription?.status, "active");
   assert.equal(subscription?.monthlyUploadLimit, PRO_PLAN.monthlyUploadLimit);
@@ -105,7 +106,8 @@ test("finalizePayment activates the pro plan on a verified successful payment", 
 test("finalizePayment marks the payment failed when Paystack reports it wasn't successful", async () => {
   const { db, payments } = createFakePrisma({
     reference: "tf_abandoned",
-    userId: "user-1",
+    organizationId: "org-1",
+    initiatedByUserId: "user-1",
     amount: PRO_PLAN.priceNgn * 100,
     status: "pending",
   });
@@ -129,7 +131,8 @@ test("finalizePayment marks the payment failed when Paystack reports it wasn't s
 test("finalizePayment rejects a mismatched paid amount", async () => {
   const { db, payments } = createFakePrisma({
     reference: "tf_tampered",
-    userId: "user-1",
+    organizationId: "org-1",
+    initiatedByUserId: "user-1",
     amount: PRO_PLAN.priceNgn * 100,
     status: "pending",
   });
@@ -156,8 +159,12 @@ type FakeSubscription = {
   status: string;
   renewsAt: Date | null;
   reminderSentAt: Date | null;
-  user: { email: string };
+  organization: { memberships: Array<{ role: string; user: { email: string } }> };
 };
+
+function ownerOrg(email: string) {
+  return { memberships: [{ role: "owner", user: { email } }] };
+}
 
 function createReminderFakePrisma(subscriptions: FakeSubscription[]) {
   const rows = new Map(subscriptions.map((s) => [s.id, { ...s }]));
@@ -202,7 +209,7 @@ test("sendRenewalReminders emails a pro subscription renewing within the reminde
       status: "active",
       renewsAt: daysFromNow(2),
       reminderSentAt: null,
-      user: { email: "user@example.com" },
+      organization: ownerOrg("user@example.com"),
     },
   ]);
 
@@ -220,7 +227,7 @@ test("sendRenewalReminders skips a subscription outside the reminder window", as
       status: "active",
       renewsAt: daysFromNow(20),
       reminderSentAt: null,
-      user: { email: "user@example.com" },
+      organization: ownerOrg("user@example.com"),
     },
   ]);
 
@@ -237,7 +244,7 @@ test("sendRenewalReminders skips a subscription that already got its reminder th
       status: "active",
       renewsAt: daysFromNow(1),
       reminderSentAt: new Date(),
-      user: { email: "user@example.com" },
+      organization: ownerOrg("user@example.com"),
     },
   ]);
 
@@ -254,7 +261,7 @@ test("sendRenewalReminders does not mark reminderSentAt when the email fails to 
       status: "active",
       renewsAt: daysFromNow(1),
       reminderSentAt: null,
-      user: { email: "user@example.com" },
+      organization: ownerOrg("user@example.com"),
     },
   ]);
 

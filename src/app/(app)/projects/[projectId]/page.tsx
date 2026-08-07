@@ -21,7 +21,7 @@ export default async function ProjectPage({
   const user = await requireUser();
   const { projectId } = await params;
   const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: user.id },
+    where: { id: projectId, organizationId: user.organizationId },
     include: {
       documents: {
         orderBy: { createdAt: "desc" },

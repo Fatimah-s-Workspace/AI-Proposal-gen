@@ -27,7 +27,7 @@ export default async function ParsedOverviewPage({ params }: Props) {
   const user = await requireUser();
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: user.id },
+    where: { id: projectId, organizationId: user.organizationId },
     include: {
       documents: {
         orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],

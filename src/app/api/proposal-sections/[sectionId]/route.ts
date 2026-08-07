@@ -18,7 +18,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
     where: {
       id: sectionId,
       project: {
-        userId: user.id
+        organizationId: user.organizationId
       }
     }
   });
@@ -57,6 +57,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
 
   await logAudit({
     userId: user.id,
+    organizationId: user.organizationId,
     action: AUDIT_ACTIONS.proposalSectionEdit,
     entityType: "ProposalSection",
     entityId: sectionId,

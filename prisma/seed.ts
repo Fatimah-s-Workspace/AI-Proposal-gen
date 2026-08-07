@@ -25,32 +25,48 @@ async function main() {
       companyName: "TenderFlow Advisory",
       country: "Nigeria",
       hashedPassword: password,
-      subscription: {
-        create: {
-          plan: "starter",
-          status: "trialing",
-          monthlyProposalLimit: 10,
-          monthlyUploadLimit: 100,
-        },
-      },
-      usageTracking: {
-        create: {
-          period: new Date().toISOString().slice(0, 7),
-          uploads: 1,
-          aiGenerations: 6,
-          exports: 1,
-          tokensUsed: 2450,
-        },
-      },
-    },
-    include: {
-      projects: true,
     },
   });
 
+  const existingMembership = await prisma.membership.findFirst({
+    where: { userId: user.id },
+  });
+
+  const organization =
+    existingMembership?.organizationId != null
+      ? await prisma.organization.findUniqueOrThrow({
+          where: { id: existingMembership.organizationId },
+        })
+      : await prisma.organization.create({
+          data: {
+            name: "TenderFlow Advisory",
+            slug: "tenderflow-advisory-demo",
+            memberships: {
+              create: { userId: user.id, role: "owner" },
+            },
+            subscription: {
+              create: {
+                plan: "starter",
+                status: "trialing",
+                monthlyProposalLimit: 10,
+                monthlyUploadLimit: 100,
+              },
+            },
+            usageTracking: {
+              create: {
+                period: new Date().toISOString().slice(0, 7),
+                uploads: 1,
+                aiGenerations: 6,
+                exports: 1,
+                tokensUsed: 2450,
+              },
+            },
+          },
+        });
+
   const existingProject = await prisma.project.findFirst({
     where: {
-      userId: user.id,
+      organizationId: organization.id,
       title: "Solar Mini-Grid Grant Proposal",
     },
   });
@@ -59,7 +75,7 @@ async function main() {
 
   await prisma.project.create({
     data: {
-      userId: user.id,
+      organizationId: organization.id,
       title: "Solar Mini-Grid Grant Proposal",
       clientName: "Rural Electrification Agency",
       opportunityType: "Grant",

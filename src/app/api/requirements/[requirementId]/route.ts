@@ -16,7 +16,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ re
   const requirement = await prisma.requirement.findFirst({
     where: {
       id: requirementId,
-      project: { userId: user.id },
+      project: { organizationId: user.organizationId },
     },
   });
 

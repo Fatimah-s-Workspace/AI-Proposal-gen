@@ -39,14 +39,12 @@ function percentOf(part: number, total: number) {
 export default async function UsagePage() {
   const user = await requireUser();
 
-  const [usage, subscription] = await Promise.all([
-    prisma.usageTracking.findMany({
-      where: { userId: user.id },
-      orderBy: { period: "desc" },
-      take: 24,
-    }),
-    prisma.subscription.findUnique({ where: { userId: user.id } }),
-  ]);
+  const usage = await prisma.usageTracking.findMany({
+    where: { organizationId: user.organizationId },
+    orderBy: { period: "desc" },
+    take: 24,
+  });
+  const subscription = user.subscription;
 
   const currentPeriod = new Date().toISOString().slice(0, 7);
 

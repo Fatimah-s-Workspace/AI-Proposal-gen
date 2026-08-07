@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   }
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: user.id },
+    where: { id: projectId, organizationId: user.organizationId },
     include: {
       proposalSections: {
         orderBy: { order: "asc" }
@@ -45,12 +45,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
     }
   });
 
-  await incrementUsage(user.id, projectId, {
+  await incrementUsage(user.organizationId, projectId, {
     exports: 1
   });
 
   await logAudit({
     userId: user.id,
+    organizationId: user.organizationId,
     action: AUDIT_ACTIONS.exportCreate,
     entityType: "ExportHistory",
     entityId: history.id,

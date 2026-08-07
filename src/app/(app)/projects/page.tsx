@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 export default async function ProjectsPage() {
   const user = await requireUser();
   const projects = await prisma.project.findMany({
-    where: { userId: user.id },
+    where: { organizationId: user.organizationId },
     orderBy: { updatedAt: "desc" },
     include: {
       _count: {

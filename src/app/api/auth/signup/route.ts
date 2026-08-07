@@ -5,6 +5,7 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { captureError } from "@/lib/monitoring";
 import { sendEmail } from "@/lib/email";
 import { welcomeEmail } from "@/lib/email/templates";
+import { slugifyOrganizationName } from "@/lib/utils";
 
 export async function POST(request: Request) {
   try {
@@ -32,26 +33,39 @@ export async function POST(request: Request) {
     }
 
     const hashedPassword = await hash(parsed.data.password, 12);
+    const orgName = parsed.data.companyName || `${parsed.data.name}'s workspace`;
 
-    await prisma.user.create({
-      data: {
-        name: parsed.data.name,
-        companyName: parsed.data.companyName,
-        country: parsed.data.country,
-        email,
-        hashedPassword,
-        subscription: {
-          create: {
-            plan: "starter",
-            status: "trialing",
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: parsed.data.name,
+          companyName: parsed.data.companyName,
+          country: parsed.data.country,
+          email,
+          hashedPassword,
+        },
+      });
+
+      await tx.organization.create({
+        data: {
+          name: orgName,
+          slug: slugifyOrganizationName(orgName),
+          memberships: {
+            create: { userId: user.id, role: "owner" },
+          },
+          subscription: {
+            create: {
+              plan: "starter",
+              status: "trialing",
+            },
+          },
+          usageTracking: {
+            create: {
+              period: new Date().toISOString().slice(0, 7),
+            },
           },
         },
-        usageTracking: {
-          create: {
-            period: new Date().toISOString().slice(0, 7),
-          },
-        },
-      },
+      });
     });
 
     const { subject, text, html } = welcomeEmail(parsed.data.name);

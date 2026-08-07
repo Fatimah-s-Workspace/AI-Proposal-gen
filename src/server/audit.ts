@@ -19,6 +19,7 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 
 type LogAuditInput = {
   userId: string;
+  organizationId: string;
   action: AuditAction;
   entityType?: string;
   entityId?: string;
@@ -37,6 +38,7 @@ export async function logAudit(input: LogAuditInput, prismaClient?: typeof prism
     await db.auditLog.create({
       data: {
         userId: input.userId,
+        organizationId: input.organizationId,
         action: input.action,
         entityType: input.entityType,
         entityId: input.entityId,

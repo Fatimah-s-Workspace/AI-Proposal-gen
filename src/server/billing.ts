@@ -60,9 +60,9 @@ export async function finalizePayment(
       data: { status: "success", paidAt: new Date() },
     }),
     db.subscription.upsert({
-      where: { userId: payment.userId },
+      where: { organizationId: payment.organizationId },
       create: {
-        userId: payment.userId,
+        organizationId: payment.organizationId,
         plan: PRO_PLAN.id,
         status: "active",
         renewsAt,
@@ -84,7 +84,8 @@ export async function finalizePayment(
 
   await logAudit(
     {
-      userId: payment.userId,
+      userId: payment.initiatedByUserId,
+      organizationId: payment.organizationId,
       action: AUDIT_ACTIONS.paymentSuccess,
       entityType: "Payment",
       entityId: payment.id,
@@ -119,19 +120,29 @@ export async function sendRenewalReminders(deps?: {
       renewsAt: { gte: now, lte: windowEnd },
       reminderSentAt: null,
     },
-    include: { user: true },
+    include: {
+      organization: {
+        include: { memberships: { where: { role: "owner" }, take: 1, include: { user: true } } },
+      },
+    },
   });
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   let sent = 0;
 
   for (const subscription of subscriptions) {
+    // The org owner is who's responsible for billing - every org has
+    // exactly one (created by the personal-org backfill / signup), but
+    // skip defensively rather than crash the whole cron run over one row.
+    const owner = subscription.organization.memberships[0]?.user;
+    if (!owner) continue;
+
     const daysRemaining = Math.ceil(
       (subscription.renewsAt!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
     );
     const { subject, text, html } = renewalReminderEmail(daysRemaining, `${baseUrl}/usage`);
 
-    const result = await send({ to: subscription.user.email, subject, text, html });
+    const result = await send({ to: owner.email, subject, text, html });
     if (result.delivered) {
       await db.subscription.update({
         where: { id: subscription.id },

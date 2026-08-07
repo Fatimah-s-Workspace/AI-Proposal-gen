@@ -25,7 +25,7 @@ export async function GET(
 
     // Verify project ownership
     const project = await prisma.project.findFirst({
-      where: { id: projectId, userId: user.id },
+      where: { id: projectId, organizationId: user.organizationId },
       include: {
         requirements: true,
       },
@@ -79,7 +79,7 @@ export async function POST(
 
     // Verify project ownership
     const project = await prisma.project.findFirst({
-      where: { id: projectId, userId: user.id },
+      where: { id: projectId, organizationId: user.organizationId },
     });
 
     if (!project) {
