@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 export default function NewProjectPage() {
   return (
     <div className="space-y-8">
-      <div>
+      <div className="sticky top-14 lg:top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b pb-4 pt-5 mb-8">
         <Button
           asChild
           variant="ghost"

@@ -271,14 +271,14 @@ export default function HomePage() {
                 mandatory gets missed, and every submission starts from a
                 stronger draft.
               </p>
-              <div className="mt-6 flex items-center gap-3">
-                <Button asChild size="lg">
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Button asChild size="lg" className="w-full sm:w-auto">
                   <Link href="/auth/sign-up">
                     <UploadCloud className="size-4" />
                     Upload your first tender
                   </Link>
                 </Button>
-                <Button asChild variant="outline" size="lg">
+                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
                   <Link href="/auth/sign-in">Sign in</Link>
                 </Button>
               </div>

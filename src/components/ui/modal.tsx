@@ -34,12 +34,12 @@ export function Modal({ isOpen, onClose, title, description, children, className
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4"
       onClick={onClose}
     >
       <div
         className={cn(
-          "flex max-h-[85vh] w-full max-w-lg flex-col rounded-lg bg-background shadow-lg",
+          "flex h-full w-full max-h-full flex-col bg-background shadow-lg sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-lg sm:rounded-lg",
           className,
         )}
         onClick={(event) => event.stopPropagation()}

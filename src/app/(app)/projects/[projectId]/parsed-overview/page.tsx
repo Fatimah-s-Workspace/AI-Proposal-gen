@@ -106,7 +106,7 @@ export default async function ParsedOverviewPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="border-b pb-4 pt-5 mb-8">
         <Button asChild variant="ghost" size="sm" className="-ml-3 mb-2">
           <Link href={`/projects/${projectId}`}>
             <ArrowLeft />
@@ -129,7 +129,7 @@ export default async function ParsedOverviewPage({ params }: Props) {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <StatCard label="Parsed documents" value={parsedDocuments.length} />
         <StatCard label="Pending" value={pendingDocuments.length} />
         <StatCard label="Checklist items" value={requirements.length} />
@@ -137,11 +137,11 @@ export default async function ParsedOverviewPage({ params }: Props) {
       </div>
 
       <Tabs defaultValue="checklist" className="w-full">
-        <TabsList className="mb-6 flex h-auto flex-wrap justify-start">
-          <TabsTrigger value="checklist">Checklist</TabsTrigger>
-          <TabsTrigger value="clauses">Clauses</TabsTrigger>
-          <TabsTrigger value="sections">Parsed sections</TabsTrigger>
-          <TabsTrigger value="debug">Debug</TabsTrigger>
+        <TabsList className="sticky top-14 z-10 mb-6 flex h-auto w-full justify-start overflow-x-auto bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:top-0">
+          <TabsTrigger value="checklist" className="shrink-0">Checklist</TabsTrigger>
+          <TabsTrigger value="clauses" className="shrink-0">Clauses</TabsTrigger>
+          <TabsTrigger value="sections" className="shrink-0">Parsed sections</TabsTrigger>
+          <TabsTrigger value="debug" className="shrink-0">Debug</TabsTrigger>
         </TabsList>
 
         <TabsContent value="checklist">
@@ -214,9 +214,11 @@ function getActionCompletions(metadata: unknown) {
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <Card>
-      <CardContent className="p-5">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <p className="mt-2 text-3xl font-semibold tracking-normal">{value}</p>
+      <CardContent className="p-3 md:p-5">
+        <p className="text-xs text-muted-foreground md:text-sm">{label}</p>
+        <p className="mt-1 text-xl font-semibold tracking-normal md:mt-2 md:text-3xl">
+          {value}
+        </p>
       </CardContent>
     </Card>
   );

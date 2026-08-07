@@ -212,9 +212,10 @@ export function DocumentsTable({
               variant="destructive"
               size="sm"
               onClick={() => setIsBulkConfirmOpen(true)}
+              aria-label="Delete selected"
             >
-              <Trash2 className="mr-2 size-4" />
-              Delete selected
+              <Trash2 className="size-4 sm:mr-2" />
+              <span className="hidden sm:inline">Delete selected</span>
             </Button>
           </div>
         </div>

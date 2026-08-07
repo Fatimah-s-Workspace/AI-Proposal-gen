@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { TruncatedText } from "@/components/ui/truncated-text";
 
 type ParsedSection = {
@@ -46,14 +46,18 @@ export function ParsedSectionsViewer({ documents }: ParsedSectionsViewerProps) {
       {documents.map((doc) => (
         <Card key={doc.id}>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">{doc.originalName}</CardTitle>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <TruncatedText
+                  as="p"
+                  text={doc.originalName}
+                  className="text-lg font-semibold leading-none tracking-tight"
+                />
                 <p className="text-sm text-muted-foreground mt-1">
                   {doc.parsedSections.length} sections parsed
                 </p>
               </div>
-              <div className="flex flex-col gap-2 items-end">
+              <div className="flex flex-col gap-2 items-end shrink-0">
                 <Badge
                   variant={
                     parsingStatusColors[

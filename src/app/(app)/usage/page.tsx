@@ -125,7 +125,7 @@ export default async function UsagePage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <div>
+      <div className="sticky top-14 lg:top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b pb-4 pt-5 mb-8">
         <h1 className="text-3xl font-semibold tracking-tight">Usage</h1>
         <p className="mt-2 text-muted-foreground">
           Your plan limits for this month and activity across the last{" "}
@@ -297,51 +297,98 @@ export default async function UsagePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Period</TableHead>
-                  <TableHead className="text-right">Uploads</TableHead>
-                  <TableHead className="text-right">AI generations</TableHead>
-                  <TableHead className="text-right">Exports</TableHead>
-                  <TableHead className="text-right">Est. tokens</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {periods.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center">
-                      <p className="text-muted-foreground">
-                        No usage data available yet
-                      </p>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  periods.map((p) => (
-                    <TableRow key={p.period}>
-                      <TableCell className="font-medium">
-                        {formatPeriod(p.period)}
-                        {p.period === currentPeriod && (
-                          <Badge variant="outline" className="ml-2 text-[10px]">
-                            current
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">{p.uploads}</TableCell>
-                      <TableCell className="text-right">
-                        {p.aiGenerations}
-                      </TableCell>
-                      <TableCell className="text-right">{p.exports}</TableCell>
-                      <TableCell className="text-right">
-                        {p.tokensUsed.toLocaleString()}
-                      </TableCell>
+          {periods.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-muted-foreground">
+                No usage data available yet
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3 md:hidden">
+                {periods.map((p) => (
+                  <div key={p.period} className="rounded-xl border bg-background p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{formatPeriod(p.period)}</span>
+                      {p.period === currentPeriod && (
+                        <Badge variant="outline" className="text-[10px]">
+                          current
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Uploads</p>
+                        <p className="font-medium">{p.uploads}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          AI generations
+                        </p>
+                        <p className="font-medium">{p.aiGenerations}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Exports</p>
+                        <p className="font-medium">{p.exports}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Est. tokens
+                        </p>
+                        <p className="font-medium">
+                          {p.tokensUsed.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Period</TableHead>
+                      <TableHead className="text-right">Uploads</TableHead>
+                      <TableHead className="text-right">
+                        AI generations
+                      </TableHead>
+                      <TableHead className="text-right">Exports</TableHead>
+                      <TableHead className="text-right">Est. tokens</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {periods.map((p) => (
+                      <TableRow key={p.period}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {formatPeriod(p.period)}
+                            {p.period === currentPeriod && (
+                              <Badge variant="outline" className="text-[10px]">
+                                current
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {p.uploads}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {p.aiGenerations}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {p.exports}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {p.tokensUsed.toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

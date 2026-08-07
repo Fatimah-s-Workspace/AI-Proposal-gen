@@ -26,11 +26,11 @@ export function ConfirmDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg bg-background p-6 shadow-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4">
+      <div className="flex h-full w-full flex-col justify-center bg-background p-6 sm:h-auto sm:max-w-md sm:rounded-lg sm:shadow-lg">
         <h3 className="text-lg font-semibold">{title}</h3>
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-4 flex flex-col-reverse justify-end gap-2 sm:flex-row">
           <Button variant="outline" onClick={onClose} disabled={confirmDisabled}>
             {cancelText}
           </Button>

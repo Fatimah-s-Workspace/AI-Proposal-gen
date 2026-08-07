@@ -179,9 +179,9 @@ export function ClauseExplanationPanel({
           return (
             <Card key={clause.id} className="overflow-hidden">
               <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1 basis-full sm:basis-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
                       <Badge
                         variant={
                           importanceColors[

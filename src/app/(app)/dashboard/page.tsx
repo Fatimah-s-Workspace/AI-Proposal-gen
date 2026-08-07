@@ -90,7 +90,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 -mx-4 px-4 py-3 mb-8">
+      <div className="sticky top-14 lg:top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 -mx-4 px-4 py-3 mb-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-medium text-primary">
@@ -113,7 +113,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <MetricCard
           icon={FolderKanban}
           label="Active projects"
@@ -322,13 +322,17 @@ function MetricCard({
 }) {
   return (
     <Card>
-      <CardContent className="flex items-center gap-4 p-5">
-        <div className="flex size-11 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <Icon className="size-5" />
+      <CardContent className="flex items-center gap-3 p-3 md:gap-4 md:p-5">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary md:size-11">
+          <Icon className="size-4 md:size-5" />
         </div>
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="text-2xl font-semibold tracking-normal">{value}</p>
+        <div className="min-w-0">
+          <p className="text-xs leading-tight text-muted-foreground md:text-sm">
+            {label}
+          </p>
+          <p className="text-xl font-semibold tracking-normal md:text-2xl">
+            {value}
+          </p>
         </div>
       </CardContent>
     </Card>

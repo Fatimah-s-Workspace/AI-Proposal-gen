@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/session";
 
@@ -45,26 +46,28 @@ export default async function ExportPage({
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <Button asChild variant="ghost" size="sm" className="-ml-3 mb-2">
-            <Link href={`/projects/${project.id}`}>
-              <ArrowLeft />
-              Project
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-semibold tracking-normal">Export</h1>
-          <p className="mt-2 text-muted-foreground">{project.title}</p>
+      <div className="sticky top-14 lg:top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b pb-4 pt-5 mb-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <Button asChild variant="ghost" size="sm" className="-ml-3 mb-2">
+              <Link href={`/projects/${project.id}`}>
+                <ArrowLeft />
+                Project
+              </Link>
+            </Button>
+            <h1 className="text-3xl font-semibold tracking-normal">Export</h1>
+            <p className="mt-2 text-muted-foreground">{project.title}</p>
+          </div>
+          <Badge
+            variant={
+              draftCount === project.proposalSections.length
+                ? "success"
+                : "warning"
+            }
+          >
+            {draftCount}/{project.proposalSections.length} sections drafted
+          </Badge>
         </div>
-        <Badge
-          variant={
-            draftCount === project.proposalSections.length
-              ? "success"
-              : "warning"
-          }
-        >
-          {draftCount}/{project.proposalSections.length} sections drafted
-        </Badge>
       </div>
 
       <section className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
@@ -101,46 +104,76 @@ export default async function ExportPage({
         </CardHeader>
         <CardContent>
           {project.exports.length ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>File</TableHead>
-                  <TableHead>Format</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Download</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="space-y-3 md:hidden">
                 {project.exports.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <FileArchive className="size-4 text-primary" />
-                        <span className="font-medium">{item.fileName}</span>
+                  <div key={item.id} className="rounded-xl border bg-background p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-2">
+                        <FileArchive className="mt-0.5 size-4 shrink-0 text-primary" />
+                        <TruncatedText
+                          text={item.fileName}
+                          className="min-w-0 flex-1 font-medium"
+                        />
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {item.filePath}
-                      </p>
-                    </TableCell>
-                    <TableCell className="uppercase">{item.format}</TableCell>
-                    <TableCell>
-                      <Badge variant="success">{item.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(item.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      <Button asChild variant="outline" size="sm">
-                        <Link href={`/api/exports/${item.id}/download`}>
-                          Download
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                      <Badge variant="success" className="shrink-0">
+                        {item.status}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="uppercase">{item.format}</span>
+                      <span>{formatDate(item.createdAt)}</span>
+                    </div>
+                    <Button asChild variant="outline" size="sm" className="mt-3 w-full">
+                      <Link href={`/api/exports/${item.id}/download`}>
+                        Download
+                      </Link>
+                    </Button>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+
+              <Table className="hidden md:table">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>File</TableHead>
+                    <TableHead>Format</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Download</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {project.exports.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <FileArchive className="size-4 text-primary" />
+                          <span className="font-medium">{item.fileName}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {item.filePath}
+                        </p>
+                      </TableCell>
+                      <TableCell className="uppercase">{item.format}</TableCell>
+                      <TableCell>
+                        <Badge variant="success">{item.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(item.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/api/exports/${item.id}/download`}>
+                            Download
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </>
           ) : (
             <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
               DOCX and PDF exports will be listed here.

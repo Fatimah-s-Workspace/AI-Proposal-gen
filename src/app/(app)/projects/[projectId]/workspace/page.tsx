@@ -1,7 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ClausePanel } from "@/components/editor/clause-panel";
 import { ProposalEditor } from "@/components/editor/proposal-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -92,7 +91,7 @@ export default async function WorkspacePage({
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b pb-4 pt-5 mb-8">
+      <div className="border-b pb-4 pt-5 mb-8">
         <Button
           asChild
           variant="ghost"
@@ -114,17 +113,13 @@ export default async function WorkspacePage({
         <p className="mt-2 text-muted-foreground">{project.title}</p>
       </div>
 
-      <div className="grid gap-6">
-        <ProposalEditor
-          projectId={project.id}
-          sections={sectionProps}
-          sectionPlan={sectionPlan}
-          requirements={requirementProps}
-          clauses={clauses}
-        />
-
-        <ClausePanel clauses={clauses} />
-      </div>
+      <ProposalEditor
+        projectId={project.id}
+        sections={sectionProps}
+        sectionPlan={sectionPlan}
+        requirements={requirementProps}
+        clauses={clauses}
+      />
     </div>
   );
 }

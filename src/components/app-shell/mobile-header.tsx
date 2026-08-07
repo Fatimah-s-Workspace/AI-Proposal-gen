@@ -1,48 +1,51 @@
 "use client";
 
-import { FilePlus2, FolderKanban, Home } from "lucide-react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { Route } from "next";
-import { usePathname } from "next/navigation";
-import { ThemeToggle } from "@/components/app-shell/theme-toggle";
-import { cn } from "@/lib/utils";
-
-const mobileItems: Array<{ href: Route; icon: typeof Home; label: string }> = [
-  { href: "/dashboard", icon: Home, label: "Dashboard" },
-  { href: "/projects", icon: FolderKanban, label: "Projects" },
-  { href: "/projects/new", icon: FilePlus2, label: "New" },
-];
+import {
+  AccountMenuContent,
+  type AccountMenuUser,
+} from "@/components/app-shell/account-menu-content";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { initials } from "@/lib/utils";
 
 export function MobileHeader() {
-  const pathname = usePathname();
+  const [user, setUser] = useState<AccountMenuUser | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((res) => res.json())
+      .then((data) => setUser(data.user ?? null))
+      .catch(() => {});
+  }, []);
 
   return (
-    <header className="fixed top-0 z-40 w-full border-b bg-background/95 px-4 py-3 backdrop-blur lg:hidden">
-      <div className="mb-3 flex items-center justify-between">
-        <Link href="/dashboard" className="font-semibold">
-          TenderFlow AI
-        </Link>
-        <ThemeToggle />
-      </div>
-      <nav className="grid grid-cols-3 gap-2">
-        {mobileItems.map((item) => {
-          const Icon = item.icon;
-          const active = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs font-medium text-muted-foreground",
-                active && "border-primary bg-primary/10 text-primary",
-              )}
+    <header className="fixed top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden">
+      <Link href="/dashboard" className="flex items-center gap-2">
+        <div className="flex size-8 items-center justify-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">
+          TF
+        </div>
+        <span className="font-semibold tracking-normal">TenderFlow AI</span>
+      </Link>
+      {user && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-semibold"
             >
-              <Icon className="size-4" />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+              {initials(user.name)}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-64 space-y-4">
+            <AccountMenuContent user={user} />
+          </PopoverContent>
+        </Popover>
+      )}
     </header>
   );
 }

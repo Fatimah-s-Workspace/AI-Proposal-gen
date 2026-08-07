@@ -58,13 +58,18 @@ const ACTION_META: Record<string, { label: (metadata: Record<string, unknown>) =
   },
 };
 
+function formatTime(date: Date) {
+  return new Intl.DateTimeFormat("en-NG", { hour: "numeric", minute: "2-digit" }).format(date);
+}
+
 function formatRelativeDate(date: Date, now: number) {
   const diffDays = Math.floor((now - date.getTime()) / (24 * 60 * 60 * 1000));
-  if (diffDays <= 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays}d ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-  return new Intl.DateTimeFormat("en-NG", { day: "numeric", month: "short" }).format(date);
+  const time = formatTime(date);
+  if (diffDays <= 0) return `Today, ${time}`;
+  if (diffDays === 1) return `Yesterday, ${time}`;
+  if (diffDays < 7) return `${diffDays}d ago, ${time}`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago, ${time}`;
+  return `${new Intl.DateTimeFormat("en-NG", { day: "numeric", month: "short" }).format(date)}, ${time}`;
 }
 
 export default async function ActivityPage({
@@ -91,7 +96,7 @@ export default async function ActivityPage({
 
   return (
     <div className="space-y-6 pb-8">
-      <div>
+      <div className="sticky top-14 lg:top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b pb-4 pt-5 mb-8">
         <h1 className="text-3xl font-semibold tracking-normal">Activity</h1>
         <p className="mt-2 text-muted-foreground">
           A record of generation, edit, export, delete, and payment actions on your account.

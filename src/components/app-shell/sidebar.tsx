@@ -13,9 +13,10 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ThemeToggle } from "@/components/app-shell/theme-toggle";
-import { SignOutButton } from "@/components/app-shell/sign-out-button";
-import { Badge } from "@/components/ui/badge";
+import {
+  AccountMenuContent,
+  type AccountMenuUser,
+} from "@/components/app-shell/account-menu-content";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -33,17 +34,8 @@ import { cn, initials } from "@/lib/utils";
 
 import { useApp } from "@/providers/app-provider";
 
-type User = {
-  name?: string | null;
-  email?: string | null;
-  companyName?: string | null;
-  subscription?: {
-    plan: string;
-    status: string;
-  } | null;
-};
 type SidebarProps = {
-  user?: User | null;
+  user?: AccountMenuUser | null;
 };
 
 const navItems: Array<{
@@ -57,35 +49,6 @@ const navItems: Array<{
   { href: "/activity", label: "Activity", icon: History },
 ];
 
-function SignoutContent({ user }: { user: User }) {
-  return (
-    <>
-      <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-md bg-muted text-sm font-semibold">
-          {initials(user.name)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <TruncatedText
-            text={user.companyName || user.name || "TenderFlow user"}
-            className="text-sm font-medium"
-          />
-          <TruncatedText
-            text={user.email ?? ""}
-            className="text-xs text-muted-foreground"
-          />
-        </div>
-      </div>
-      <div className="flex items-center justify-between">
-        <Badge variant="secondary">
-          {user.subscription?.plan ?? "starter"}
-        </Badge>
-        <ThemeToggle />
-      </div>
-
-      <SignOutButton />
-    </>
-  );
-}
 export function Sidebar({ user: initialUser }: SidebarProps) {
   const pathname = usePathname();
   const { sidebarCollapsed, setSidebarCollapsed, projects, refreshProjects } =
@@ -349,11 +312,11 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
                 </button>
               </PopoverTrigger>
               <PopoverContent side="right">
-                <SignoutContent user={user} />
+                <AccountMenuContent user={user} />
               </PopoverContent>
             </Popover>
           ) : (
-            <SignoutContent user={user} />
+            <AccountMenuContent user={user} />
           )}
         </div>
       )}

@@ -27,12 +27,20 @@ import { useEditorStore } from "@/store/editor-store";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ClausePanel } from "@/components/editor/clause-panel";
 
 type Version = {
   id: string;
@@ -163,6 +171,18 @@ export function ProposalEditor({
     useState<DraftChecklistAnalysis | null>(null);
   const { selectedSectionId, setSelectedSectionId } = useEditorStore();
   const [activeTab, setActiveTab] = useState("suggestions");
+  // On mobile the section list, editor, AI assistant, and clause notes
+  // stack vertically with no lg:grid-cols to split them into columns - left
+  // unmanaged that's four long panels to scroll through just to get from
+  // picking a section to seeing its AI suggestions. This tracks which
+  // single panel mobile shows at a time; desktop ignores it and always
+  // shows all of them via lg:block, since only one instance of the editor
+  // can ever be mounted. Section choice itself isn't a tab on mobile - a
+  // dropdown drives the same selectedSectionId the desktop section list
+  // does, so switching sections doesn't cost a whole tab slot.
+  const [mobileView, setMobileView] = useState<
+    "draft" | "assistant" | "clauses"
+  >("draft");
   const initialSectionId = selectedSectionId ?? localSections[0]?.id ?? null;
   const selectedSection = useMemo(
     () =>
@@ -545,8 +565,38 @@ export function ProposalEditor({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_320px]">
-      <aside className="max-h-[calc(100svh-8rem)] space-y-2 overflow-y-auto pr-1 lg:sticky lg:top-24">
+    <div className="space-y-4">
+      <div className="sticky top-14 z-10 -mx-4 space-y-3 bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden">
+        <Select
+          value={selectedSection.id}
+          onValueChange={(value) => setSelectedSectionId(value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Choose a section" />
+          </SelectTrigger>
+          <SelectContent>
+            {localSections.map((section) => (
+              <SelectItem key={section.id} value={section.id}>
+                {section.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Tabs
+          value={mobileView}
+          onValueChange={(value) => setMobileView(value as typeof mobileView)}
+        >
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="draft">Draft</TabsTrigger>
+            <TabsTrigger value="assistant">Assistant</TabsTrigger>
+            <TabsTrigger value="clauses">Clauses</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_320px]">
+      <aside className="hidden max-h-[calc(100svh-8rem)] space-y-2 overflow-y-auto pr-1 lg:sticky lg:top-24 lg:block">
         {localSections.map((section) => {
           const plan = (assistantData?.sectionPlan ?? sectionPlan).find(
             (item) =>
@@ -580,10 +630,15 @@ export function ProposalEditor({
           );
         })}
       </aside>
-      <section className="overflow-hidden rounded-lg border bg-card">
+      <section
+        className={cn(
+          "overflow-hidden rounded-lg border bg-card lg:block",
+          mobileView !== "draft" && "hidden",
+        )}
+      >
         <div className="flex flex-col gap-3 border-b p-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h2 className="font-semibold tracking-normal">
                 {selectedSection.title}
               </h2>
@@ -718,7 +773,9 @@ export function ProposalEditor({
       </section>
 
       {/* New AI Features Sidebar */}
-      <aside className="space-y-4">
+      <aside
+        className={cn("space-y-4 lg:block", mobileView !== "assistant" && "hidden")}
+      >
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -1263,6 +1320,11 @@ export function ProposalEditor({
           </CardContent>
         </Card>
       </aside>
+      </div>
+
+      <div className={cn("lg:block", mobileView !== "clauses" && "hidden")}>
+        <ClausePanel clauses={clauses} />
+      </div>
     </div>
   );
 }

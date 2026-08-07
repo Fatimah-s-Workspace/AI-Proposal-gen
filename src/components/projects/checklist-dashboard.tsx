@@ -76,7 +76,7 @@ export function ChecklistDashboard({
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 md:grid-cols-5">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-5">
         <Metric label="Total" value={metrics.total} />
         <Metric label="Met" value={metrics.met} />
         <Metric label="In progress" value={metrics.inProgress} />
@@ -147,9 +147,15 @@ export function ChecklistDashboard({
                     {status.replace("_", " ")}
                   </Button>
                 ))}
-                <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(requirement)}>
-                  <Pencil />
-                  Edit
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditing(requirement)}
+                  aria-label="Edit"
+                >
+                  <Pencil className="sm:mr-2" />
+                  <span className="hidden sm:inline">Edit</span>
                 </Button>
                 <Button
                   type="button"
@@ -160,9 +166,10 @@ export function ChecklistDashboard({
                     setDeletingId(requirement.id);
                     setIsConfirmOpen(true);
                   }}
+                  aria-label="Delete"
                 >
-                  <Trash2 />
-                  Delete
+                  <Trash2 className="sm:mr-2" />
+                  <span className="hidden sm:inline">Delete</span>
                 </Button>
               </div>
             </div>
@@ -183,9 +190,11 @@ export function ChecklistDashboard({
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <p className="text-xs uppercase tracking-normal text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
+    <div className="rounded-lg border bg-card p-2.5 sm:p-4">
+      <p className="text-[10px] uppercase tracking-normal text-muted-foreground sm:text-xs">
+        {label}
+      </p>
+      <p className="mt-1 text-lg font-semibold sm:mt-2 sm:text-2xl">{value}</p>
     </div>
   );
 }

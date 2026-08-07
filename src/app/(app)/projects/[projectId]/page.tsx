@@ -103,7 +103,7 @@ export default async function ProjectPage({
       </section>
 
       <section className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2">
+        <Card className="min-w-0 md:col-span-2">
           <CardHeader>
             <CardTitle>Documents</CardTitle>
           </CardHeader>
@@ -137,7 +137,7 @@ export default async function ProjectPage({
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-1">
+        <Card className="min-w-0 md:col-span-1">
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>Parsed tender details</CardTitle>
             <Button asChild variant="outline" size="sm">
@@ -155,9 +155,10 @@ export default async function ProjectPage({
                   <p className="text-sm text-muted-foreground">
                     Latest parsed document
                   </p>
-                  <p className="mt-1 font-medium">
-                    {project.documents[0].originalName}
-                  </p>
+                  <TruncatedText
+                    text={project.documents[0].originalName}
+                    className="mt-1 font-medium"
+                  />
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="rounded-md border p-3">
