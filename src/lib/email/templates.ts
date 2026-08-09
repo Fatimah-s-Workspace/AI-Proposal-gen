@@ -36,6 +36,20 @@ export function welcomeEmail(name: string) {
   return { subject, text, html };
 }
 
+export function teamInviteEmail(inviterName: string, orgName: string, inviteUrl: string) {
+  const subject = `${inviterName} invited you to join ${orgName} on TenderFlow AI`;
+  const text = `${inviterName} invited you to join "${orgName}" on TenderFlow AI. Accept the invite (valid for 7 days): ${inviteUrl}\n\nIf you weren't expecting this, you can safely ignore this email.`;
+  const html = wrapper(
+    subject,
+    `<p style="font-size: 14px; color: #3f3f46;">${inviterName} invited you to join <strong>${orgName}</strong> on TenderFlow AI. This link is valid for 7 days.</p>
+     <p style="margin: 24px 0;">
+       <a href="${inviteUrl}" style="background: #18181b; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">Accept invite</a>
+     </p>
+     <p style="font-size: 12px; color: #71717a;">If you weren't expecting this, you can safely ignore this email.</p>`,
+  );
+  return { subject, text, html };
+}
+
 export function renewalReminderEmail(daysRemaining: number, billingUrl: string) {
   const subject =
     daysRemaining <= 0

@@ -96,6 +96,68 @@ export async function createPasswordResetToken(email: string) {
   return rawToken;
 }
 
+// Same reasoning as createPasswordResetToken: the raw invite token only
+// ever reaches the user through the emailed link (the DB stores its SHA-256
+// hash), so a test can't read one back out of an invite created through the
+// real API. This mirrors what POST /api/organization/invites does so tests
+// can exercise the accept flow with a usable raw token.
+export async function createInviteToken(input: {
+  organizationId: string;
+  email: string;
+  invitedByUserId: string;
+  role?: string;
+  expiresAt?: Date;
+}) {
+  const rawToken = randomBytes(32).toString("hex");
+  const hashedToken = createHash("sha256").update(rawToken).digest("hex");
+
+  await prisma.organizationInvite.create({
+    data: {
+      organizationId: input.organizationId,
+      email: input.email.toLowerCase(),
+      role: input.role ?? "member",
+      token: hashedToken,
+      invitedByUserId: input.invitedByUserId,
+      expires: input.expiresAt ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  return rawToken;
+}
+
+export async function getOrganizationFor(email: string) {
+  const membership = await prisma.membership.findFirst({
+    where: { user: { email: email.toLowerCase() } },
+    orderBy: { createdAt: "desc" },
+    include: { organization: true, user: true },
+  });
+  if (!membership) throw new Error(`getOrganizationFor: no membership for ${email}`);
+  return {
+    organizationId: membership.organizationId,
+    organizationName: membership.organization.name,
+    userId: membership.userId,
+    role: membership.role,
+  };
+}
+
 export async function cleanupUser(email: string) {
-  await prisma.user.deleteMany({ where: { email: email.toLowerCase() } });
+  // Deleting the User cascades to their Memberships but leaves behind the
+  // Organizations they owned (an Organization has no userId), so collect
+  // them first and remove any that end up with no members.
+  const normalized = email.toLowerCase();
+  const orgIds = (
+    await prisma.membership.findMany({
+      where: { user: { email: normalized } },
+      select: { organizationId: true },
+    })
+  ).map((membership) => membership.organizationId);
+
+  await prisma.user.deleteMany({ where: { email: normalized } });
+
+  for (const organizationId of orgIds) {
+    const remaining = await prisma.membership.count({ where: { organizationId } });
+    if (remaining === 0) {
+      await prisma.organization.deleteMany({ where: { id: organizationId } });
+    }
+  }
 }

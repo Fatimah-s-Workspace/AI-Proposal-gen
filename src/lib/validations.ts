@@ -23,6 +23,19 @@ export const resetPasswordSchema = z.object({
   password: z.string().min(8, "Use at least 8 characters")
 });
 
+export const inviteMemberSchema = z.object({
+  email: z.string().email("Enter a valid email"),
+  role: z.enum(["admin", "member"]).default("member")
+});
+
+export const acceptInviteSchema = z.object({
+  token: z.string().min(1, "Invite token is required")
+});
+
+export const updateMembershipSchema = z.object({
+  role: z.enum(["owner", "admin", "member"])
+});
+
 export const createProjectSchema = z.object({
   title: z.string().min(3, "Project title is required").max(160),
   clientName: z.string().min(2, "Issuer or client name is required").max(160),

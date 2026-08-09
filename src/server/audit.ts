@@ -13,6 +13,11 @@ export const AUDIT_ACTIONS = {
   proposalDraftAssistant: "proposal.draft_assistant",
   exportCreate: "export.create",
   paymentSuccess: "payment.success",
+  memberInvite: "member.invite",
+  memberInviteRevoke: "member.invite_revoke",
+  memberJoin: "member.join",
+  memberRoleUpdate: "member.role_update",
+  memberRemove: "member.remove",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

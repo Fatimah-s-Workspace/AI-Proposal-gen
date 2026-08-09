@@ -4,15 +4,16 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { PRO_PLAN, STARTER_PLAN } from "@/lib/payments/plans";
 
-// A user has exactly one Organization (their personal workspace) until the
-// Phase 2 invite flow lets them join others. Resolving via the earliest
-// Membership is a cheap, indexed, always-correct default for now; once
-// switching orgs is possible this is where an active-org preference (e.g.
-// from the session) would be consulted instead.
+// A user can belong to more than one Organization once they've accepted an
+// invite, but there's no org switcher yet - so the most recently joined
+// membership is treated as active. This makes "accept an invite" behave the
+// way you'd expect (you land in the team you just joined) without a
+// switcher existing yet; once one does, this is where an explicit
+// active-org preference (e.g. from the session) would be consulted instead.
 function fetchMembership(userId: string) {
   return prisma.membership.findFirst({
     where: { userId },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     include: {
       user: true,
       organization: { include: { subscription: true } },

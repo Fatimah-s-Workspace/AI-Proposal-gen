@@ -6,6 +6,7 @@ import {
   FolderKanban,
   History,
   Home,
+  Users,
   ChevronsRightIcon,
   ChevronsLeftIcon,
 } from "lucide-react";
@@ -47,6 +48,7 @@ const navItems: Array<{
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/usage", label: "Usage", icon: BarChart3 },
   { href: "/activity", label: "Activity", icon: History },
+  { href: "/settings/team", label: "Team", icon: Users },
 ];
 
 export function Sidebar({ user: initialUser }: SidebarProps) {

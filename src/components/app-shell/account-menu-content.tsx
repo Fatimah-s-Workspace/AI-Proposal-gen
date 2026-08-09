@@ -1,8 +1,11 @@
 "use client";
 
+import { Users } from "lucide-react";
+import Link from "next/link";
 import { ThemeToggle } from "@/components/app-shell/theme-toggle";
 import { SignOutButton } from "@/components/app-shell/sign-out-button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { initials } from "@/lib/utils";
 
@@ -40,6 +43,17 @@ export function AccountMenuContent({ user }: { user: AccountMenuUser }) {
         </Badge>
         <ThemeToggle />
       </div>
+
+      <Button
+        asChild
+        variant="ghost"
+        className="w-full justify-start lg:hidden"
+      >
+        <Link href="/settings/team">
+          <Users />
+          Team
+        </Link>
+      </Button>
 
       <SignOutButton />
     </>
