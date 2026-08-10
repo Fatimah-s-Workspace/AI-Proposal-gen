@@ -24,9 +24,10 @@ type Project = {
 
 type ProjectHeaderProps = {
   project: Project;
+  canDelete?: boolean;
 };
 
-export function ProjectHeader({ project }: ProjectHeaderProps) {
+export function ProjectHeader({ project, canDelete = true }: ProjectHeaderProps) {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -90,15 +91,17 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
             <Button asChild variant="outline" size="sm">
               <a href={`/projects/${project.id}/edit`}>Edit project</a>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowDeleteConfirm(true)}
-              className="text-destructive hover:text-destructive"
-            >
-              <Trash2 className="size-4 mr-2" />
-              Delete Project
-            </Button>
+            {canDelete ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="text-destructive hover:text-destructive"
+              >
+                <Trash2 className="size-4 mr-2" />
+                Delete Project
+              </Button>
+            ) : null}
             <Button asChild variant="outline">
               <a href={`/projects/${project.id}/export`}>Export</a>
             </Button>

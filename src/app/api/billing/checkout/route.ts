@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { canManageBilling } from "@/server/permissions";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { hasPaystackKey, initializeTransaction } from "@/lib/payments/paystack";
 import { PRO_PLAN } from "@/lib/payments/plans";
@@ -9,6 +10,15 @@ import { captureError } from "@/lib/monitoring";
 export async function POST() {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  // The subscription covers the whole organization, so anyone who could
+  // start a checkout would be committing the org's money - keep that with
+  // the owner rather than every member.
+  if (!canManageBilling(user.organizationRole)) {
+    return Response.json(
+      { error: "Only the organization owner can manage billing" },
+      { status: 403 },
+    );
+  }
 
   const limit = await rateLimit(`billing:checkout:${user.id}`, 5, 60_000);
   if (!limit.allowed) return rateLimitResponse();

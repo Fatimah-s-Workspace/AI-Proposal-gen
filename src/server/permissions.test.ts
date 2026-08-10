@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { canAssignRole, canManageBilling, canManageMembers } from "./permissions";
+import {
+  canAssignRole,
+  canDeleteDocuments,
+  canDeleteProjects,
+  canManageBilling,
+  canManageMembers,
+} from "./permissions";
 
 test("owners and admins can manage members, plain members cannot", () => {
   assert.equal(canManageMembers("owner"), true);
@@ -36,8 +42,25 @@ test("a plain member cannot assign roles at all", () => {
   assert.equal(canAssignRole("member", "member", "member"), false);
 });
 
+test("only owners and admins can delete projects and documents", () => {
+  assert.equal(canDeleteProjects("owner"), true);
+  assert.equal(canDeleteProjects("admin"), true);
+  assert.equal(canDeleteDocuments("owner"), true);
+  assert.equal(canDeleteDocuments("admin"), true);
+});
+
+test("a member cannot delete projects or documents", () => {
+  // The invite dialog promises members can "create and edit projects" -
+  // deleting cascades away documents, requirements, drafts, and exports,
+  // so it stays with owners and admins.
+  assert.equal(canDeleteProjects("member"), false);
+  assert.equal(canDeleteDocuments("member"), false);
+});
+
 test("an unknown role is treated as unprivileged", () => {
   assert.equal(canManageMembers("viewer"), false);
   assert.equal(canManageBilling("viewer"), false);
   assert.equal(canAssignRole("viewer", "member", "member"), false);
+  assert.equal(canDeleteProjects("viewer"), false);
+  assert.equal(canDeleteDocuments("viewer"), false);
 });

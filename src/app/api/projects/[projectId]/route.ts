@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { canDeleteProjects } from "@/server/permissions";
 import { createProjectSchema } from "@/lib/validations";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { deleteStoredFile } from "@/lib/storage";
@@ -61,6 +62,12 @@ export async function DELETE(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canDeleteProjects(user.organizationRole)) {
+    return Response.json(
+      { error: "Only owners and admins can delete projects" },
+      { status: 403 },
+    );
+  }
 
   const { projectId } = await params;
 

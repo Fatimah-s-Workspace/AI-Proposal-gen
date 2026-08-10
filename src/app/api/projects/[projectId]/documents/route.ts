@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { canDeleteDocuments } from "@/server/permissions";
 import { checkUsageLimit, incrementUsage, usageLimitResponse } from "@/server/usage";
 import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
@@ -41,6 +42,12 @@ export async function DELETE(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canDeleteDocuments(user.organizationRole)) {
+    return Response.json(
+      { error: "Only owners and admins can delete documents" },
+      { status: 403 },
+    );
+  }
 
   const { projectId } = await params;
   const parsed = bulkDeleteSchema.safeParse(await request.json().catch(() => null));

@@ -49,6 +49,7 @@ type Document = {
 type DocumentsTableProps = {
   documents: Document[];
   projectId: string;
+  canDelete?: boolean;
   onMarkPrimary?: (documentId: string) => void;
 };
 
@@ -69,6 +70,7 @@ function formatDate(date: Date | null) {
 export function DocumentsTable({
   documents,
   projectId,
+  canDelete = true,
   onMarkPrimary,
 }: DocumentsTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -194,7 +196,7 @@ export function DocumentsTable({
 
   return (
     <>
-      {selectedIds.size > 0 && (
+      {canDelete && selectedIds.size > 0 && (
         <div className="mb-3 flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2">
           <p className="text-sm">
             {selectedIds.size} document{selectedIds.size !== 1 ? "s" : ""}{" "}
@@ -233,6 +235,7 @@ export function DocumentsTable({
                         toggleSelectAllVisible(checked as boolean)
                       }
                       aria-label="Select all documents on this page"
+                      disabled={!canDelete}
                     />
                   </TableHead>
                   <TableHead>File</TableHead>
@@ -259,6 +262,7 @@ export function DocumentsTable({
                           toggleSelected(document.id, checked as boolean)
                         }
                         aria-label={`Select ${document.originalName}`}
+                        disabled={!canDelete}
                       />
                     </TableCell>
                     <TableCell className="max-w-64">
@@ -357,14 +361,16 @@ export function DocumentsTable({
                               </TooltipContent>
                             </Tooltip>
                           )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openConfirm(document.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openConfirm(document.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -388,6 +394,7 @@ export function DocumentsTable({
                         toggleSelected(document.id, checked as boolean)
                       }
                       aria-label={`Select ${document.originalName}`}
+                      disabled={!canDelete}
                       className="shrink-0"
                     />
                     <FileText className="size-4 text-primary shrink-0" />
@@ -437,13 +444,15 @@ export function DocumentsTable({
                       </Button>
                     )}
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => openConfirm(document.id)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  {canDelete && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openConfirm(document.id)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

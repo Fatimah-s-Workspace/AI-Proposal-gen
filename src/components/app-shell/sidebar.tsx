@@ -18,6 +18,7 @@ import {
   AccountMenuContent,
   type AccountMenuUser,
 } from "@/components/app-shell/account-menu-content";
+import { OrganizationSwitcher } from "@/components/organization/organization-switcher";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -115,6 +116,7 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
             )}
           </Button>
         </div>
+        {!sidebarCollapsed && <OrganizationSwitcher className="mt-4" />}
       </div>
       <TooltipProvider>
         <nav className="flex-1 space-y-1 p-3">

@@ -1,23 +1,41 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { PRO_PLAN, STARTER_PLAN } from "@/lib/payments/plans";
 
-// A user can belong to more than one Organization once they've accepted an
-// invite, but there's no org switcher yet - so the most recently joined
-// membership is treated as active. This makes "accept an invite" behave the
-// way you'd expect (you land in the team you just joined) without a
-// switcher existing yet; once one does, this is where an explicit
-// active-org preference (e.g. from the session) would be consulted instead.
-function fetchMembership(userId: string) {
+export const ACTIVE_ORG_COOKIE = "tf_active_org";
+
+const membershipInclude = {
+  user: true,
+  organization: { include: { subscription: true } },
+} as const;
+
+// The active organization comes from a cookie the switcher sets, but the
+// cookie is only ever a *hint* - it's client-controlled, so the membership
+// is re-checked here on every request. An unknown or no-longer-valid id
+// (left over after being removed from a team) silently falls back rather
+// than erroring, so a stale cookie can never lock someone out or leak
+// another org's data.
+async function fetchMembership(userId: string) {
+  const activeOrgId = (await cookies()).get(ACTIVE_ORG_COOKIE)?.value;
+
+  if (activeOrgId) {
+    const preferred = await prisma.membership.findUnique({
+      where: { userId_organizationId: { userId, organizationId: activeOrgId } },
+      include: membershipInclude,
+    });
+    if (preferred) return preferred;
+  }
+
+  // No preference yet (or it's stale): the most recently joined membership
+  // is the sensible default, so accepting an invite lands you in the team
+  // you just joined.
   return prisma.membership.findFirst({
     where: { userId },
     orderBy: { createdAt: "desc" },
-    include: {
-      user: true,
-      organization: { include: { subscription: true } },
-    },
+    include: membershipInclude,
   });
 }
 
@@ -93,3 +111,20 @@ export async function requireApiUser() {
 }
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof resolveCurrentUser>>>;
+
+// Every organization the user belongs to, for the switcher. Ordered oldest
+// first so their original personal workspace stays at the top rather than
+// jumping around as they join teams.
+export async function listUserOrganizations(userId: string) {
+  const memberships = await prisma.membership.findMany({
+    where: { userId },
+    orderBy: { createdAt: "asc" },
+    include: { organization: { select: { id: true, name: true } } },
+  });
+
+  return memberships.map((membership) => ({
+    organizationId: membership.organizationId,
+    name: membership.organization.name,
+    role: membership.role,
+  }));
+}

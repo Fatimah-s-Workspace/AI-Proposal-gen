@@ -18,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { UpgradeCard } from "@/components/billing/upgrade-card";
+import { canManageBilling } from "@/server/permissions";
 import { PRO_PLAN } from "@/lib/payments/plans";
 
 export const dynamic = "force-dynamic";
@@ -179,13 +180,21 @@ export default async function UsagePage() {
         </CardContent>
       </Card>
 
-      {subscription?.plan !== PRO_PLAN.id && (
-        <UpgradeCard
-          priceNgn={PRO_PLAN.priceNgn}
-          uploadLimit={PRO_PLAN.monthlyUploadLimit}
-          proposalLimit={PRO_PLAN.monthlyProposalLimit}
-        />
-      )}
+      {subscription?.plan !== PRO_PLAN.id &&
+        (canManageBilling(user.organizationRole) ? (
+          <UpgradeCard
+            priceNgn={PRO_PLAN.priceNgn}
+            uploadLimit={PRO_PLAN.monthlyUploadLimit}
+            proposalLimit={PRO_PLAN.monthlyProposalLimit}
+          />
+        ) : (
+          <Card>
+            <CardContent className="p-5 text-sm text-muted-foreground">
+              These limits apply to the whole workspace. Ask an owner to upgrade
+              the plan if you need more headroom.
+            </CardContent>
+          </Card>
+        ))}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => (

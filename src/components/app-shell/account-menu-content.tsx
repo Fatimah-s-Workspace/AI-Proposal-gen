@@ -4,6 +4,7 @@ import { Users } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/app-shell/theme-toggle";
 import { SignOutButton } from "@/components/app-shell/sign-out-button";
+import { OrganizationSwitcher } from "@/components/organization/organization-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TruncatedText } from "@/components/ui/truncated-text";
@@ -43,6 +44,8 @@ export function AccountMenuContent({ user }: { user: AccountMenuUser }) {
         </Badge>
         <ThemeToggle />
       </div>
+
+      <OrganizationSwitcher className="lg:hidden" />
 
       <Button
         asChild
