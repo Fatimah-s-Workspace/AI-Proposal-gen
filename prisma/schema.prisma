@@ -13,7 +13,6 @@ model User {
   emailVerified       DateTime?
   image               String?
   hashedPassword      String?
-  role                String               @default("user")
   companyName         String?
   country             String               @default("Nigeria")
   createdAt           DateTime             @default(now())
@@ -24,6 +23,7 @@ model User {
   proposalGenerations ProposalGeneration[]
   auditLogs           AuditLog[]
   memberships         Membership[]
+  sentInvites         OrganizationInvite[]
 
   @@index([email])
 }
@@ -66,13 +66,19 @@ model OrganizationInvite {
   email           String
   role            String       @default("member")
   token           String       @unique
-  invitedByUserId String
+  // Nullable with onDelete: SetNull rather than Cascade - the invite grants
+  // access to the organization, not to the person who sent it, so an admin
+  // leaving shouldn't silently revoke invites they'd already issued. The
+  // invite page falls back to "Someone" when this is null.
+  invitedByUserId String?
   expires         DateTime
   createdAt       DateTime     @default(now())
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy       User?        @relation(fields: [invitedByUserId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([email])
+  @@index([invitedByUserId])
 }
 
 model Account {

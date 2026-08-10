@@ -47,7 +47,13 @@ export default async function InvitePage({
 
   const invite = await prisma.organizationInvite.findUnique({
     where: { token: hashedToken },
-    include: { organization: { select: { name: true } } },
+    include: {
+      organization: { select: { name: true } },
+      // Joined rather than fetched separately: the relation is nullable
+      // (the inviter may have since been deleted), so this resolves to null
+      // instead of needing a guarded second query.
+      invitedBy: { select: { name: true, email: true } },
+    },
   });
 
   if (!invite) {
@@ -62,11 +68,7 @@ export default async function InvitePage({
     );
   }
 
-  const inviter = await prisma.user.findUnique({
-    where: { id: invite.invitedByUserId },
-    select: { name: true, email: true },
-  });
-  const inviterName = inviter?.name ?? inviter?.email ?? "Someone";
+  const inviterName = invite.invitedBy?.name ?? invite.invitedBy?.email ?? "Someone";
 
   const user = await getCurrentUser();
   const returnTo = `/invite/${token}`;

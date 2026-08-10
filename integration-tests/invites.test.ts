@@ -147,6 +147,48 @@ test("the invited user can accept, and the token is single-use", async (t) => {
   assert.equal(replay.status, 404);
 });
 
+test("an invite outlives the person who sent it", async (t) => {
+  const inviter = await signUpAndSignIn();
+  const invitee = await signUpAndSignIn();
+  t.after(() => cleanupUser(invitee.email));
+
+  const org = await getOrganizationFor(inviter.email);
+  const rawToken = await createInviteToken({
+    organizationId: org.organizationId,
+    email: invitee.email,
+    invitedByUserId: org.userId,
+  });
+
+  // A second owner, so removing the inviter doesn't take the whole
+  // organization (and its invites) down by cascade.
+  const survivor = await signUpAndSignIn();
+  t.after(() => cleanupUser(survivor.email));
+  const survivorUser = await prisma.user.findUnique({
+    where: { email: survivor.email.toLowerCase() },
+  });
+  await prisma.membership.create({
+    data: { userId: survivorUser!.id, organizationId: org.organizationId, role: "owner" },
+  });
+
+  await cleanupUser(inviter.email);
+
+  // invitedByUserId is SetNull, not Cascade: the invite grants access to
+  // the organization, not to the person who sent it, so an admin leaving
+  // must not silently revoke invites they'd already issued.
+  const hashed = createHash("sha256").update(rawToken).digest("hex");
+  const invite = await prisma.organizationInvite.findUnique({ where: { token: hashed } });
+  assert.ok(invite, "the invite should survive its sender being deleted");
+  assert.equal(invite.invitedByUserId, null, "the dangling reference should be nulled out");
+
+  // And it must still be redeemable.
+  const accept = await fetch(`${BASE_URL}/api/organization/invites/accept`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: invitee.cookie },
+    body: JSON.stringify({ token: rawToken }),
+  });
+  assert.equal(accept.status, 200);
+});
+
 test("an expired invite is rejected", async (t) => {
   const inviter = await signUpAndSignIn();
   const invitee = await signUpAndSignIn();
