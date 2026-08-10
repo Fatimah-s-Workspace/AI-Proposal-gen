@@ -18,7 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 
   const { projectId } = await params;
   const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: user.id },
+    where: { id: projectId, organizationId: user.organizationId },
     select: { id: true },
   });
 
@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   }
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: user.id },
+    where: { id: projectId, organizationId: user.organizationId },
     select: { id: true },
   });
   if (!project) return Response.json({ error: "Project not found" }, { status: 404 });

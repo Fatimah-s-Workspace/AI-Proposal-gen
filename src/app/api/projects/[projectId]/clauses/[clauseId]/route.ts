@@ -31,7 +31,7 @@ export async function POST(
     where: {
       id: clauseId,
       projectId,
-      project: { userId: user.id },
+      project: { organizationId: user.organizationId },
     },
     include: {
       project: { select: { title: true } },
@@ -108,7 +108,7 @@ export async function PATCH(
     where: {
       id: clauseId,
       projectId,
-      project: { userId: user.id },
+      project: { organizationId: user.organizationId },
     },
   });
 
@@ -146,7 +146,7 @@ export async function DELETE(
     where: {
       id: clauseId,
       projectId,
-      project: { userId: user.id },
+      project: { organizationId: user.organizationId },
     },
   });
 

@@ -19,7 +19,7 @@ export default async function EditProjectPage({
   const project = await prisma.project.findFirst({
     where: {
       id: projectId,
-      userId: user.id,
+      organizationId: user.organizationId,
     },
   });
 

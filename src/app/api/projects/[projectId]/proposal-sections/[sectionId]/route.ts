@@ -29,7 +29,7 @@ export async function GET(
     where: {
       id: sectionId,
       projectId,
-      project: { userId: user.id },
+      project: { organizationId: user.organizationId },
     },
     include: {
       generatedContents: {
@@ -67,7 +67,7 @@ export async function PATCH(
     where: {
       id: sectionId,
       projectId,
-      project: { userId: user.id },
+      project: { organizationId: user.organizationId },
     },
   });
 
@@ -108,7 +108,7 @@ export async function POST(
   }
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: user.id },
+    where: { id: projectId, organizationId: user.organizationId },
     include: { requirements: true, clauses: true },
   });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -150,7 +150,7 @@ export async function DELETE(
     where: {
       id: sectionId,
       projectId,
-      project: { userId: user.id },
+      project: { organizationId: user.organizationId },
     },
   });
 

@@ -25,7 +25,7 @@ export async function POST(
 
   // Get project context
   const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: user.id },
+    where: { id: projectId, organizationId: user.organizationId },
     include: {
       requirements: true,
       proposalSections: {

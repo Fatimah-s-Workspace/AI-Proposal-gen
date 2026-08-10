@@ -5,7 +5,7 @@ import { Loader2, UserPlus } from "lucide-react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import type { Route } from "next";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -19,6 +19,7 @@ type FormValues = z.output<typeof signUpSchema>;
 
 export function SignUpForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const form = useForm<FormInput, unknown, FormValues>({
@@ -64,7 +65,9 @@ export function SignUpForm() {
       }
 
       setSuccess(true);
-      router.replace("/dashboard" as Route);
+      const callbackUrl = searchParams.get("callbackUrl");
+      const destination = callbackUrl?.startsWith("/") ? callbackUrl : "/dashboard";
+      router.replace(destination as Route);
     } catch (error) {
       setError(
         error instanceof Error

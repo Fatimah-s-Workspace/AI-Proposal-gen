@@ -18,39 +18,59 @@ async function main() {
 
   const user = await prisma.user.upsert({
     where: { email: "demo@tenderflow.ai" },
-    update: {},
+    // Pre-confirmed: this account exists to be signed into immediately, and
+    // an unconfirmed one can't invite teammates. There's no real inbox
+    // behind demo@tenderflow.ai to click a link in.
+    update: { emailVerified: new Date() },
     create: {
       name: "Fatimah Demo",
       email: "demo@tenderflow.ai",
       companyName: "TenderFlow Advisory",
       country: "Nigeria",
       hashedPassword: password,
-      subscription: {
-        create: {
-          plan: "starter",
-          status: "trialing",
-          monthlyProposalLimit: 10,
-          monthlyUploadLimit: 100,
-        },
-      },
-      usageTracking: {
-        create: {
-          period: new Date().toISOString().slice(0, 7),
-          uploads: 1,
-          aiGenerations: 6,
-          exports: 1,
-          tokensUsed: 2450,
-        },
-      },
-    },
-    include: {
-      projects: true,
+      emailVerified: new Date(),
     },
   });
 
+  const existingMembership = await prisma.membership.findFirst({
+    where: { userId: user.id },
+  });
+
+  const organization =
+    existingMembership?.organizationId != null
+      ? await prisma.organization.findUniqueOrThrow({
+          where: { id: existingMembership.organizationId },
+        })
+      : await prisma.organization.create({
+          data: {
+            name: "TenderFlow Advisory",
+            slug: "tenderflow-advisory-demo",
+            memberships: {
+              create: { userId: user.id, role: "owner" },
+            },
+            subscription: {
+              create: {
+                plan: "starter",
+                status: "trialing",
+                monthlyProposalLimit: 10,
+                monthlyUploadLimit: 100,
+              },
+            },
+            usageTracking: {
+              create: {
+                period: new Date().toISOString().slice(0, 7),
+                uploads: 1,
+                aiGenerations: 6,
+                exports: 1,
+                tokensUsed: 2450,
+              },
+            },
+          },
+        });
+
   const existingProject = await prisma.project.findFirst({
     where: {
-      userId: user.id,
+      organizationId: organization.id,
       title: "Solar Mini-Grid Grant Proposal",
     },
   });
@@ -59,7 +79,7 @@ async function main() {
 
   await prisma.project.create({
     data: {
-      userId: user.id,
+      organizationId: organization.id,
       title: "Solar Mini-Grid Grant Proposal",
       clientName: "Rural Electrification Agency",
       opportunityType: "Grant",

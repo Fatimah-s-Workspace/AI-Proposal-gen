@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { SignUpForm } from "@/components/auth/sign-up-form";
 
 export default function SignUpPage() {
@@ -19,7 +20,9 @@ export default function SignUpPage() {
               <h2 className="text-2xl font-semibold tracking-normal">Create account</h2>
               <p className="text-sm text-muted-foreground">Start with mocked AI locally. Paid providers can be added later.</p>
             </div>
-            <SignUpForm />
+            <Suspense>
+              <SignUpForm />
+            </Suspense>
           </section>
         </div>
       </div>

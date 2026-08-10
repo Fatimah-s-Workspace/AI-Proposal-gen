@@ -1,10 +1,13 @@
 import {
+  Building2,
   CreditCard,
   FileOutput,
   Pencil,
   Sparkles,
   Trash2,
   UploadCloud,
+  UserMinus,
+  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -55,6 +58,34 @@ const ACTION_META: Record<string, { label: (metadata: Record<string, unknown>) =
   "payment.success": {
     label: () => "Upgraded to the Pro plan",
     icon: CreditCard,
+  },
+  "member.invite": {
+    label: (m) => `Invited ${m.email ?? "a teammate"} to the team`,
+    icon: UserPlus,
+  },
+  "member.join": {
+    label: () => "Joined the team",
+    icon: UserPlus,
+  },
+  "organization.create": {
+    label: (m) => `Created the workspace "${m.name ?? ""}"`,
+    icon: Building2,
+  },
+  "organization.rename": {
+    label: (m) => `Renamed the workspace to "${m.name ?? ""}"`,
+    icon: Pencil,
+  },
+  "member.invite_revoke": {
+    label: (m) => `Revoked the invite for ${m.email ?? "a teammate"}`,
+    icon: UserMinus,
+  },
+  "member.role_update": {
+    label: (m) => `Changed ${m.email ?? "a teammate"}'s role to ${m.role ?? ""}`,
+    icon: Pencil,
+  },
+  "member.remove": {
+    label: (m) => `Removed ${m.email ?? "a teammate"} from the team`,
+    icon: UserMinus,
   },
 };
 

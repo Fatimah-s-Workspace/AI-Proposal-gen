@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/session";
+import { canDeleteDocuments, canDeleteProjects } from "@/server/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function ProjectPage({
   const user = await requireUser();
   const { projectId } = await params;
   const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: user.id },
+    where: { id: projectId, organizationId: user.organizationId },
     include: {
       documents: {
         orderBy: { createdAt: "desc" },
@@ -59,7 +60,7 @@ export default async function ProjectPage({
 
   return (
     <div className="space-y-8">
-      <ProjectHeader project={project} />
+      <ProjectHeader project={project} canDelete={canDeleteProjects(user.organizationRole)} />
 
       <UploadDropzone projectId={project.id} />
 
@@ -126,6 +127,7 @@ export default async function ProjectPage({
                   createdAt: doc.createdAt,
                 }))}
                 projectId={project.id}
+                canDelete={canDeleteDocuments(user.organizationRole)}
                 // onMarkPrimary={() => window.location.reload()}
               />
             ) : (

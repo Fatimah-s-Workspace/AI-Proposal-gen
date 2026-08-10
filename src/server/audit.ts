@@ -13,12 +13,23 @@ export const AUDIT_ACTIONS = {
   proposalDraftAssistant: "proposal.draft_assistant",
   exportCreate: "export.create",
   paymentSuccess: "payment.success",
+  memberInvite: "member.invite",
+  memberInviteRevoke: "member.invite_revoke",
+  memberJoin: "member.join",
+  memberRoleUpdate: "member.role_update",
+  memberRemove: "member.remove",
+  organizationCreate: "organization.create",
+  organizationRename: "organization.rename",
+  // No organization.delete: AuditLog.organizationId cascades, so deleting an
+  // organization removes its own audit trail in the same transaction - the
+  // entry could never be read back.
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 
 type LogAuditInput = {
   userId: string;
+  organizationId: string;
   action: AuditAction;
   entityType?: string;
   entityId?: string;
@@ -37,6 +48,7 @@ export async function logAudit(input: LogAuditInput, prismaClient?: typeof prism
     await db.auditLog.create({
       data: {
         userId: input.userId,
+        organizationId: input.organizationId,
         action: input.action,
         entityType: input.entityType,
         entityId: input.entityId,

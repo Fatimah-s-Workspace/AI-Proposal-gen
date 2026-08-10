@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { canDeleteDocuments } from "@/server/permissions";
 import { deleteStoredFile } from "@/lib/storage";
 import { z } from "zod";
 
@@ -30,7 +31,7 @@ export async function PATCH(
       id: documentId,
       projectId,
       project: {
-        userId: user.id,
+        organizationId: user.organizationId,
       },
     },
   });
@@ -53,6 +54,12 @@ export async function DELETE(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canDeleteDocuments(user.organizationRole)) {
+    return Response.json(
+      { error: "Only owners and admins can delete documents" },
+      { status: 403 },
+    );
+  }
 
   const { projectId, documentId } = await params;
 
@@ -61,7 +68,7 @@ export async function DELETE(
       id: documentId,
       projectId,
       project: {
-        userId: user.id,
+        organizationId: user.organizationId,
       },
     },
   });

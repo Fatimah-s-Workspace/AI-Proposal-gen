@@ -13,7 +13,7 @@ export async function GET(
     where: {
       id: versionId,
       sectionId,
-      project: { userId: user.id },
+      project: { organizationId: user.organizationId },
     },
     select: {
       id: true,

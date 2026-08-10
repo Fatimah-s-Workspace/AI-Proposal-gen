@@ -25,7 +25,7 @@ export default async function WorkspacePage({
   // mapping need, rather than two separate Project queries with
   // overlapping requirements/clauses/proposalSections includes.
   const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: user.id },
+    where: { id: projectId, organizationId: user.organizationId },
     include: {
       ...tenderProposalContextInclude,
       proposalSections: {

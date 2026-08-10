@@ -31,7 +31,7 @@ export async function POST(
   }
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, userId: user.id },
+    where: { id: projectId, organizationId: user.organizationId },
     include: {
       requirements: true,
       clauses: true,
@@ -74,7 +74,7 @@ export async function POST(
     },
   });
 
-  await incrementUsage(user.id, projectId, {
+  await incrementUsage(user.organizationId, projectId, {
     aiGenerations: Math.max(result.sections.length, 1),
     tokensUsed: result.sections.reduce(
       (total, section) => total + Math.ceil((section.content?.length ?? 0) / 4),
@@ -84,6 +84,7 @@ export async function POST(
 
   await logAudit({
     userId: user.id,
+    organizationId: user.organizationId,
     action: AUDIT_ACTIONS.proposalGenerate,
     entityType: "Project",
     entityId: projectId,

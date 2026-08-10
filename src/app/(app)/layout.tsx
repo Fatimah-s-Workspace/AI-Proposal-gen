@@ -3,6 +3,7 @@
 import { MobileHeader } from "@/components/app-shell/mobile-header";
 import { MobileBottomNav } from "@/components/app-shell/mobile-bottom-nav";
 import { Sidebar } from "@/components/app-shell/sidebar";
+import { VerifyEmailBanner } from "@/components/auth/verify-email-banner";
 import { AppProvider, useApp } from "@/providers/app-provider";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -32,6 +33,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       >
         <MobileHeader />
         <main className="mx-auto w-full max-w-8xl px-4 py-6 pt-[68px] pb-24 sm:px-6 lg:pt-4 lg:pb-6">
+          <VerifyEmailBanner />
           {children}
         </main>
         <MobileBottomNav />

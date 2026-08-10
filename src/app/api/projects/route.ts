@@ -9,7 +9,7 @@ export async function GET() {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const projects = await prisma.project.findMany({
-    where: { userId: user.id },
+    where: { organizationId: user.organizationId },
     orderBy: { updatedAt: "desc" },
     include: {
       _count: {
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
   const project = await prisma.project.create({
     data: {
-      userId: user.id,
+      organizationId: user.organizationId,
       title: parsed.data.title,
       clientName: parsed.data.clientName,
       opportunityType: parsed.data.opportunityType,

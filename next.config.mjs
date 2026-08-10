@@ -1,5 +1,25 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
+// Content-Security-Policy is NOT set here - it needs a per-request nonce,
+// so src/middleware.ts owns it. Keeping a second static CSP header here
+// would be enforced alongside that one and make the effective policy hard
+// to reason about. The headers below are all request-independent.
+const securityHeaders = [
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+  },
+  // Browsers only honor this over HTTPS, so it's a no-op (not a risk) in
+  // local dev over plain http://localhost.
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload"
+  }
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: [
@@ -27,6 +47,14 @@ const nextConfig = {
       dynamic: 30,
       static: 180
     }
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: securityHeaders
+      }
+    ];
   }
 };
 

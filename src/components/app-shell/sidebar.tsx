@@ -6,6 +6,7 @@ import {
   FolderKanban,
   History,
   Home,
+  Settings,
   ChevronsRightIcon,
   ChevronsLeftIcon,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import {
   AccountMenuContent,
   type AccountMenuUser,
 } from "@/components/app-shell/account-menu-content";
+import { OrganizationSwitcher } from "@/components/organization/organization-switcher";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -47,6 +49,7 @@ const navItems: Array<{
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/usage", label: "Usage", icon: BarChart3 },
   { href: "/activity", label: "Activity", icon: History },
+  { href: "/settings/general", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar({ user: initialUser }: SidebarProps) {
@@ -113,6 +116,7 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
             )}
           </Button>
         </div>
+        {!sidebarCollapsed && <OrganizationSwitcher className="mt-4" />}
       </div>
       <TooltipProvider>
         <nav className="flex-1 space-y-1 p-3">

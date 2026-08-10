@@ -36,6 +36,34 @@ export function welcomeEmail(name: string) {
   return { subject, text, html };
 }
 
+export function verifyEmailEmail(verifyUrl: string) {
+  const subject = "Confirm your TenderFlow AI email address";
+  const text = `Confirm your email address to finish setting up your TenderFlow AI account (link valid for 24 hours): ${verifyUrl}\n\nIf you didn't create an account, you can safely ignore this email.`;
+  const html = wrapper(
+    subject,
+    `<p style="font-size: 14px; color: #3f3f46;">Confirm your email address to finish setting up your account. This link is valid for 24 hours.</p>
+     <p style="margin: 24px 0;">
+       <a href="${verifyUrl}" style="background: #18181b; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">Confirm email address</a>
+     </p>
+     <p style="font-size: 12px; color: #71717a;">If you didn't create an account, you can safely ignore this email.</p>`,
+  );
+  return { subject, text, html };
+}
+
+export function teamInviteEmail(inviterName: string, orgName: string, inviteUrl: string) {
+  const subject = `${inviterName} invited you to join ${orgName} on TenderFlow AI`;
+  const text = `${inviterName} invited you to join "${orgName}" on TenderFlow AI. Accept the invite (valid for 7 days): ${inviteUrl}\n\nIf you weren't expecting this, you can safely ignore this email.`;
+  const html = wrapper(
+    subject,
+    `<p style="font-size: 14px; color: #3f3f46;">${inviterName} invited you to join <strong>${orgName}</strong> on TenderFlow AI. This link is valid for 7 days.</p>
+     <p style="margin: 24px 0;">
+       <a href="${inviteUrl}" style="background: #18181b; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">Accept invite</a>
+     </p>
+     <p style="font-size: 12px; color: #71717a;">If you weren't expecting this, you can safely ignore this email.</p>`,
+  );
+  return { subject, text, html };
+}
+
 export function renewalReminderEmail(daysRemaining: number, billingUrl: string) {
   const subject =
     daysRemaining <= 0

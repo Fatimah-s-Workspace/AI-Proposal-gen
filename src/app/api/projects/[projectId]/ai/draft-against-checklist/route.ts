@@ -43,13 +43,14 @@ export async function POST(
     },
   });
 
-  await incrementUsage(user.id, projectId, {
+  await incrementUsage(user.organizationId, projectId, {
     aiGenerations: 1,
     tokensUsed: Math.ceil(JSON.stringify(result).length / 4),
   });
 
   await logAudit({
     userId: user.id,
+    organizationId: user.organizationId,
     action: AUDIT_ACTIONS.proposalDraftAssistant,
     entityType: "Project",
     entityId: projectId,

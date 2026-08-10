@@ -5,10 +5,10 @@ const DEFAULT_PROPOSAL_LIMIT = 10;
 
 type LimitedMetric = "uploads" | "aiGenerations";
 
-export async function getCurrentPeriodUsage(userId: string, prismaClient?: typeof prisma) {
+export async function getCurrentPeriodUsage(organizationId: string, prismaClient?: typeof prisma) {
   const db = prismaClient ?? prisma;
   const period = new Date().toISOString().slice(0, 7);
-  const rows = await db.usageTracking.findMany({ where: { userId, period } });
+  const rows = await db.usageTracking.findMany({ where: { organizationId, period } });
 
   return rows.reduce(
     (acc, row) => ({
@@ -26,15 +26,18 @@ export async function getCurrentPeriodUsage(userId: string, prismaClient?: typeo
 // them over it - the exact output size isn't known until after the call
 // runs, so a hard pre-check on projected usage isn't reliable.
 export async function checkUsageLimit(
-  user: { id: string; subscription: { monthlyUploadLimit: number; monthlyProposalLimit: number } | null },
+  organization: {
+    organizationId: string;
+    subscription: { monthlyUploadLimit: number; monthlyProposalLimit: number } | null;
+  },
   metric: LimitedMetric,
   prismaClient?: typeof prisma,
 ) {
-  const usage = await getCurrentPeriodUsage(user.id, prismaClient);
+  const usage = await getCurrentPeriodUsage(organization.organizationId, prismaClient);
   const limit =
     metric === "uploads"
-      ? (user.subscription?.monthlyUploadLimit ?? DEFAULT_UPLOAD_LIMIT)
-      : (user.subscription?.monthlyProposalLimit ?? DEFAULT_PROPOSAL_LIMIT);
+      ? (organization.subscription?.monthlyUploadLimit ?? DEFAULT_UPLOAD_LIMIT)
+      : (organization.subscription?.monthlyProposalLimit ?? DEFAULT_PROPOSAL_LIMIT);
 
   return { allowed: usage[metric] < limit, current: usage[metric], limit };
 }
@@ -49,7 +52,7 @@ export function usageLimitResponse(metric: LimitedMetric) {
 }
 
 export async function incrementUsage(
-  userId: string,
+  organizationId: string,
   projectId: string,
   increment: Partial<{
     uploads: number;
@@ -62,14 +65,14 @@ export async function incrementUsage(
 
   return prisma.usageTracking.upsert({
     where: {
-      userId_projectId_period: {
-        userId,
+      organizationId_projectId_period: {
+        organizationId,
         projectId,
         period,
       },
     },
     create: {
-      userId,
+      organizationId,
       projectId,
       period,
       uploads: increment.uploads ?? 0,

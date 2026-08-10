@@ -24,6 +24,7 @@ test("logAudit writes a row with the given action, entity, and metadata", async 
   await logAudit(
     {
       userId: "user-1",
+      organizationId: "org-1",
       action: AUDIT_ACTIONS.exportCreate,
       entityType: "ExportHistory",
       entityId: "export-1",
@@ -48,6 +49,6 @@ test("logAudit never throws even when the write itself fails", async () => {
   } as unknown as typeof prisma;
 
   await assert.doesNotReject(
-    logAudit({ userId: "user-1", action: AUDIT_ACTIONS.documentUpload }, db),
+    logAudit({ userId: "user-1", organizationId: "org-1", action: AUDIT_ACTIONS.documentUpload }, db),
   );
 });

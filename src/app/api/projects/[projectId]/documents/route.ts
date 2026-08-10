@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { canDeleteDocuments } from "@/server/permissions";
 import { checkUsageLimit, incrementUsage, usageLimitResponse } from "@/server/usage";
 import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
@@ -41,6 +42,12 @@ export async function DELETE(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canDeleteDocuments(user.organizationRole)) {
+    return Response.json(
+      { error: "Only owners and admins can delete documents" },
+      { status: 403 },
+    );
+  }
 
   const { projectId } = await params;
   const parsed = bulkDeleteSchema.safeParse(await request.json().catch(() => null));
@@ -55,7 +62,7 @@ export async function DELETE(
     where: {
       id: { in: parsed.data.documentIds },
       projectId,
-      project: { userId: user.id },
+      project: { organizationId: user.organizationId },
     },
     select: { id: true, storagePath: true },
   });
@@ -74,6 +81,7 @@ export async function DELETE(
 
   await logAudit({
     userId: user.id,
+    organizationId: user.organizationId,
     action: AUDIT_ACTIONS.documentDelete,
     entityType: "Project",
     entityId: projectId,
@@ -102,7 +110,7 @@ export async function GET(
     where: {
       id: { in: ids.split(",").filter(Boolean).slice(0, 100) },
       projectId,
-      project: { userId: user.id },
+      project: { organizationId: user.organizationId },
     },
     select: {
       id: true,
@@ -163,7 +171,7 @@ export async function POST(
   const project = await prisma.project.findFirst({
     where: {
       id: projectId,
-      userId: user.id,
+      organizationId: user.organizationId,
     },
   });
 
@@ -285,10 +293,11 @@ export async function POST(
     uploaded.push(document);
   }
 
-  await incrementUsage(user.id, projectId, { uploads: files.length });
+  await incrementUsage(user.organizationId, projectId, { uploads: files.length });
 
   await logAudit({
     userId: user.id,
+    organizationId: user.organizationId,
     action: AUDIT_ACTIONS.documentUpload,
     entityType: "Project",
     entityId: projectId,
@@ -300,7 +309,6 @@ export async function POST(
       finishProcessingBatch({
         projectId,
         project,
-        userId: user.id,
         documentType,
         pending,
       }),
@@ -319,7 +327,6 @@ export async function POST(
 async function finishProcessingBatch(input: {
   projectId: string;
   project: NonNullable<Awaited<ReturnType<typeof prisma.project.findFirst>>>;
-  userId: string;
   documentType: string;
   pending: Array<{
     documentId: string;
@@ -329,7 +336,7 @@ async function finishProcessingBatch(input: {
     localSections: ReturnType<typeof parseTenderSections>;
   }>;
 }) {
-  const { projectId, project, userId, documentType, pending } = input;
+  const { projectId, project, documentType, pending } = input;
 
   // Seed dedup keys from clauses/requirements already in the project so
   // re-uploading the same tender pack (or an addendum that repeats text
@@ -429,7 +436,7 @@ async function finishProcessingBatch(input: {
   }
 
   if (totalAiGenerations || totalTokens) {
-    await incrementUsage(userId, projectId, {
+    await incrementUsage(project.organizationId, projectId, {
       aiGenerations: totalAiGenerations,
       tokensUsed: totalTokens,
     });

@@ -25,7 +25,7 @@ export async function PATCH(
     where: {
       id: requirementId,
       projectId,
-      project: { userId: user.id },
+      project: { organizationId: user.organizationId },
     },
   });
 
@@ -53,6 +53,7 @@ export async function PATCH(
 
   await logAudit({
     userId: user.id,
+    organizationId: user.organizationId,
     action: AUDIT_ACTIONS.requirementUpdate,
     entityType: "Requirement",
     entityId: requirementId,
@@ -77,7 +78,7 @@ export async function DELETE(
     where: {
       id: requirementId,
       projectId,
-      project: { userId: user.id },
+      project: { organizationId: user.organizationId },
     },
   });
 
@@ -97,6 +98,7 @@ export async function DELETE(
 
   await logAudit({
     userId: user.id,
+    organizationId: user.organizationId,
     action: AUDIT_ACTIONS.requirementDelete,
     entityType: "Requirement",
     entityId: requirementId,
