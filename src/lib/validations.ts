@@ -28,6 +28,10 @@ export const verifyEmailSchema = z.object({
   token: z.string().min(1, "Verification token is required")
 });
 
+export const deleteAccountSchema = z.object({
+  email: z.string().min(1, "Confirm your email address")
+});
+
 export const createOrganizationSchema = z.object({
   name: z.string().trim().min(2, "Workspace name is required").max(120)
 });
