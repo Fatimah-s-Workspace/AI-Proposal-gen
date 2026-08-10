@@ -3,8 +3,8 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import "./globals.css";
+import { THEME_INIT_SCRIPT } from "@/lib/theme-init-script";
 
-const themeInitScript = `(function(){try{var s=localStorage.getItem("theme");var d=s?s==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
 
 export default function GlobalError({
   error,
@@ -20,7 +20,7 @@ export default function GlobalError({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans">
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <div className="flex min-h-svh flex-col items-center justify-center gap-4 bg-background px-6 text-center text-foreground">
           <p className="text-sm font-medium text-primary">TenderFlow AI</p>
           <h1 className="text-2xl font-semibold tracking-normal">

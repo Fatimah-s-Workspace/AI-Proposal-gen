@@ -1,28 +1,10 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
-const isProd = process.env.NODE_ENV === "production";
-
-// script-src needs 'unsafe-eval' in dev for webpack HMR/React Refresh
-// (source-mapped hot updates use eval); the production bundle doesn't need
-// it. 'unsafe-inline' on both is Next's own hydration bootstrap script -
-// removing it requires per-request nonces via middleware, a fuller-strength
-// CSP left for a follow-up pass. connect-src allows Sentry's ingest API
-// (browser-side error/trace reporting, see instrumentation-client.ts) -
-// harmless to include even when SENTRY_DSN is unset, since nothing calls it.
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  "connect-src 'self' https://*.sentry.io",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'"
-].join("; ");
-
+// Content-Security-Policy is NOT set here - it needs a per-request nonce,
+// so src/middleware.ts owns it. Keeping a second static CSP header here
+// would be enforced alongside that one and make the effective policy hard
+// to reason about. The headers below are all request-independent.
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: contentSecurityPolicy },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
