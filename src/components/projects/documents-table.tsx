@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
@@ -73,6 +74,7 @@ export function DocumentsTable({
   canDelete = true,
   onMarkPrimary,
 }: DocumentsTableProps) {
+  const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
@@ -121,8 +123,7 @@ export function DocumentsTable({
       );
 
       if (response.ok) {
-        // Refresh the page or update state
-        window.location.reload();
+        router.refresh();
       } else {
         console.error("Failed to delete document");
       }
@@ -146,7 +147,8 @@ export function DocumentsTable({
       });
 
       if (response.ok) {
-        window.location.reload();
+        setSelectedIds(new Set());
+        router.refresh();
       } else {
         console.error("Failed to delete documents");
       }
@@ -169,7 +171,7 @@ export function DocumentsTable({
 
       if (response.ok) {
         onMarkPrimary?.(documentId);
-        window.location.reload();
+        router.refresh();
       } else {
         console.error("Failed to mark document as primary");
       }

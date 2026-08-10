@@ -128,7 +128,6 @@ export default async function ProjectPage({
                 }))}
                 projectId={project.id}
                 canDelete={canDeleteDocuments(user.organizationRole)}
-                // onMarkPrimary={() => window.location.reload()}
               />
             ) : (
               <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">

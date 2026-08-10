@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -42,6 +43,7 @@ interface EditRequirementFormProps {
 }
 
 export function EditRequirementForm({ requirement, projectId, onSuccess, onCancel }: EditRequirementFormProps) {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const form = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(updateRequirementSchema),
@@ -72,8 +74,10 @@ export function EditRequirementForm({ requirement, projectId, onSuccess, onCance
         return;
       }
 
+      // Refresh the server-rendered list, then let the parent close the
+      // modal - the old full reload was doing both implicitly.
+      router.refresh();
       onSuccess?.();
-      window.location.reload();
     } catch {
       setError("An error occurred while updating the requirement.");
     }
