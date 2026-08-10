@@ -38,7 +38,6 @@ export default async function TeamSettingsPage() {
   return (
     <div className="pb-8">
       <TeamManager
-        organizationName={user.organization.name}
         members={members}
         invites={invites.map((invite) => ({
           ...invite,
@@ -47,6 +46,7 @@ export default async function TeamSettingsPage() {
         currentUserId={user.id}
         currentRole={user.organizationRole}
         canManage={canManage}
+        emailVerified={Boolean(user.emailVerified)}
       />
     </div>
   );

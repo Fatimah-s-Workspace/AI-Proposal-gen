@@ -5,6 +5,7 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { captureError } from "@/lib/monitoring";
 import { sendEmail } from "@/lib/email";
 import { welcomeEmail } from "@/lib/email/templates";
+import { sendEmailVerification } from "@/server/email-verification";
 import { slugifyOrganizationName } from "@/lib/utils";
 
 export async function POST(request: Request) {
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
 
     const { subject, text, html } = welcomeEmail(parsed.data.name);
     await sendEmail({ to: email, subject, text, html });
+    await sendEmailVerification(email);
 
     return Response.json({ ok: true }, { status: 201 });
   } catch (error) {

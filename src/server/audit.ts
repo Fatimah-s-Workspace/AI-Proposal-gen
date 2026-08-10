@@ -18,6 +18,11 @@ export const AUDIT_ACTIONS = {
   memberJoin: "member.join",
   memberRoleUpdate: "member.role_update",
   memberRemove: "member.remove",
+  organizationCreate: "organization.create",
+  organizationRename: "organization.rename",
+  // No organization.delete: AuditLog.organizationId cascades, so deleting an
+  // organization removes its own audit trail in the same transaction - the
+  // entry could never be read back.
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

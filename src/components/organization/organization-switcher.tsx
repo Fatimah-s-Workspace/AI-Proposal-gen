@@ -1,9 +1,12 @@
 "use client";
 
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
 import {
   Popover,
   PopoverContent,
@@ -17,6 +20,14 @@ export type SwitchableOrganization = {
   name: string;
   role: string;
 };
+
+// Fired by anything that renames, creates, or deletes a workspace so the
+// switcher can refresh the copy of the list it holds in client state.
+export const ORGANIZATIONS_CHANGED_EVENT = "tf:organizations-changed";
+
+export function notifyOrganizationsChanged() {
+  window.dispatchEvent(new Event(ORGANIZATIONS_CHANGED_EVENT));
+}
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Owner",
@@ -37,25 +48,41 @@ export function OrganizationSwitcher({ className }: { className?: string }) {
   const [activeOrganizationId, setActiveOrganizationId] = useState<
     string | null
   >(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/organization/list")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (!data) return;
-        setOrganizations(data.organizations ?? []);
-        setActiveOrganizationId(data.activeOrganizationId ?? null);
-      })
-      .catch(() => {});
+    function load() {
+      fetch("/api/organization/list")
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          if (!data) return;
+          setOrganizations(data.organizations ?? []);
+          setActiveOrganizationId(data.activeOrganizationId ?? null);
+        })
+        .catch(() => {});
+    }
+
+    load();
+
+    // This is a client component holding its own copy of the workspace
+    // list, so router.refresh() after a rename updates the server-rendered
+    // page but leaves the name in here stale. Anything that changes the
+    // list fires this event to pull it again.
+    window.addEventListener(ORGANIZATIONS_CHANGED_EVENT, load);
+    return () => window.removeEventListener(ORGANIZATIONS_CHANGED_EVENT, load);
   }, []);
 
   const active = organizations.find(
     (organization) => organization.organizationId === activeOrganizationId,
   );
 
-  // With a single organization there's nothing to switch between, so the
-  // control would just be noise - the org name is already shown elsewhere.
-  if (organizations.length < 2) return null;
+  // Renders even with one workspace: this dropdown is the only route to
+  // "Create workspace", so hiding it would leave a single-workspace user
+  // with no way to make a second one.
+  if (organizations.length === 0) return null;
 
   async function switchTo(organizationId: string) {
     if (organizationId === activeOrganizationId) {
@@ -87,7 +114,40 @@ export function OrganizationSwitcher({ className }: { className?: string }) {
     }
   }
 
+  async function createWorkspace(event: React.FormEvent) {
+    event.preventDefault();
+    setCreating(true);
+    setCreateError(null);
+
+    try {
+      const response = await fetch("/api/organization", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setCreateError(payload.error || "Could not create the workspace.");
+        setCreating(false);
+        return;
+      }
+
+      // The route already made it active, so land in the new (empty)
+      // workspace rather than whatever the previous one was showing.
+      setCreateOpen(false);
+      setNewName("");
+      notifyOrganizationsChanged();
+      router.replace("/dashboard");
+      router.refresh();
+    } catch {
+      setCreateError("Could not create the workspace. Check your connection.");
+    }
+    setCreating(false);
+  }
+
   return (
+    <>
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
@@ -135,7 +195,58 @@ export function OrganizationSwitcher({ className }: { className?: string }) {
             </button>
           );
         })}
+
+        <div className="mt-1 border-t pt-1">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setCreateError(null);
+              setNewName("");
+              setCreateOpen(true);
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
+          >
+            <Plus className="size-4 shrink-0" />
+            Create workspace
+          </button>
+        </div>
       </PopoverContent>
     </Popover>
+
+    <Modal
+      isOpen={createOpen}
+      onClose={() => setCreateOpen(false)}
+      title="Create a workspace"
+      description="A separate space for its own projects, team, and plan. Nothing is shared with your other workspaces."
+    >
+      <form onSubmit={createWorkspace} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="workspace-name">Workspace name</Label>
+          <Input
+            id="workspace-name"
+            required
+            autoFocus
+            placeholder="Acme Consulting"
+            value={newName}
+            onChange={(event) => setNewName(event.target.value)}
+            disabled={creating}
+          />
+        </div>
+
+        {createError ? <p className="text-sm text-destructive">{createError}</p> : null}
+
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={creating || newName.trim().length < 2}>
+            {creating ? <Loader2 className="animate-spin" /> : <Plus />}
+            Create workspace
+          </Button>
+        </div>
+      </form>
+    </Modal>
+    </>
   );
 }

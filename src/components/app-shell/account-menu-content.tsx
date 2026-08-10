@@ -1,6 +1,6 @@
 "use client";
 
-import { Users } from "lucide-react";
+import { Settings } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/app-shell/theme-toggle";
 import { SignOutButton } from "@/components/app-shell/sign-out-button";
@@ -52,9 +52,9 @@ export function AccountMenuContent({ user }: { user: AccountMenuUser }) {
         variant="ghost"
         className="w-full justify-start lg:hidden"
       >
-        <Link href="/settings/team">
-          <Users />
-          Team
+        <Link href="/settings/general">
+          <Settings />
+          Settings
         </Link>
       </Button>
 

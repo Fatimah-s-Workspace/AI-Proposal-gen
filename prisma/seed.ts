@@ -18,13 +18,17 @@ async function main() {
 
   const user = await prisma.user.upsert({
     where: { email: "demo@tenderflow.ai" },
-    update: {},
+    // Pre-confirmed: this account exists to be signed into immediately, and
+    // an unconfirmed one can't invite teammates. There's no real inbox
+    // behind demo@tenderflow.ai to click a link in.
+    update: { emailVerified: new Date() },
     create: {
       name: "Fatimah Demo",
       email: "demo@tenderflow.ai",
       companyName: "TenderFlow Advisory",
       country: "Nigeria",
       hashedPassword: password,
+      emailVerified: new Date(),
     },
   });
 

@@ -11,6 +11,7 @@ import {
   cleanupUser,
   createInviteToken,
   getOrganizationFor,
+  markEmailVerified,
   signUpAndSignIn,
   uniqueEmail,
 } from "./helpers";
@@ -39,6 +40,7 @@ test("an owner can invite, and the raw token is never persisted", async (t) => {
   const { email, cookie } = await signUpAndSignIn();
   const inviteeEmail = uniqueEmail("invitee");
   t.after(() => cleanupUser(email));
+  await markEmailVerified(email);
 
   const response = await fetch(`${BASE_URL}/api/organization/invites`, {
     method: "POST",
@@ -62,6 +64,7 @@ test("an owner can invite, and the raw token is never persisted", async (t) => {
 test("inviting someone who is already a member is rejected", async (t) => {
   const { email, cookie } = await signUpAndSignIn();
   t.after(() => cleanupUser(email));
+  await markEmailVerified(email);
 
   const response = await fetch(`${BASE_URL}/api/organization/invites`, {
     method: "POST",
@@ -186,6 +189,10 @@ test("a plain member cannot invite or view invites", async (t) => {
     headers: { "Content-Type": "application/json", Cookie: invitee.cookie },
     body: JSON.stringify({ token: rawToken }),
   });
+
+  // Verify their address first, so the 403 below is unambiguously the role
+  // check rather than the email-confirmation gate.
+  await markEmailVerified(invitee.email);
 
   // The invitee's newest membership is now the inviter's org as a plain
   // member, which is what requireApiUser resolves as their active org.

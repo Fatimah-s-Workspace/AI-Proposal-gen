@@ -41,7 +41,7 @@ type TeamManagerProps = {
   currentUserId: string;
   currentRole: string;
   canManage: boolean;
-  organizationName: string;
+  emailVerified: boolean;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -56,7 +56,7 @@ export function TeamManager({
   currentUserId,
   currentRole,
   canManage,
-  organizationName,
+  emailVerified,
 }: TeamManagerProps) {
   const router = useRouter();
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -162,27 +162,31 @@ export function TeamManager({
 
   return (
     <div className="space-y-4">
-      <div className="mb-2 flex flex-col gap-4 border-b pb-4 pt-5 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-primary">{organizationName}</p>
-          <h1 className="text-3xl font-semibold tracking-normal">Team</h1>
-          <p className="mt-2 text-muted-foreground">
-            {canManage
-              ? "Invite teammates, set what they can do, and manage who has access to this workspace."
-              : "People with access to this workspace. Ask an owner or admin to make changes."}
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <p className="min-w-0 text-muted-foreground">
+          {canManage
+            ? "Invite teammates, set what they can do, and manage who has access to this workspace."
+            : "People with access to this workspace. Ask an owner or admin to make changes."}
+        </p>
         {canManage ? (
-          <Button
-            onClick={() => {
-              resetInviteForm();
-              setInviteOpen(true);
-            }}
-            className="w-full shrink-0 sm:w-auto"
-          >
-            <UserPlus />
-            Invite teammate
-          </Button>
+          <div className="flex w-full shrink-0 flex-col items-stretch gap-1 sm:w-auto sm:items-end">
+            <Button
+              onClick={() => {
+                resetInviteForm();
+                setInviteOpen(true);
+              }}
+              disabled={!emailVerified}
+              className="w-full sm:w-auto"
+            >
+              <UserPlus />
+              Invite teammate
+            </Button>
+            {!emailVerified ? (
+              <p className="text-xs text-muted-foreground">
+                Confirm your email address to invite teammates.
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
 

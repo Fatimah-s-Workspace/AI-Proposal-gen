@@ -59,6 +59,16 @@ export async function signIn(email: string, password: string): Promise<string> {
   return cookieHeaderFrom([...csrfCookies, ...sessionCookies]);
 }
 
+// Signup deliberately leaves an account unverified, and inviting teammates
+// is gated on a confirmed address. Tests that exercise inviting need to get
+// past that gate without going through a real email round-trip.
+export async function markEmailVerified(email: string) {
+  await prisma.user.update({
+    where: { email: email.toLowerCase() },
+    data: { emailVerified: new Date() },
+  });
+}
+
 export async function signUpAndSignIn(overrides?: Partial<{ name: string; companyName: string; password: string }>) {
   const email = uniqueEmail("integration");
   const password = overrides?.password ?? "password123";

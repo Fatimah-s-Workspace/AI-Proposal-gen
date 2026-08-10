@@ -1,4 +1,5 @@
 import {
+  Building2,
   CreditCard,
   FileOutput,
   Pencil,
@@ -65,6 +66,14 @@ const ACTION_META: Record<string, { label: (metadata: Record<string, unknown>) =
   "member.join": {
     label: () => "Joined the team",
     icon: UserPlus,
+  },
+  "organization.create": {
+    label: (m) => `Created the workspace "${m.name ?? ""}"`,
+    icon: Building2,
+  },
+  "organization.rename": {
+    label: (m) => `Renamed the workspace to "${m.name ?? ""}"`,
+    icon: Pencil,
   },
   "member.invite_revoke": {
     label: (m) => `Revoked the invite for ${m.email ?? "a teammate"}`,

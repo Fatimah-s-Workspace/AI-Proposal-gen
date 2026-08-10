@@ -35,6 +35,18 @@ export async function POST(request: Request) {
       return Response.json({ error: "Only owners and admins can invite members" }, { status: 403 });
     }
 
+    // Inviting sends mail to a third party in this account's name, so it's
+    // the one action gated on a confirmed address - an unconfirmed signup
+    // shouldn't be able to send email to arbitrary people. Everything else
+    // stays usable so a delivery problem can't lock anyone out of their
+    // own work.
+    if (!user.emailVerified) {
+      return Response.json(
+        { error: "Confirm your email address before inviting teammates." },
+        { status: 403 },
+      );
+    }
+
     const limit = await rateLimit(`org-invite:${user.organizationId}`, 20, 60 * 60_000);
     if (!limit.allowed) return rateLimitResponse();
 
