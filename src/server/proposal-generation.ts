@@ -264,7 +264,10 @@ function buildFallbackDraft(
   };
 }
 
-function buildProposalPrompt(
+// Exported for tests: which project fields reach the model is the whole
+// point of the fields users fill in, and nothing else would catch a
+// regression that silently drops one.
+export function buildProposalPrompt(
   context: TenderProposalContext,
   sectionPlan: TenderProposalSectionPlan,
   tone = "formal",
@@ -279,12 +282,41 @@ function buildProposalPrompt(
     .map((clause) => clause.title ?? clause.originalText.slice(0, 140))
     .join("\n");
 
+  const project = context.project;
+
+  // Only emit a line when there's something in it - a prompt full of
+  // "Budget: not specified" teaches the model that blanks are normal and
+  // invites it to leave its own.
+  const detail = (label: string, value?: string | null) =>
+    value && value.trim() ? `${label}: ${value.trim()}` : null;
+
   return [
-    `Write a proposal section for the ${context.project.opportunityType} titled ${sectionPlan.title}.`,
-    `Client: ${context.project.clientName}`,
-    `Project: ${context.project.title}`,
-    `Sector: ${context.project.sector}`,
+    `Write a proposal section for the ${project.opportunityType} titled ${sectionPlan.title}.`,
+    detail("Client", project.clientName),
+    detail("Project", project.title),
+    detail("Tender reference", project.referenceNumber),
+    detail("Sector", project.sector),
+    detail("Country", project.country),
+    detail("Procuring authority", project.authority),
+    detail("Budget", project.budgetRange),
+    detail("Contract duration", project.contractDuration),
+    project.deadline
+      ? `Submission deadline: ${project.deadline.toISOString().slice(0, 10)}`
+      : null,
+    detail("Opportunity notes", project.summary),
+    // The two highest-leverage inputs, so they carry an instruction rather
+    // than being dropped in as bare context the model may or may not act on.
+    project.evaluationCriteria?.trim()
+      ? `Evaluation criteria - address these explicitly and in proportion to their weight:\n${project.evaluationCriteria.trim()}`
+      : null,
+    project.winThemes?.trim()
+      ? `Win themes to carry through the writing:\n${project.winThemes.trim()}`
+      : null,
+    detail("Incumbent or known competitors", project.incumbent),
     `Tone: ${tone} and evaluator-ready.`,
+    project.submissionLanguage && project.submissionLanguage !== "English"
+      ? `Write the section in ${project.submissionLanguage}.`
+      : null,
     `Target length: about ${sectionPlan.wordTarget} words.`,
     `Section rationale: ${sectionPlan.rationale}`,
     `Requirements:\n${requirements || "None"}`,

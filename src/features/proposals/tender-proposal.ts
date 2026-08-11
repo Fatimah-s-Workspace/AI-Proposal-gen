@@ -61,6 +61,12 @@ export type TenderProposalProject = {
   deadline?: Date | null;
   budgetRange?: string | null;
   summary?: string | null;
+  referenceNumber?: string | null;
+  evaluationCriteria?: string | null;
+  winThemes?: string | null;
+  contractDuration?: string | null;
+  incumbent?: string | null;
+  submissionLanguage?: string | null;
 };
 
 export type TenderProposalSectionState = {

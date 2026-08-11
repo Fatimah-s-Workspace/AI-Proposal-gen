@@ -54,6 +54,12 @@ export async function POST(request: Request) {
       deadline: parsed.data.deadline ? new Date(parsed.data.deadline) : null,
       budgetRange: parsed.data.budgetRange || null,
       summary: parsed.data.summary || null,
+      referenceNumber: parsed.data.referenceNumber || null,
+      evaluationCriteria: parsed.data.evaluationCriteria || null,
+      winThemes: parsed.data.winThemes || null,
+      contractDuration: parsed.data.contractDuration || null,
+      incumbent: parsed.data.incumbent || null,
+      submissionLanguage: parsed.data.submissionLanguage,
       proposalSections: {
         create: defaultProposalSections,
       },

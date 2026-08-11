@@ -62,7 +62,16 @@ export const createProjectSchema = z.object({
   authority: z.string().max(160).optional().or(z.literal("")),
   deadline: z.string().optional().or(z.literal("")),
   budgetRange: z.string().max(120).optional().or(z.literal("")),
-  summary: z.string().max(1500).optional().or(z.literal(""))
+  summary: z.string().max(1500).optional().or(z.literal("")),
+  // Bid-shaping context. Generous limits on the two that carry the most
+  // weight in the prompt - evaluation criteria get pasted straight out of a
+  // tender pack, and win themes are where a bid team's actual thinking goes.
+  referenceNumber: z.string().max(120).optional().or(z.literal("")),
+  evaluationCriteria: z.string().max(2000).optional().or(z.literal("")),
+  winThemes: z.string().max(2000).optional().or(z.literal("")),
+  contractDuration: z.string().max(160).optional().or(z.literal("")),
+  incumbent: z.string().max(160).optional().or(z.literal("")),
+  submissionLanguage: z.string().min(2).max(40).default("English")
 });
 
 export const updateRequirementSchema = z.object({

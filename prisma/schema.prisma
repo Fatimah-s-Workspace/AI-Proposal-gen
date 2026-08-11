@@ -126,6 +126,15 @@ model Project {
   authority           String?
   deadline            DateTime?
   budgetRange         String?
+  // Bid-shaping context. All optional: a project is still usable the moment
+  // it has a title and a client, and these are things you often only learn
+  // after reading the pack. Everything here is fed to the proposal prompt.
+  referenceNumber     String?
+  evaluationCriteria  String?
+  winThemes           String?
+  contractDuration    String?
+  incumbent           String?
+  submissionLanguage  String                  @default("English")
   status              String                  @default("draft")
   stage               String                  @default("intake")
   complianceScore     Int                     @default(0)

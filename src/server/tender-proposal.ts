@@ -52,6 +52,12 @@ export function mapProjectToTenderProposalContext(
       deadline: project.deadline,
       budgetRange: project.budgetRange,
       summary: project.summary,
+      referenceNumber: project.referenceNumber,
+      evaluationCriteria: project.evaluationCriteria,
+      winThemes: project.winThemes,
+      contractDuration: project.contractDuration,
+      incumbent: project.incumbent,
+      submissionLanguage: project.submissionLanguage,
     },
     documents: project.documents.map((document) => ({
       id: document.id,
