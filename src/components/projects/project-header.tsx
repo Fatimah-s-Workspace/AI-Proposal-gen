@@ -89,7 +89,7 @@ export function ProjectHeader({ project, canDelete = true }: ProjectHeaderProps)
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <Button asChild variant="outline" size="sm">
-              <a href={`/projects/${project.id}/edit`}>Edit project</a>
+              <Link href={`/projects/${project.id}/edit`}>Edit project</Link>
             </Button>
             {canDelete ? (
               <Button
@@ -103,10 +103,10 @@ export function ProjectHeader({ project, canDelete = true }: ProjectHeaderProps)
               </Button>
             ) : null}
             <Button asChild variant="outline">
-              <a href={`/projects/${project.id}/export`}>Export</a>
+              <Link href={`/projects/${project.id}/export`}>Export</Link>
             </Button>
             <Button asChild>
-              <a href={`/projects/${project.id}/workspace`}>Open workspace</a>
+              <Link href={`/projects/${project.id}/workspace`}>Open workspace</Link>
             </Button>
           </div>
         </div>

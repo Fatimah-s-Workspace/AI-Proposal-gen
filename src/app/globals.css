@@ -85,3 +85,12 @@
     @apply mb-4 list-decimal pl-6;
   }
 }
+
+/* Holds a navigation spinner invisible for its first 150ms, so navigations
+   that resolve quickly - which is most of them - never flash an indicator.
+   See NavPending. */
+@keyframes nav-pending-in {
+  to {
+    opacity: 1;
+  }
+}

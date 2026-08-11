@@ -12,6 +12,8 @@ import {
   UserPlus,
   type LucideIcon,
 } from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 import { ActivityFilters } from "@/components/activity/activity-filters";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -262,8 +264,12 @@ function PageLink({
   }
 
   return (
-    <a href={href} aria-label={label} className={`${className} hover:bg-muted`}>
+    <Link
+      href={href as Route}
+      aria-label={label}
+      className={`${className} hover:bg-muted`}
+    >
       {children}
-    </a>
+    </Link>
   );
 }

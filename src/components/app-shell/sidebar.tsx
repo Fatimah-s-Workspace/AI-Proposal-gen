@@ -18,6 +18,7 @@ import {
   AccountMenuContent,
   type AccountMenuUser,
 } from "@/components/app-shell/account-menu-content";
+import { NavPending } from "@/components/app-shell/nav-pending";
 import { OrganizationSwitcher } from "@/components/organization/organization-switcher";
 import { Button } from "@/components/ui/button";
 import {
@@ -317,6 +318,7 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
               >
                 <Icon className="size-4" />
                 {item.label}
+                <NavPending className="ml-auto" />
               </Link>
             );
           })}
