@@ -49,7 +49,10 @@ export function ProjectsSearch({ initialQuery }: { initialQuery: string }) {
         onChange={(event) => setValue(event.target.value)}
         placeholder="Search projects or clients"
         aria-label="Search projects"
-        className="pl-9 pr-9"
+        // WebKit draws its own clear button inside type="search", which sits
+        // on top of ours and gives the field two X's. Ours stays because the
+        // native one can't be styled to match.
+        className="pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
       />
       {value ? (
         <button
