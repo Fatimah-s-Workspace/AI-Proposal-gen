@@ -27,6 +27,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
     include: {
       proposalSections: {
         orderBy: { order: "asc" }
+      },
+      // Drives the cover sheet. Selected rather than included whole so an
+      // export can't start carrying billing or slug data into a file that
+      // gets sent to a buyer.
+      organization: {
+        select: { name: true, legalName: true, registrationNumber: true }
       }
     }
   });
