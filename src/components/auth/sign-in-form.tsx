@@ -13,20 +13,31 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signInSchema } from "@/lib/validations";
+import type { PendingInvite } from "@/server/invites";
 
 type FormValues = z.infer<typeof signInSchema>;
 
-export function SignInForm() {
+export function SignInForm({ invite }: { invite?: PendingInvite | null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const form = useForm<FormValues>({
     resolver: zodResolver(signInSchema),
-    defaultValues: {
-      email: "demo@tenderflow.ai",
-      password: "password123",
-    },
+    // The seeded demo credentials are a convenience for an empty local
+    // install; someone arriving from an invite has a real account to reach.
+    defaultValues: invite
+      ? { email: invite.email, password: "" }
+      : { email: "demo@tenderflow.ai", password: "password123" },
   });
+
+  // Carry the destination across, so bouncing between sign-in and sign-up
+  // doesn't quietly drop the invite the visitor came here to accept.
+  const callbackUrl = searchParams.get("callbackUrl");
+  const signUpHref = (
+    callbackUrl?.startsWith("/")
+      ? `/auth/sign-up?callbackUrl=${encodeURIComponent(callbackUrl)}`
+      : "/auth/sign-up"
+  ) as Route;
 
   async function onSubmit(values: FormValues) {
     setError(null);
@@ -43,7 +54,6 @@ export function SignInForm() {
         return;
       }
 
-      const callbackUrl = searchParams.get("callbackUrl");
       const destination = callbackUrl?.startsWith("/")
         ? callbackUrl
         : "/dashboard";
@@ -65,8 +75,17 @@ export function SignInForm() {
           id="email"
           type="email"
           autoComplete="email"
+          readOnly={Boolean(invite)}
+          aria-describedby={invite ? "email-invite-hint" : undefined}
+          className={invite ? "bg-muted text-muted-foreground" : undefined}
           {...form.register("email")}
         />
+        {invite ? (
+          <p id="email-invite-hint" className="text-xs text-muted-foreground">
+            The invite to {invite.organizationName} was sent to this address, so only
+            that account can accept it.
+          </p>
+        ) : null}
         {form.formState.errors.email ? (
           <p className="text-sm text-destructive">
             {form.formState.errors.email.message}
@@ -107,7 +126,7 @@ export function SignInForm() {
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         New to TenderFlow AI?{" "}
-        <Link href="/auth/sign-up" className="font-medium text-primary">
+        <Link href={signUpHref} className="font-medium text-primary">
           Create an account
         </Link>
       </p>
