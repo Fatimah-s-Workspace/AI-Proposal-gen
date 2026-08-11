@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DocumentsTable } from "@/components/projects/documents-table";
 import { ProjectHeader } from "@/components/projects/project-header";
+import { toProjectFormValues } from "@/lib/project-form-values";
 import { UploadDropzone } from "@/components/projects/upload-dropzone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,7 +61,11 @@ export default async function ProjectPage({
 
   return (
     <div className="space-y-8">
-      <ProjectHeader project={project} canDelete={canDeleteProjects(user.organizationRole)} />
+      <ProjectHeader
+        project={project}
+        editValues={toProjectFormValues(project)}
+        canDelete={canDeleteProjects(user.organizationRole)}
+      />
 
       <UploadDropzone projectId={project.id} />
 

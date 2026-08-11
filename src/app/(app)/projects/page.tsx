@@ -1,5 +1,7 @@
-import { ArrowRight, PlusCircle } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { EditProjectButton } from "@/components/projects/edit-project-button";
+import { NewProjectButton } from "@/components/projects/new-project-button";
 import { ProjectsSearch } from "@/components/projects/projects-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TruncatedText } from "@/components/ui/truncated-text";
+import { toProjectFormValues } from "@/lib/project-form-values";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/session";
 
@@ -70,12 +73,7 @@ export default async function ProjectsPage({
               to export.
             </p>
           </div>
-          <Button asChild>
-            <Link href="/projects/new">
-              <PlusCircle />
-              New project
-            </Link>
-          </Button>
+          <NewProjectButton />
         </div>
         <div className="mt-4">
           <ProjectsSearch initialQuery={query} />
@@ -214,11 +212,11 @@ export default async function ProjectsPage({
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2">
-                          <Button asChild variant="outline" size="sm">
-                            <Link href={`/projects/${project.id}/edit`}>
-                              Edit
-                            </Link>
-                          </Button>
+                          <EditProjectButton
+                            project={toProjectFormValues(project)}
+                            label="Edit"
+                            size="sm"
+                          />
                           <Button asChild variant="outline" size="sm">
                             <Link href={`/projects/${project.id}`}>
                               Open
@@ -250,9 +248,9 @@ export default async function ProjectsPage({
           <p className="mt-2 text-muted-foreground">
             Create a project and upload a tender document to begin extraction.
           </p>
-          <Button asChild className="mt-5">
-            <Link href="/projects/new">Create project</Link>
-          </Button>
+          <div className="mt-5 flex justify-center">
+            <NewProjectButton label="Create project" />
+          </div>
         </div>
       )}
     </div>
