@@ -86,6 +86,10 @@ const ACTION_META: Record<string, { label: (metadata: Record<string, unknown>) =
     label: (m) => `Renamed the workspace to "${m.name ?? ""}"`,
     icon: Pencil,
   },
+  "organization.profile_update": {
+    label: () => "Updated the company profile",
+    icon: Building2,
+  },
   "member.invite_revoke": {
     label: (m) => `Revoked the invite for ${m.email ?? "a teammate"}`,
     icon: UserMinus,

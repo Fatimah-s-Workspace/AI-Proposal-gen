@@ -40,6 +40,30 @@ export const updateOrganizationSchema = z.object({
   name: z.string().trim().min(2, "Workspace name is required").max(120)
 });
 
+const currentYear = new Date().getFullYear();
+
+export const updateCompanyProfileSchema = z.object({
+  legalName: z.string().trim().max(160).optional().or(z.literal("")),
+  registrationNumber: z.string().trim().max(80).optional().or(z.literal("")),
+  // Coerced because a number input posts a string, and blank has to mean
+  // "not set" rather than the year 0.
+  foundedYear: z.coerce
+    .number()
+    .int()
+    .min(1800, "Enter a four-digit year")
+    .max(currentYear, "That year is in the future")
+    .optional()
+    .nullable(),
+  teamSize: z.string().trim().max(80).optional().or(z.literal("")),
+  // Generous limits: these are pasted from an existing capability statement,
+  // and truncating a past-performance list loses the strongest evidence a
+  // bid has.
+  profileSummary: z.string().trim().max(2000).optional().or(z.literal("")),
+  capabilities: z.string().trim().max(3000).optional().or(z.literal("")),
+  certifications: z.string().trim().max(2000).optional().or(z.literal("")),
+  pastPerformance: z.string().trim().max(4000).optional().or(z.literal(""))
+});
+
 export const inviteMemberSchema = z.object({
   email: z.string().email("Enter a valid email"),
   role: z.enum(["admin", "member"]).default("member")

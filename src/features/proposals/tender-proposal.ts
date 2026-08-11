@@ -80,8 +80,27 @@ export type TenderProposalSectionState = {
   wordTarget?: number;
 };
 
+/**
+ * The bidder. Distinct from the project, which describes the opportunity
+ * being bid for - this is who is bidding, and it is the same across every
+ * project in a workspace.
+ */
+export type TenderProposalBidder = {
+  name: string;
+  legalName?: string | null;
+  registrationNumber?: string | null;
+  foundedYear?: number | null;
+  teamSize?: string | null;
+  profileSummary?: string | null;
+  capabilities?: string | null;
+  certifications?: string | null;
+  pastPerformance?: string | null;
+};
+
 export type TenderProposalContext = {
   project: TenderProposalProject;
+  /** Optional so older callers that build a context by hand still compile. */
+  bidder?: TenderProposalBidder;
   documents: TenderProposalDocument[];
   parsedSections: TenderProposalParsedSection[];
   clauses: TenderProposalClause[];

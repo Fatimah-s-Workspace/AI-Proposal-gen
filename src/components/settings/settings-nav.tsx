@@ -5,10 +5,11 @@ import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-// General and Team are workspace-scoped; Account is about the signed-in
-// person and follows them across workspaces, so it sits last.
+// General, Company and Team are workspace-scoped; Account is about the
+// signed-in person and follows them across workspaces, so it sits last.
 const sections: Array<{ href: Route; label: string }> = [
   { href: "/settings/general", label: "General" },
+  { href: "/settings/company", label: "Company" },
   { href: "/settings/team", label: "Team" },
   { href: "/settings/account", label: "Account" },
 ];

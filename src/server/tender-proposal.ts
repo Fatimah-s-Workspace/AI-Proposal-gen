@@ -28,6 +28,21 @@ export const tenderProposalContextInclude = {
   proposalSections: {
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],
   },
+  // The bidder writing the proposal. Selected rather than included whole so
+  // this can't quietly start shipping billing or slug data into a prompt.
+  organization: {
+    select: {
+      name: true,
+      legalName: true,
+      registrationNumber: true,
+      foundedYear: true,
+      teamSize: true,
+      profileSummary: true,
+      capabilities: true,
+      certifications: true,
+      pastPerformance: true,
+    },
+  },
 } satisfies Prisma.ProjectInclude;
 
 type ProjectForTenderProposalContext = Prisma.ProjectGetPayload<{
@@ -58,6 +73,17 @@ export function mapProjectToTenderProposalContext(
       contractDuration: project.contractDuration,
       incumbent: project.incumbent,
       submissionLanguage: project.submissionLanguage,
+    },
+    bidder: {
+      name: project.organization.name,
+      legalName: project.organization.legalName,
+      registrationNumber: project.organization.registrationNumber,
+      foundedYear: project.organization.foundedYear,
+      teamSize: project.organization.teamSize,
+      profileSummary: project.organization.profileSummary,
+      capabilities: project.organization.capabilities,
+      certifications: project.organization.certifications,
+      pastPerformance: project.organization.pastPerformance,
     },
     documents: project.documents.map((document) => ({
       id: document.id,
