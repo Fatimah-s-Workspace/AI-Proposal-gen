@@ -1,5 +1,7 @@
 import {
   Building2,
+  ChevronLeft,
+  ChevronRight,
   CreditCard,
   FileOutput,
   Pencil,
@@ -10,7 +12,14 @@ import {
   UserPlus,
   type LucideIcon,
 } from "lucide-react";
+import { ActivityFilters } from "@/components/activity/activity-filters";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  categoryPrefixes,
+  rangeStart,
+  resolveCategory,
+  resolveRange,
+} from "@/lib/activity-filters";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/session";
 
@@ -106,24 +115,53 @@ function formatRelativeDate(date: Date, now: number) {
 export default async function ActivityPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; category?: string; range?: string }>;
 }) {
   const user = await requireUser();
-  const { page: pageParam } = await searchParams;
+  const {
+    page: pageParam,
+    category: categoryParam,
+    range: rangeParam,
+  } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
+  const category = resolveCategory(categoryParam);
+  const range = resolveRange(rangeParam);
+
+  const prefixes = categoryPrefixes(category);
+  const since = rangeStart(range, new Date());
+
+  // Filtering in the query rather than over the fetched page, so a filter
+  // reaches the whole history instead of just the 25 rows already on screen.
+  const where = {
+    userId: user.id,
+    ...(prefixes
+      ? { OR: prefixes.map((prefix) => ({ action: { startsWith: prefix } })) }
+      : {}),
+    ...(since ? { createdAt: { gte: since } } : {}),
+  };
 
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({
-      where: { userId: user.id },
+      where,
       orderBy: { createdAt: "desc" },
       take: PAGE_SIZE,
       skip: (page - 1) * PAGE_SIZE,
     }),
-    prisma.auditLog.count({ where: { userId: user.id } }),
+    prisma.auditLog.count({ where }),
   ]);
 
   const now = new Date().getTime();
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const filtered = category !== "all" || range !== "all";
+
+  // Paging has to carry the filters, or page 2 quietly drops them.
+  const pageHref = (target: number) => {
+    const params = new URLSearchParams();
+    if (category !== "all") params.set("category", category);
+    if (range !== "all") params.set("range", range);
+    params.set("page", String(target));
+    return `/activity?${params.toString()}`;
+  };
 
   return (
     <div className="space-y-6 pb-8">
@@ -132,13 +170,40 @@ export default async function ActivityPage({
         <p className="mt-2 text-muted-foreground">
           A record of generation, edit, export, delete, and payment actions on your account.
         </p>
+        {/* Filters and paging share a row: both narrow the same list, and
+            keeping paging up here means it stays reachable in the sticky
+            header instead of only after scrolling 25 rows to the bottom. */}
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <ActivityFilters category={category} range={range} />
+          {totalPages > 1 ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="whitespace-nowrap">
+                Page {page} of {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <PageLink href={pageHref(page - 1)} disabled={page === 1} label="Previous page">
+                  <ChevronLeft className="size-4" />
+                </PageLink>
+                <PageLink
+                  href={pageHref(page + 1)}
+                  disabled={page === totalPages}
+                  label="Next page"
+                >
+                  <ChevronRight className="size-4" />
+                </PageLink>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <Card>
         <CardContent className="p-0">
           {logs.length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground">
-              No activity recorded yet.
+              {filtered
+                ? "Nothing matches these filters."
+                : "No activity recorded yet."}
             </div>
           ) : (
             <div className="divide-y">
@@ -167,31 +232,38 @@ export default async function ActivityPage({
         </CardContent>
       </Card>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <p>
-            Page {page} of {totalPages}
-          </p>
-          <div className="flex gap-2">
-            {page > 1 && (
-              <a
-                href={`/activity?page=${page - 1}`}
-                className="rounded-md border px-3 py-1.5 hover:bg-muted"
-              >
-                Previous
-              </a>
-            )}
-            {page < totalPages && (
-              <a
-                href={`/activity?page=${page + 1}`}
-                className="rounded-md border px-3 py-1.5 hover:bg-muted"
-              >
-                Next
-              </a>
-            )}
-          </div>
-        </div>
-      )}
     </div>
+  );
+}
+
+// Rendered as a dimmed span rather than dropped at the ends, so the two
+// controls keep their position instead of shifting sideways on the first and
+// last page.
+function PageLink({
+  href,
+  disabled,
+  label,
+  children,
+}: {
+  href: string;
+  disabled: boolean;
+  label: string;
+  children: React.ReactNode;
+}) {
+  const className =
+    "flex size-8 items-center justify-center rounded-md border";
+
+  if (disabled) {
+    return (
+      <span aria-hidden className={`${className} opacity-40`}>
+        {children}
+      </span>
+    );
+  }
+
+  return (
+    <a href={href} aria-label={label} className={`${className} hover:bg-muted`}>
+      {children}
+    </a>
   );
 }
