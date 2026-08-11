@@ -1,5 +1,6 @@
 import { ArrowRight, PlusCircle } from "lucide-react";
 import Link from "next/link";
+import { ProjectsSearch } from "@/components/projects/projects-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,10 +19,29 @@ import { requireUser } from "@/server/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const user = await requireUser();
+  const { q } = await searchParams;
+  const query = q?.trim() ?? "";
+
   const projects = await prisma.project.findMany({
-    where: { organizationId: user.organizationId },
+    where: {
+      organizationId: user.organizationId,
+      // Searching server-side rather than filtering the rendered rows, so it
+      // still finds things once a workspace outgrows one page of projects.
+      ...(query
+        ? {
+            OR: [
+              { title: { contains: query, mode: "insensitive" as const } },
+              { clientName: { contains: query, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { updatedAt: "desc" },
     include: {
       _count: {
@@ -56,6 +76,9 @@ export default async function ProjectsPage() {
               New project
             </Link>
           </Button>
+        </div>
+        <div className="mt-4">
+          <ProjectsSearch initialQuery={query} />
         </div>
       </div>
 
@@ -212,6 +235,15 @@ export default async function ProjectsPage() {
           </CardContent>
           </Card>
         </>
+      ) : query ? (
+        <div className="rounded-lg border border-dashed p-10 text-center">
+          <p className="text-lg font-medium">
+            No projects match &ldquo;{query}&rdquo;
+          </p>
+          <p className="mt-2 text-muted-foreground">
+            Search covers project titles and client names.
+          </p>
+        </div>
       ) : (
         <div className="rounded-lg border border-dashed p-10 text-center">
           <p className="text-lg font-medium">No project workspaces yet</p>
