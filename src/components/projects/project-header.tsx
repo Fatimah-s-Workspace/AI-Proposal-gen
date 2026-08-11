@@ -5,10 +5,12 @@ import { ArrowLeft, Trash2 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { EditProjectButton } from "@/components/projects/edit-project-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TruncatedText } from "@/components/ui/truncated-text";
+import type { ProjectFormValues } from "@/lib/project-form-values";
 
 type Project = {
   id: string;
@@ -24,10 +26,16 @@ type Project = {
 
 type ProjectHeaderProps = {
   project: Project;
+  /** The same project, shaped for the edit modal. */
+  editValues: ProjectFormValues;
   canDelete?: boolean;
 };
 
-export function ProjectHeader({ project, canDelete = true }: ProjectHeaderProps) {
+export function ProjectHeader({
+  project,
+  editValues,
+  canDelete = true,
+}: ProjectHeaderProps) {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -88,9 +96,7 @@ export function ProjectHeader({ project, canDelete = true }: ProjectHeaderProps)
             />
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <a href={`/projects/${project.id}/edit`}>Edit project</a>
-            </Button>
+            <EditProjectButton project={editValues} size="sm" openFromUrl />
             {canDelete ? (
               <Button
                 variant="outline"
@@ -103,10 +109,10 @@ export function ProjectHeader({ project, canDelete = true }: ProjectHeaderProps)
               </Button>
             ) : null}
             <Button asChild variant="outline">
-              <a href={`/projects/${project.id}/export`}>Export</a>
+              <Link href={`/projects/${project.id}/export`}>Export</Link>
             </Button>
             <Button asChild>
-              <a href={`/projects/${project.id}/workspace`}>Open workspace</a>
+              <Link href={`/projects/${project.id}/workspace`}>Open workspace</Link>
             </Button>
           </div>
         </div>

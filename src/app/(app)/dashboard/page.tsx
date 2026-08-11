@@ -4,7 +4,6 @@ import {
   Clock,
   FileText,
   FolderKanban,
-  PlusCircle,
   Sparkles,
   UploadCloud,
   type LucideIcon,
@@ -14,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TruncatedText } from "@/components/ui/truncated-text";
+import { NewProjectButton } from "@/components/projects/new-project-button";
 import { prisma } from "@/server/db";
 import { requireUser } from "@/server/session";
 
@@ -104,12 +104,7 @@ export default async function DashboardPage() {
               activity.
             </p>
           </div>
-          <Button asChild>
-            <Link href="/projects/new">
-              <PlusCircle />
-              New project
-            </Link>
-          </Button>
+          <NewProjectButton />
         </div>
       </div>
 
@@ -225,9 +220,7 @@ export default async function DashboardPage() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   Create your first tender workspace and upload the RFP pack.
                 </p>
-                <Button asChild className="mt-4">
-                  <Link href="/projects/new">Create project</Link>
-                </Button>
+                <NewProjectButton label="Create project" />
               </div>
             )}
           </CardContent>

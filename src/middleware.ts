@@ -49,16 +49,15 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    // Everything except static assets and image optimizer output - those
-    // are served straight from disk and don't execute scripts, so running
-    // middleware over them is pure overhead on every request.
-    {
-      source: "/((?!_next/static|_next/image|favicon.ico).*)",
-      missing: [
-        { type: "header", key: "next-router-prefetch" },
-        { type: "header", key: "purpose", value: "prefetch" },
-      ],
-    },
-  ],
+  // Everything except static assets and image optimizer output - those are
+  // served straight from disk and don't execute scripts, so running
+  // middleware over them is pure overhead on every request.
+  //
+  // Deliberately NOT excluding prefetch requests. That exclusion is the
+  // usual shape for auth-redirect middleware, but here it would hand
+  // prefetched documents no CSP header, so Next renders them with an empty
+  // nonce and hydration then mismatches against the client - which React
+  // reports as "won't be patched up". Every document request needs the
+  // header.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

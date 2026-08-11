@@ -32,6 +32,18 @@ model Organization {
   id            String               @id @default(cuid())
   name          String
   slug          String               @unique
+  // The bidder's own profile. Every proposal is written on behalf of this
+  // organization, so this is set once here rather than retyped into each
+  // project. All optional - a workspace works without any of it, and the
+  // prompt simply says less about the bidder until it's filled in.
+  legalName          String?
+  registrationNumber String?
+  foundedYear        Int?
+  teamSize           String?
+  profileSummary     String?
+  capabilities       String?
+  certifications     String?
+  pastPerformance    String?
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
   memberships   Membership[]
@@ -126,6 +138,15 @@ model Project {
   authority           String?
   deadline            DateTime?
   budgetRange         String?
+  // Bid-shaping context. All optional: a project is still usable the moment
+  // it has a title and a client, and these are things you often only learn
+  // after reading the pack. Everything here is fed to the proposal prompt.
+  referenceNumber     String?
+  evaluationCriteria  String?
+  winThemes           String?
+  contractDuration    String?
+  incumbent           String?
+  submissionLanguage  String                  @default("English")
   status              String                  @default("draft")
   stage               String                  @default("intake")
   complianceScore     Int                     @default(0)

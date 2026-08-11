@@ -13,11 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signUpSchema } from "@/lib/validations";
+import type { PendingInvite } from "@/server/invites";
 
 type FormInput = z.input<typeof signUpSchema>;
 type FormValues = z.output<typeof signUpSchema>;
 
-export function SignUpForm() {
+export function SignUpForm({ invite }: { invite?: PendingInvite | null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -26,12 +27,24 @@ export function SignUpForm() {
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       name: "",
+      // Someone joining a team gets their own workspace too, so this stays
+      // theirs to name - prefilling the inviting team's name here would
+      // create a confusing second workspace with an identical name.
       companyName: "",
-      email: "",
+      email: invite?.email ?? "",
       password: "",
       country: "Nigeria",
     },
   });
+
+  // Carry the destination across, so bouncing between sign-up and sign-in
+  // doesn't quietly drop the invite the visitor came here to accept.
+  const callbackUrl = searchParams.get("callbackUrl");
+  const signInHref = (
+    callbackUrl?.startsWith("/")
+      ? `/auth/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`
+      : "/auth/sign-in"
+  ) as Route;
 
   async function onSubmit(values: FormValues) {
     setError(null);
@@ -65,7 +78,6 @@ export function SignUpForm() {
       }
 
       setSuccess(true);
-      const callbackUrl = searchParams.get("callbackUrl");
       const destination = callbackUrl?.startsWith("/") ? callbackUrl : "/dashboard";
       router.replace(destination as Route);
     } catch (error) {
@@ -113,8 +125,21 @@ export function SignUpForm() {
           id="email"
           type="email"
           autoComplete="email"
+          readOnly={Boolean(invite)}
+          aria-describedby={invite ? "email-invite-hint" : undefined}
+          className={invite ? "bg-muted text-muted-foreground" : undefined}
           {...form.register("email")}
         />
+        {invite ? (
+          <p id="email-invite-hint" className="text-xs text-muted-foreground">
+            The invite to {invite.organizationName} was sent to this address, so your
+            account has to use it.{" "}
+            <Link href="/auth/sign-up" className="font-medium text-primary">
+              Sign up with a different email
+            </Link>{" "}
+            instead.
+          </p>
+        ) : null}
         {form.formState.errors.email ? (
           <p className="text-sm text-destructive">
             {form.formState.errors.email.message}
@@ -166,7 +191,7 @@ export function SignUpForm() {
       </p>
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link href="/auth/sign-in" className="font-medium text-primary">
+        <Link href={signInHref} className="font-medium text-primary">
           Sign in
         </Link>
       </p>

@@ -1,7 +1,17 @@
 import { Suspense } from "react";
 import { SignInForm } from "@/components/auth/sign-in-form";
+import { pendingInviteFromCallback } from "@/server/invites";
 
-export default function SignInPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string }>;
+}) {
+  const { callbackUrl } = await searchParams;
+  const invite = await pendingInviteFromCallback(callbackUrl);
+
   return (
     <main className="min-h-svh bg-background">
       <div className="grid min-h-svh lg:grid-cols-[0.9fr_1.1fr]">
@@ -26,10 +36,14 @@ export default function SignInPage() {
             <div className="mb-8 space-y-2">
               <p className="text-sm font-medium text-primary">TenderFlow AI</p>
               <h1 className="text-3xl font-semibold tracking-normal">Sign in</h1>
-              <p className="text-sm text-muted-foreground">Use the seeded demo account or your own workspace.</p>
+              <p className="text-sm text-muted-foreground">
+                {invite
+                  ? `Sign in to join ${invite.organizationName}.`
+                  : "Use the seeded demo account or your own workspace."}
+              </p>
             </div>
             <Suspense>
-              <SignInForm />
+              <SignInForm invite={invite} />
             </Suspense>
           </div>
         </section>

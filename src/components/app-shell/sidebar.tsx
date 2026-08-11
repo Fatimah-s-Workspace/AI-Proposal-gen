@@ -18,6 +18,7 @@ import {
   AccountMenuContent,
   type AccountMenuUser,
 } from "@/components/app-shell/account-menu-content";
+import { NavPending } from "@/components/app-shell/nav-pending";
 import { OrganizationSwitcher } from "@/components/organization/organization-switcher";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,8 +55,13 @@ const navItems: Array<{
 
 export function Sidebar({ user: initialUser }: SidebarProps) {
   const pathname = usePathname();
-  const { sidebarCollapsed, setSidebarCollapsed, projects, refreshProjects } =
-    useApp();
+  const {
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    projects,
+    projectsLoaded,
+    refreshProjects,
+  } = useApp();
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [showProjects, setShowProjects] = useState(false);
   const [user, setUser] = useState(initialUser);
@@ -72,6 +78,17 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
         .catch(console.error);
     }
   }, [pathname, refreshProjects, user]);
+
+  // The list is only ever fetched by the effect above, which fires on
+  // /projects routes. Opening the menu from anywhere else - the dashboard,
+  // say - has to go and get it, or it renders empty until you've visited the
+  // projects page at least once. Refreshing on every open also keeps a menu
+  // opened twice in a session from showing a stale list.
+  const onProjectsToggle =
+    (setOpen: (open: boolean) => void) => (next: boolean) => {
+      if (next) refreshProjects();
+      setOpen(next);
+    };
 
   return (
     <aside
@@ -129,7 +146,7 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
                   <Popover
                     key={item.href}
                     open={projectsOpen}
-                    onOpenChange={setProjectsOpen}
+                    onOpenChange={onProjectsToggle(setProjectsOpen)}
                   >
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -173,6 +190,11 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
                               />
                             </Link>
                           ))}
+                          {projects.length === 0 ? (
+                            <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                              {projectsLoaded ? "No projects yet" : "Loading…"}
+                            </p>
+                          ) : null}
                           <Link
                             href="/projects"
                             onClick={() => setProjectsOpen(false)}
@@ -198,7 +220,9 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
               return (
                 <div key={item.href}>
                   <button
-                    onClick={() => setShowProjects(!showProjects)}
+                    onClick={() =>
+                      onProjectsToggle(setShowProjects)(!showProjects)
+                    }
                     className={cn(
                       "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
                       active && "bg-primary/10 text-primary",
@@ -235,6 +259,11 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
                           />
                         </Link>
                       ))}
+                      {projects.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">
+                          {projectsLoaded ? "No projects yet" : "Loading…"}
+                        </p>
+                      ) : null}
                       <Link
                         href="/projects"
                         className="block rounded-md px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -289,6 +318,7 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
               >
                 <Icon className="size-4" />
                 {item.label}
+                <NavPending className="ml-auto" />
               </Link>
             );
           })}

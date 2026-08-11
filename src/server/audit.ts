@@ -20,6 +20,7 @@ export const AUDIT_ACTIONS = {
   memberRemove: "member.remove",
   organizationCreate: "organization.create",
   organizationRename: "organization.rename",
+  organizationProfileUpdate: "organization.profile_update",
   // No organization.delete: AuditLog.organizationId cascades, so deleting an
   // organization removes its own audit trail in the same transaction - the
   // entry could never be read back.

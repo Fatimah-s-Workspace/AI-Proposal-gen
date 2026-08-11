@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, CircleAlert, CircleDashed, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export function ChecklistDashboard({
   requirements: ChecklistRequirement[];
   projectId: string;
 }) {
+  const router = useRouter();
   const [editing, setEditing] = useState<ChecklistRequirement | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -57,7 +59,7 @@ export function ChecklistDashboard({
         `/api/projects/${projectId}/requirements/${deletingId}`,
         { method: "DELETE" },
       );
-      if (response.ok) window.location.reload();
+      if (response.ok) router.refresh();
     } finally {
       setIsConfirmOpen(false);
       setDeletingId(null);
@@ -101,7 +103,12 @@ export function ChecklistDashboard({
         title="Edit checklist item"
       >
         {editing ? (
-          <EditRequirementForm requirement={editing} projectId={projectId} onCancel={() => setEditing(null)} />
+          <EditRequirementForm
+            requirement={editing}
+            projectId={projectId}
+            onSuccess={() => setEditing(null)}
+            onCancel={() => setEditing(null)}
+          />
         ) : null}
       </Modal>
 
@@ -142,7 +149,7 @@ export function ChecklistDashboard({
                     type="button"
                     variant={requirement.status === status ? "default" : "outline"}
                     size="sm"
-                    onClick={() => updateStatus(projectId, requirement.id, status)}
+                    onClick={() => updateStatus(projectId, requirement.id, status, () => router.refresh())}
                   >
                     {status.replace("_", " ")}
                   </Button>
@@ -205,13 +212,18 @@ function StatusIcon({ status }: { status: string }) {
   return <CircleDashed className="size-4 text-amber-600" />;
 }
 
-async function updateStatus(projectId: string, requirementId: string, status: string) {
+async function updateStatus(
+  projectId: string,
+  requirementId: string,
+  status: string,
+  onUpdated: () => void,
+) {
   const response = await fetch(`/api/projects/${projectId}/requirements/${requirementId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
   });
-  if (response.ok) window.location.reload();
+  if (response.ok) onUpdated();
 }
 
 function normaliseList(value: unknown) {

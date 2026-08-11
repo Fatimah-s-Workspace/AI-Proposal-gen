@@ -264,7 +264,10 @@ function buildFallbackDraft(
   };
 }
 
-function buildProposalPrompt(
+// Exported for tests: which project fields reach the model is the whole
+// point of the fields users fill in, and nothing else would catch a
+// regression that silently drops one.
+export function buildProposalPrompt(
   context: TenderProposalContext,
   sectionPlan: TenderProposalSectionPlan,
   tone = "formal",
@@ -279,12 +282,69 @@ function buildProposalPrompt(
     .map((clause) => clause.title ?? clause.originalText.slice(0, 140))
     .join("\n");
 
+  const project = context.project;
+  const bidder = context.bidder;
+
+  // Only emit a line when there's something in it - a prompt full of
+  // "Budget: not specified" teaches the model that blanks are normal and
+  // invites it to leave its own.
+  const detail = (label: string, value?: string | null) =>
+    value && value.trim() ? `${label}: ${value.trim()}` : null;
+
+  // Who "we" is. Without this the model writes credible-sounding claims
+  // about a bidder it knows nothing about, which is worse than writing
+  // nothing - an invented certification or contract in a submitted tender
+  // is a disqualification, not a typo.
+  const bidderLines = bidder
+    ? [
+        detail("Bidding as", bidder.legalName || bidder.name),
+        detail("Registration number", bidder.registrationNumber),
+        bidder.foundedYear ? `Operating since: ${bidder.foundedYear}` : null,
+        detail("Team size", bidder.teamSize),
+        detail("About the bidder", bidder.profileSummary),
+        detail("Bidder capabilities", bidder.capabilities),
+        detail("Certifications and accreditations held", bidder.certifications),
+        detail("Relevant past performance", bidder.pastPerformance),
+      ].filter(Boolean)
+    : [];
+
   return [
-    `Write a proposal section for the ${context.project.opportunityType} titled ${sectionPlan.title}.`,
-    `Client: ${context.project.clientName}`,
-    `Project: ${context.project.title}`,
-    `Sector: ${context.project.sector}`,
+    `Write a proposal section for the ${project.opportunityType} titled ${sectionPlan.title}.`,
+    detail("Client", project.clientName),
+    detail("Project", project.title),
+    detail("Tender reference", project.referenceNumber),
+    detail("Sector", project.sector),
+    detail("Country", project.country),
+    detail("Procuring authority", project.authority),
+    detail("Budget", project.budgetRange),
+    detail("Contract duration", project.contractDuration),
+    project.deadline
+      ? `Submission deadline: ${project.deadline.toISOString().slice(0, 10)}`
+      : null,
+    detail("Opportunity notes", project.summary),
+    // The two highest-leverage inputs, so they carry an instruction rather
+    // than being dropped in as bare context the model may or may not act on.
+    project.evaluationCriteria?.trim()
+      ? `Evaluation criteria - address these explicitly and in proportion to their weight:\n${project.evaluationCriteria.trim()}`
+      : null,
+    project.winThemes?.trim()
+      ? `Win themes to carry through the writing:\n${project.winThemes.trim()}`
+      : null,
+    detail("Incumbent or known competitors", project.incumbent),
+    bidderLines.length > 0
+      ? `The bidder you are writing for:\n${bidderLines.join("\n")}`
+      : null,
+    // The guard only means anything when there is a profile to stay inside
+    // of. With nothing to check against, it reads as an instruction to write
+    // about a bidder in the abstract, which is what produces the invented
+    // detail in the first place.
+    bidderLines.length > 0
+      ? `Use only the bidder details above when describing experience, credentials, or capacity. Do not invent certifications, contracts, staff numbers, or dates. If a section needs a detail that is not given, write a clearly marked placeholder instead.`
+      : `No bidder profile has been provided. Do not state any specific experience, credentials, or past contracts - leave clearly marked placeholders where they belong.`,
     `Tone: ${tone} and evaluator-ready.`,
+    project.submissionLanguage && project.submissionLanguage !== "English"
+      ? `Write the section in ${project.submissionLanguage}.`
+      : null,
     `Target length: about ${sectionPlan.wordTarget} words.`,
     `Section rationale: ${sectionPlan.rationale}`,
     `Requirements:\n${requirements || "None"}`,

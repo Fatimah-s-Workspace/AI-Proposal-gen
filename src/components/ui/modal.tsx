@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,7 +15,19 @@ type ModalProps = {
   className?: string;
 };
 
+const emptySubscribe = () => () => {};
+
 export function Modal({ isOpen, onClose, title, description, children, className }: ModalProps) {
+  // False on the server and for the hydrating render, true afterwards. A
+  // modal can be open on first paint (the project form opens from ?edit=1),
+  // and portalling during hydration makes React's tree disagree with the
+  // server HTML - so the portal waits until hydration is done.
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -30,9 +43,14 @@ export function Modal({ isOpen, onClose, title, description, children, className
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  // Portalled to the body because `position: fixed` resolves against the
+  // nearest ancestor with a transform, filter, or backdrop-filter rather than
+  // the viewport. Several page headers here are sticky with backdrop-blur, so
+  // a modal opened from a button inside one was positioned against that
+  // header and hung off the top of the screen.
+  if (!isOpen || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4"
       onClick={onClose}
@@ -64,6 +82,7 @@ export function Modal({ isOpen, onClose, title, description, children, className
         </div>
         <div className="overflow-y-auto p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -17,6 +17,9 @@ type AppContextType = {
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
   projects: Project[];
+  // False until a fetch has actually resolved, so an empty `projects` can be
+  // told apart from "we haven't looked yet" - the two need different UI.
+  projectsLoaded: boolean;
   refreshProjects: () => Promise<void>;
 };
 
@@ -25,12 +28,15 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
 
   const refreshProjects = useCallback(async () => {
     try {
       const response = await fetch("/api/projects");
+      if (!response.ok) return;
       const data = await response.json();
-      setProjects(data.projects);
+      setProjects(data.projects ?? []);
+      setProjectsLoaded(true);
     } catch (error) {
       console.error("Failed to refresh projects:", error);
     }
@@ -42,6 +48,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         sidebarCollapsed,
         setSidebarCollapsed,
         projects,
+        projectsLoaded,
         refreshProjects,
       }}
     >

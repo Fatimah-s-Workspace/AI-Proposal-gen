@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { QueryProvider } from "@/providers/query-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 import "./globals.css";
@@ -27,11 +26,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className="font-sans">
-        <Script
-          id="theme-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
-        />
+        {/* A plain <script>, not next/script. next/script emits nonce=""
+            during SSR and undefined on the client, which React reports as a
+            hydration mismatch it "won't patch up". This script is allowed by
+            hash in the CSP, so it needs no nonce at all - and being inline it
+            still runs during parse, before hydration, which is the whole
+            point (otherwise dark mode flashes light). global-error.tsx does
+            the same thing for the same reason. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <ThemeProvider>
           <QueryProvider>{children}</QueryProvider>
         </ThemeProvider>
