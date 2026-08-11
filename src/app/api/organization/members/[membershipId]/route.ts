@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { canManageMembers, canAssignRole } from "@/server/permissions";
 import { updateMembershipSchema } from "@/lib/validations";
 import { logAudit, AUDIT_ACTIONS } from "@/server/audit";
@@ -26,6 +27,9 @@ export async function PATCH(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const limit = await rateLimit(`member:role:${user.id}`, 30, 60_000);
+  if (!limit.allowed) return rateLimitResponse();
 
   const { membershipId } = await params;
   const membership = await findMembership(membershipId, user.organizationId);
@@ -77,6 +81,9 @@ export async function DELETE(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const limit = await rateLimit(`member:remove:${user.id}`, 20, 60_000);
+  if (!limit.allowed) return rateLimitResponse();
 
   const { membershipId } = await params;
   const membership = await findMembership(membershipId, user.organizationId);

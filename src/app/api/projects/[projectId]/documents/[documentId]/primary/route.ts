@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function PATCH(
   request: Request,
@@ -7,6 +8,9 @@ export async function PATCH(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const limit = await rateLimit(`document:primary:${user.id}`, 30, 60_000);
+  if (!limit.allowed) return rateLimitResponse();
 
   const { projectId, documentId } = await params;
 

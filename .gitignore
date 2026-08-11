@@ -12,3 +12,6 @@ public/uploads/*
 coverage
 dist
 tsconfig.tsbuildinfo
+
+# macOS finder metadata
+.DS_Store

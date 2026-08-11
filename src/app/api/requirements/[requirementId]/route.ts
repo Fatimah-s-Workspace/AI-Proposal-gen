@@ -1,11 +1,15 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { updateRequirementSchema } from "@/lib/validations";
 import { calculateChecklistScore } from "@/features/tender-intelligence/pipeline";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ requirementId: string }> }) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const limit = await rateLimit(`requirement:update:${user.id}`, 60, 60_000);
+  if (!limit.allowed) return rateLimitResponse();
 
   const { requirementId } = await params;
   const parsed = updateRequirementSchema.safeParse(await request.json());

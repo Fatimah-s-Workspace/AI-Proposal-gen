@@ -1,12 +1,18 @@
 import { readStoredFile } from "@/lib/storage";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ exportId: string }> }) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Every hit pulls the whole file out of object storage, so this is about
+  // bandwidth rather than compute.
+  const limit = await rateLimit(`export:download:${user.id}`, 30, 60_000);
+  if (!limit.allowed) return rateLimitResponse();
 
   const { exportId } = await params;
   // Access is by org membership, not by who originally ran the export - any

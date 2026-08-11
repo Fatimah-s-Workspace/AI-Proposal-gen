@@ -1,4 +1,5 @@
 import { requireApiUser } from "@/server/session";
+import { rateLimit } from "@/lib/rate-limit";
 import { finalizePayment } from "@/server/billing";
 
 // Paystack redirects the user's own browser here after checkout, with
@@ -14,6 +15,15 @@ export async function GET(request: Request) {
 
   if (!user) {
     return Response.redirect(`${baseUrl}/auth/sign-in`, 302);
+  }
+
+  // Each call re-verifies the reference with Paystack over the network, so a
+  // replayed callback URL is an outbound request per hit. Redirects to the
+  // failure page rather than returning 429: this is a browser navigation, and
+  // a JSON error body would render as raw text in the address bar.
+  const limit = await rateLimit(`billing:callback:${user.id}`, 20, 60_000);
+  if (!limit.allowed) {
+    return Response.redirect(`${baseUrl}/billing/failed?reason=rate_limited`, 302);
   }
 
   const reference = new URL(request.url).searchParams.get("reference");

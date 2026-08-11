@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { canManageMembers } from "@/server/permissions";
 import { logAudit, AUDIT_ACTIONS } from "@/server/audit";
 
@@ -9,6 +10,9 @@ export async function DELETE(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const limit = await rateLimit(`invite:revoke:${user.id}`, 20, 60_000);
+  if (!limit.allowed) return rateLimitResponse();
   if (!canManageMembers(user.organizationRole)) {
     return Response.json({ error: "Only owners and admins can revoke invites" }, { status: 403 });
   }

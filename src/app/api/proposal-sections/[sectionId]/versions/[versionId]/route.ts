@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function GET(
   _request: Request,
@@ -7,6 +8,9 @@ export async function GET(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const limit = await rateLimit(`section:version:${user.id}`, 60, 60_000);
+  if (!limit.allowed) return rateLimitResponse();
 
   const { sectionId, versionId } = await params;
   const version = await prisma.generatedContent.findFirst({

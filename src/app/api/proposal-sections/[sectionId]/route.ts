@@ -1,11 +1,18 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { updateProposalSectionSchema } from "@/lib/validations";
 import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ sectionId: string }> }) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // The editor autosaves on a 900ms debounce, so sustained typing can legitimately
+  // reach ~60 requests a minute. Set well clear of that: a limit tuned for a
+  // normal write endpoint would cut off someone mid-paragraph.
+  const limit = await rateLimit(`section:save:${user.id}`, 150, 60_000);
+  if (!limit.allowed) return rateLimitResponse();
 
   const { sectionId } = await params;
   const body = await request.json();
