@@ -1,4 +1,8 @@
 import { saveFile } from "@/lib/storage";
+import {
+  buildCoverSheet,
+  type CoverSheetProject,
+} from "@/features/export/cover-sheet";
 
 type ExportSection = {
   title: string;
@@ -6,11 +10,8 @@ type ExportSection = {
   order: number;
 };
 
-type ExportProject = {
+type ExportProject = CoverSheetProject & {
   id: string;
-  title: string;
-  clientName: string;
-  country: string;
   proposalSections: ExportSection[];
 };
 
@@ -35,12 +36,30 @@ export async function exportProposal(project: ExportProject, format: "docx" | "p
 
 async function exportDocx(project: ExportProject): Promise<Buffer> {
   const { Document, HeadingLevel, Packer, Paragraph, TextRun } = await import("docx");
+  const cover = buildCoverSheet(project);
+
   const doc = new Document({
     sections: [
       {
         children: [
-          new Paragraph({ text: project.title, heading: HeadingLevel.TITLE }),
-          new Paragraph({ text: `Prepared for ${project.clientName} | ${project.country}` }),
+          new Paragraph({ text: cover.title, heading: HeadingLevel.TITLE }),
+          new Paragraph({
+            children: [new TextRun({ text: cover.subtitle, italics: true })],
+            spacing: { after: 400 },
+          }),
+          ...cover.rows.map(
+            (row) =>
+              new Paragraph({
+                children: [
+                  new TextRun({ text: `${row.label}: `, bold: true }),
+                  new TextRun(row.value),
+                ],
+                spacing: { after: 80 },
+              }),
+          ),
+          // The cover is its own page: an evaluator opening the file should
+          // see who is bidding and against which reference before any prose.
+          new Paragraph({ text: "", pageBreakBefore: true }),
           ...project.proposalSections
             .sort((a, b) => a.order - b.order)
             .flatMap((section) => [
@@ -68,9 +87,20 @@ async function exportPdf(project: ExportProject): Promise<Buffer> {
   doc.on("data", (chunk: Buffer) => chunks.push(chunk));
   const done = new Promise<void>((resolve) => doc.on("end", resolve));
 
-  doc.fontSize(22).text(project.title, { lineGap: 8 });
-  doc.fontSize(11).fillColor("#475569").text(`Prepared for ${project.clientName} | ${project.country}`);
-  doc.moveDown();
+  const cover = buildCoverSheet(project);
+
+  doc.fontSize(24).fillColor("#111827").text(cover.title, { lineGap: 8 });
+  doc.fontSize(12).fillColor("#475569").text(cover.subtitle);
+  doc.moveDown(2);
+
+  for (const row of cover.rows) {
+    doc.fontSize(10.5).fillColor("#475569").text(`${row.label}`, { lineGap: 2 });
+    doc.fontSize(11.5).fillColor("#111827").text(row.value, { lineGap: 6 });
+  }
+
+  // The cover is its own page: an evaluator opening the file should see who
+  // is bidding and against which reference before any prose.
+  doc.addPage();
   doc.fillColor("#111827");
 
   for (const section of project.proposalSections.sort((a, b) => a.order - b.order)) {

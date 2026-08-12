@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/server/db";
 import { requireApiUser, ACTIVE_ORG_COOKIE } from "@/server/session";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { canManageBilling, canManageMembers } from "@/server/permissions";
 import { updateOrganizationSchema } from "@/lib/validations";
 import { deleteStoredFile } from "@/lib/storage";
@@ -22,6 +23,9 @@ export async function PATCH(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const limit = await rateLimit(`org:rename:${user.id}`, 20, 60_000);
+  if (!limit.allowed) return rateLimitResponse();
 
   const { organizationId } = await params;
   const membership = await findMembership(user.id, organizationId);
@@ -69,6 +73,11 @@ export async function DELETE(
   try {
     const user = await requireApiUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+    // Destroys every project, document and export in the workspace, so this is an
+    // hourly cap rather than a per-minute one - matching account deletion.
+    const limit = await rateLimit(`org:delete:${user.id}`, 5, 60 * 60_000);
+    if (!limit.allowed) return rateLimitResponse();
 
     const { organizationId } = await params;
     const membership = await findMembership(user.id, organizationId);

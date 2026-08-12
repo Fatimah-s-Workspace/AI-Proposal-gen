@@ -5,6 +5,10 @@ import { captureError } from "@/lib/monitoring";
 // `Authorization: Bearer $CRON_SECRET` automatically when CRON_SECRET is set
 // as a project env var - checking it here stops anyone else who finds this
 // URL from triggering it, since that would resend reminder emails on demand.
+//
+// Deliberately not rate limited: the secret check already rejects everything
+// that isn't the scheduler, there is no user to key a limit on, and capping
+// it could suppress the one run a day that is supposed to happen.
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {

@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { canManageMembers } from "@/server/permissions";
 import { updateCompanyProfileSchema } from "@/lib/validations";
 import { logAudit, AUDIT_ACTIONS } from "@/server/audit";
@@ -10,6 +11,9 @@ export async function PATCH(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const limit = await rateLimit(`org:profile:${user.id}`, 20, 60_000);
+  if (!limit.allowed) return rateLimitResponse();
 
   const { organizationId } = await params;
 

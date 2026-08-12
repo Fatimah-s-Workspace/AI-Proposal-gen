@@ -12,6 +12,10 @@ const eslintConfig = [
       "exports/**",
       "dev.db",
       "tsconfig.tsbuildinfo",
+      // Agent worktrees are full checkouts of this repo living inside it.
+      // Without this, linting the project also lints every copy - which
+      // buries real findings under tens of thousands of duplicates.
+      ".claude/**",
     ],
   },
 ];

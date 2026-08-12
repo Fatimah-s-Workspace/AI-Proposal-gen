@@ -21,10 +21,6 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get("x-forwarded-for") ?? "local";
-    const limit = await rateLimit(`verify-email:${ip}`, 10, 60_000);
-    if (!limit.allowed) return rateLimitResponse();
-
     const body = await request.json();
     const parsed = verifyEmailSchema.safeParse(body);
     if (!parsed.success) {
@@ -32,6 +28,15 @@ export async function POST(request: Request) {
     }
 
     const email = parsed.data.email.toLowerCase();
+
+    // Keyed on the address being confirmed, not the caller's IP. What this
+    // needs to stop is guessing at one account's token; an IP cap punishes
+    // everyone who shares an address instead, and under carrier-grade NAT
+    // that is thousands of unrelated people - so a team signing up together
+    // on one mobile network would have some of their confirmations silently
+    // rejected. Same reasoning as the sign-in throttle in @/lib/auth.
+    const limit = await rateLimit(`verify-email:${email}`, 10, 60_000);
+    if (!limit.allowed) return rateLimitResponse();
     const identifier = verificationIdentifierFor(email);
     const hashedToken = createHash("sha256").update(parsed.data.token).digest("hex");
 

@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { canDeleteDocuments } from "@/server/permissions";
 import { deleteStoredFile } from "@/lib/storage";
 import { z } from "zod";
@@ -14,6 +15,9 @@ export async function PATCH(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const limit = await rateLimit(`document:update:${user.id}`, 60, 60_000);
+  if (!limit.allowed) return rateLimitResponse();
 
   const { projectId, documentId } = await params;
   const body = await request.json();
@@ -54,6 +58,9 @@ export async function DELETE(
 ) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const limit = await rateLimit(`document:delete:${user.id}`, 30, 60_000);
+  if (!limit.allowed) return rateLimitResponse();
   if (!canDeleteDocuments(user.organizationRole)) {
     return Response.json(
       { error: "Only owners and admins can delete documents" },
