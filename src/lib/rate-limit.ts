@@ -1,5 +1,6 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { captureError } from "@/lib/monitoring";
 
 // In-memory fallback for local dev (no new setup required, matching the
 // Gemini/local-fallback and storage/local-fallback patterns used elsewhere).
@@ -69,13 +70,51 @@ function getLimiter(limit: number, windowMs: number) {
   return limiter;
 }
 
+// Both of these are once-per-process: these paths run on every limited
+// request, and a warning repeated a thousand times a minute is noise nobody
+// reads rather than a signal anybody acts on.
+let warnedMissingConfig = false;
+let warnedUpstashFailure = false;
+
+function warnOnce(alreadyWarned: boolean, message: string, context: Record<string, unknown>) {
+  if (alreadyWarned) return true;
+  console.error(`[rate-limit] ${message}`);
+  captureError(new Error(message), { area: "rate-limit", ...context });
+  return true;
+}
+
 export async function rateLimit(key: string, limit = 30, windowMs = 60_000) {
-  if (hasUpstashConfig()) {
-    const result = await getLimiter(limit, windowMs).limit(key);
-    return { allowed: result.success, remaining: result.remaining };
+  if (!hasUpstashConfig()) {
+    // The in-memory limiter is a local-dev convenience. On Vercel each
+    // invocation can land in a fresh instance, so the Map is usually empty
+    // and the limit never actually binds - the sign-in throttle in
+    // @/lib/auth included. Silence here means shipping with the protection
+    // switched off and no way to notice.
+    if (process.env.NODE_ENV === "production") {
+      warnedMissingConfig = warnOnce(
+        warnedMissingConfig,
+        "UPSTASH_REDIS_REST_URL/TOKEN are not set - rate limiting is in-memory and does not work across serverless instances.",
+        { degraded: true },
+      );
+    }
+    return rateLimitInMemory(key, limit, windowMs);
   }
 
-  return rateLimitInMemory(key, limit, windowMs);
+  try {
+    const result = await getLimiter(limit, windowMs).limit(key);
+    return { allowed: result.success, remaining: result.remaining };
+  } catch (error) {
+    // Upstash being unreachable shouldn't turn every limited route into a
+    // 500 - that converts a rate-limiting blip into an outage. Degrade to
+    // the in-memory limiter, which is weak but not nothing, and make sure
+    // the degradation is visible rather than inferred from a support ticket.
+    warnedUpstashFailure = warnOnce(
+      warnedUpstashFailure,
+      "Upstash rate limiter failed - falling back to the in-memory limiter.",
+      { degraded: true, cause: error instanceof Error ? error.message : String(error) },
+    );
+    return rateLimitInMemory(key, limit, windowMs);
+  }
 }
 
 export function rateLimitResponse() {
