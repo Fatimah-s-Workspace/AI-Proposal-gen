@@ -1,6 +1,14 @@
 import "dotenv/config";
+import { randomBytes } from "node:crypto";
 import { prisma } from "@/server/db";
 import { slugifyOrganizationName } from "@/lib/utils";
+
+// Prisma's @default(cuid()) is generated client-side, so the column has no
+// database default and a raw INSERT has to supply one. Only the shape
+// matters - these are opaque identifiers.
+function cuid() {
+  return `c${randomBytes(16).toString("hex").slice(0, 24)}`;
+}
 
 // Bridges the two-step organizationId migration:
 // 20260807091040_add_organizations adds nullable organizationId columns;
@@ -14,11 +22,17 @@ import { slugifyOrganizationName } from "@/lib/utils";
 // without running this in between, or existing rows will have no
 // organizationId when migration 2 tries to make it required.
 //
-// Uses raw SQL for the legacy userId columns specifically, so this script
-// keeps compiling (and keeps working, if ever re-run against a database
-// still in the pre-migration-2 state) even after schema.prisma has moved on
-// to the post-migration-2 shape locally, where those columns no longer
-// exist in the generated Prisma Client's types.
+// Everything here is raw SQL, for one reason: this script runs against a
+// database that is deliberately behind the local schema, so the generated
+// Prisma Client and the target database disagree about what columns exist.
+// That cuts both ways. The legacy userId columns exist in the database but
+// not in the client - and the company-profile columns added later exist in
+// the client but not in the database, so a `prisma.organization.create()`
+// here fails on the RETURNING clause listing columns that aren't there yet.
+// Raw SQL is the only form that depends on neither side being current.
+//
+// Found the hard way running this against production, where Organization
+// still had just id/name/slug/createdAt/updatedAt.
 
 type LegacyUserRow = { id: string; name: string | null; email: string; companyName: string | null };
 
@@ -34,25 +48,30 @@ async function main() {
   for (const user of users) {
     const orgName = user.companyName || `${user.name || user.email}'s workspace`;
 
-    await prisma.$transaction(async (tx) => {
-      const organization = await tx.organization.create({
-        data: { name: orgName, slug: slugifyOrganizationName(orgName) },
-      });
+    const organizationId = cuid();
+    const slug = slugifyOrganizationName(orgName);
 
-      await tx.membership.create({
-        data: { userId: user.id, organizationId: organization.id, role: "owner" },
-      });
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        INSERT INTO "Organization" (id, name, slug, "createdAt", "updatedAt")
+        VALUES (${organizationId}, ${orgName}, ${slug}, now(), now())
+      `;
+
+      await tx.$executeRaw`
+        INSERT INTO "Membership" (id, "userId", "organizationId", role, "createdAt")
+        VALUES (${cuid()}, ${user.id}, ${organizationId}, 'owner', now())
+      `;
 
       const [projects, subscriptions, payments, usageTracking, auditLogs] = await Promise.all([
-        tx.$executeRaw`UPDATE "Project" SET "organizationId" = ${organization.id} WHERE "userId" = ${user.id} AND "organizationId" IS NULL`,
-        tx.$executeRaw`UPDATE "Subscription" SET "organizationId" = ${organization.id} WHERE "userId" = ${user.id} AND "organizationId" IS NULL`,
-        tx.$executeRaw`UPDATE "Payment" SET "organizationId" = ${organization.id}, "initiatedByUserId" = ${user.id} WHERE "userId" = ${user.id} AND "organizationId" IS NULL`,
-        tx.$executeRaw`UPDATE "UsageTracking" SET "organizationId" = ${organization.id} WHERE "userId" = ${user.id} AND "organizationId" IS NULL`,
-        tx.$executeRaw`UPDATE "AuditLog" SET "organizationId" = ${organization.id} WHERE "userId" = ${user.id} AND "organizationId" IS NULL`,
+        tx.$executeRaw`UPDATE "Project" SET "organizationId" = ${organizationId} WHERE "userId" = ${user.id} AND "organizationId" IS NULL`,
+        tx.$executeRaw`UPDATE "Subscription" SET "organizationId" = ${organizationId} WHERE "userId" = ${user.id} AND "organizationId" IS NULL`,
+        tx.$executeRaw`UPDATE "Payment" SET "organizationId" = ${organizationId}, "initiatedByUserId" = ${user.id} WHERE "userId" = ${user.id} AND "organizationId" IS NULL`,
+        tx.$executeRaw`UPDATE "UsageTracking" SET "organizationId" = ${organizationId} WHERE "userId" = ${user.id} AND "organizationId" IS NULL`,
+        tx.$executeRaw`UPDATE "AuditLog" SET "organizationId" = ${organizationId} WHERE "userId" = ${user.id} AND "organizationId" IS NULL`,
       ]);
 
       console.log(
-        `✓ ${user.email} -> "${orgName}" (${organization.slug}): ` +
+        `✓ ${user.email} -> "${orgName}" (${slug}): ` +
           `${projects} project(s), ${subscriptions} subscription(s), ` +
           `${payments} payment(s), ${usageTracking} usage row(s), ` +
           `${auditLogs} audit log(s).`,

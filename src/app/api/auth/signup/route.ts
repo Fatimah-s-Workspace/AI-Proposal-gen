@@ -69,9 +69,18 @@ export async function POST(request: Request) {
       });
     });
 
-    const { subject, text, html } = welcomeEmail(parsed.data.name);
-    await sendEmail({ to: email, subject, text, html });
-    await sendEmailVerification(email);
+    // The account is committed by this point. Email is a courtesy on top of
+    // it, so nothing here is allowed to turn a created account into a failed
+    // signup - that leaves the user with an account they were told they
+    // don't have, and "email already registered" when they try again.
+    // Verification can always be re-sent from the app.
+    try {
+      const { subject, text, html } = welcomeEmail(parsed.data.name);
+      await sendEmail({ to: email, subject, text, html });
+      await sendEmailVerification(email);
+    } catch (error) {
+      captureError(error, { route: "auth/signup", stage: "welcome_email" });
+    }
 
     return Response.json({ ok: true }, { status: 201 });
   } catch (error) {
