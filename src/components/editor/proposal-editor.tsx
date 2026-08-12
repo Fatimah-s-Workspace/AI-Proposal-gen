@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Sparkles,
   Wrench,
+  X,
 } from "lucide-react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -320,6 +321,13 @@ export function ProposalEditor({
     "idle",
   );
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
+  // The badge beside the section title already reports the current section's
+  // origin, but it is passive: after "Generate all sections" the user is
+  // looking at one section while a different one may be the template draft.
+  // This says so at the moment it happens, and names which.
+  const [fallbackNotice, setFallbackNotice] = useState<
+    { titles: string[]; reason?: string } | null
+  >(null);
   const latestDraftOrigin = useMemo(() => {
     const latestGenerated = selectedSection?.versions.find(
       (version) => version.contentType === "proposal_section",
@@ -432,10 +440,20 @@ export function ProposalEditor({
         section?: ApiSection;
         sections?: ApiSection[];
         assistant?: DraftChecklistAnalysis;
+        fallbackSections?: Array<{ title: string; reason?: string }>;
       }>;
     },
+    onMutate: () => setFallbackNotice(null),
     onSuccess: (payload) => {
       if (payload.assistant) setAssistantOverride(payload.assistant);
+      setFallbackNotice(
+        payload.fallbackSections?.length
+          ? {
+              titles: payload.fallbackSections.map((item) => item.title),
+              reason: payload.fallbackSections[0]?.reason,
+            }
+          : null,
+      );
       const incomingSections =
         payload.sections ?? (payload.section ? [payload.section] : []);
       const updated = incomingSections[0]
@@ -475,10 +493,20 @@ export function ProposalEditor({
         section?: ApiSection;
         sections?: ApiSection[];
         assistant?: DraftChecklistAnalysis;
+        fallbackSections?: Array<{ title: string; reason?: string }>;
       }>;
     },
+    onMutate: () => setFallbackNotice(null),
     onSuccess: (payload) => {
       if (payload.assistant) setAssistantOverride(payload.assistant);
+      setFallbackNotice(
+        payload.fallbackSections?.length
+          ? {
+              titles: payload.fallbackSections.map((item) => item.title),
+              reason: payload.fallbackSections[0]?.reason,
+            }
+          : null,
+      );
       const incomingSections =
         payload.sections ?? (payload.section ? [payload.section] : []);
       const updatedSections = incomingSections.map(normalizeSection);
@@ -768,6 +796,37 @@ export function ProposalEditor({
           </div>
         </div>
         <div className="max-h-[680px] overflow-auto p-6">
+          {fallbackNotice ? (
+            <div
+              role="status"
+              className="mb-3 flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950"
+            >
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">
+                  {fallbackNotice.titles.length === 1
+                    ? "This draft was not written by the AI"
+                    : `${fallbackNotice.titles.length} sections were not written by the AI`}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  {fallbackReasonText(fallbackNotice.reason)} A local template
+                  draft was written instead
+                  {fallbackNotice.titles.length > 1
+                    ? ` for: ${fallbackNotice.titles.join(", ")}`
+                    : ""}
+                  . Regenerate to try the AI again.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFallbackNotice(null)}
+                aria-label="Dismiss"
+                className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-amber-100 hover:text-foreground dark:hover:bg-amber-900"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          ) : null}
           <EditorContent editor={editor} />
         </div>
       </section>
@@ -1382,6 +1441,13 @@ function describeProvider(provider: string): {
     tone: "muted",
     detail: "Saved from a manual edit in the editor.",
   };
+}
+
+function fallbackReasonText(reason?: string) {
+  if (reason === "quota_or_availability")
+    return "The AI provider was rate-limited or unavailable.";
+  if (reason === "no_api_key") return "No AI provider is configured.";
+  return "The AI provider could not be reached.";
 }
 
 function providerBadgeClass(tone: "ai" | "warn" | "muted") {

@@ -132,6 +132,7 @@ export async function POST(
     section: updatedSection,
     sections: result.sections,
     assistant: result.assistant,
+    fallbackSections: result.fallbackSections,
   });
 }
 

@@ -98,5 +98,6 @@ export async function POST(
     sections: result.sections,
     assistant: result.assistant,
     compliance,
+    fallbackSections: result.fallbackSections,
   });
 }

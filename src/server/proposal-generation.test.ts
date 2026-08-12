@@ -137,6 +137,9 @@ test("generates and persists a proposal section draft", async () => {
   assert.equal((state.generation as { status: string }).status, "succeeded");
   assert.equal(state.generatedContents.length, 1);
   assert.equal(state.section.content, "A polished executive summary.");
+  // The caller uses this to decide whether to warn the user. A truthy value
+  // on a genuine AI draft would cry wolf on every generation.
+  assert.equal(result.fallback, null);
 });
 
 test("falls back to a local draft when Gemini is unavailable", async () => {
@@ -192,6 +195,9 @@ test("falls back to a local draft when Gemini is unavailable", async () => {
     (state.generation as { provider: string }).provider,
     "gemini-fallback",
   );
+  // Recording it is not enough - the editor can only warn about what the
+  // function hands back.
+  assert.deepEqual(result.fallback, { reason: "no_api_key" });
 });
 
 test("rejects malformed Gemini output and keeps the section unchanged", async () => {
@@ -348,6 +354,7 @@ test("falls back to a local draft when the Gemini quota is exhausted", async () 
       .fallbackReason,
     "quota_or_availability",
   );
+  assert.deepEqual(result.fallback, { reason: "quota_or_availability" });
 });
 
 test("records Gemini failure without mutating the section", async () => {
