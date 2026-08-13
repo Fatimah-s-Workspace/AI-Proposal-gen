@@ -14,20 +14,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signInSchema } from "@/lib/validations";
 import type { PendingInvite } from "@/server/invites";
+import type { DemoCredentials } from "@/lib/demo-credentials";
 
 type FormValues = z.infer<typeof signInSchema>;
 
-export function SignInForm({ invite }: { invite?: PendingInvite | null }) {
+export function SignInForm({
+  invite,
+  demo,
+}: {
+  invite?: PendingInvite | null;
+  demo?: DemoCredentials | null;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const form = useForm<FormValues>({
     resolver: zodResolver(signInSchema),
-    // The seeded demo credentials are a convenience for an empty local
-    // install; someone arriving from an invite has a real account to reach.
+    // Someone arriving from an invite has a real account to reach. The demo
+    // credentials only ever arrive from a development environment that opted
+    // in - see @/lib/demo-credentials - so the public form starts empty.
     defaultValues: invite
       ? { email: invite.email, password: "" }
-      : { email: "demo@tenderflow.ai", password: "password123" },
+      : { email: demo?.email ?? "", password: demo?.password ?? "" },
   });
 
   // Carry the destination across, so bouncing between sign-in and sign-up

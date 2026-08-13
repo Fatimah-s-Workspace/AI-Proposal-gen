@@ -204,6 +204,12 @@ export async function generateProposalSectionDraft(input: {
     return {
       section: updatedSection,
       prompt,
+      // Returned, not just recorded. This was already being written to
+      // ProposalGeneration.metadata and stopping there, so a draft written
+      // by the rule-based provider reached the user looking exactly like an
+      // AI one - which is how a real user got a fallback draft on
+      // 2026-07-21 with nothing to tell them apart.
+      fallback: generationMode === "fallback" ? { reason: fallbackReason } : null,
     };
   } catch (error) {
     await prismaClient.$transaction(async (tx) => {

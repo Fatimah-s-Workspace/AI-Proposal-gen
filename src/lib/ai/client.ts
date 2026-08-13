@@ -2,7 +2,16 @@ import { GoogleGenAI } from "@google/genai";
 
 let geminiClient: GoogleGenAI | null = null;
 
-export const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+// The default has to be a model that actually answers. gemini-2.5-flash was
+// the previous default and Google now returns 404 "no longer available to
+// new users" for it - production hit exactly that on 2026-07-13, and every
+// generation failed hard until GEMINI_MODEL was set explicitly. A default
+// that only works for callers who already overrode it is not a default.
+//
+// gemini-3.5-flash is the only model with a successful generation on record
+// here (12 of them). Check https://ai.google.dev/gemini-api/docs/models
+// before changing it - a wrong value fails every request with a 404.
+export const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.5-flash";
 
 export function hasGeminiApiKey() {
   return Boolean(process.env.GEMINI_API_KEY?.trim());

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { SignInForm } from "@/components/auth/sign-in-form";
 import { pendingInviteFromCallback } from "@/server/invites";
+import { demoCredentials } from "@/lib/demo-credentials";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ export default async function SignInPage({
 }) {
   const { callbackUrl } = await searchParams;
   const invite = await pendingInviteFromCallback(callbackUrl);
+  // Resolved on the server so the credentials are never in the client bundle
+  // unless this environment actually opted in - which production cannot.
+  const demo = demoCredentials();
 
   return (
     <main className="min-h-svh bg-background">
@@ -39,11 +43,11 @@ export default async function SignInPage({
               <p className="text-sm text-muted-foreground">
                 {invite
                   ? `Sign in to join ${invite.organizationName}.`
-                  : "Use the seeded demo account or your own workspace."}
+                  : "Welcome back. Sign in to your workspace."}
               </p>
             </div>
             <Suspense>
-              <SignInForm invite={invite} />
+              <SignInForm invite={invite} demo={demo} />
             </Suspense>
           </div>
         </section>

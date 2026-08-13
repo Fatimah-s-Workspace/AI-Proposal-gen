@@ -286,6 +286,11 @@ export async function generateTenderSectionsForProject(input: {
     (plan) => !sectionSlug || plan.slug === sectionSlug,
   );
   const updatedSections = [];
+  // Generating a whole proposal can partly fall back: Gemini's quota can run
+  // out midway, so some sections are AI-written and later ones are not. One
+  // boolean for the request would report the run as clean whenever the first
+  // section happened to succeed, so track which sections actually fell back.
+  const fallbackSections: Array<{ title: string; reason?: string }> = [];
 
   for (const plan of selectedPlans) {
     const section = syncResult.sections.find(
@@ -307,6 +312,12 @@ export async function generateTenderSectionsForProject(input: {
     // generateProposalSectionDraft's own update already includes
     // generatedContents, so no separate re-fetch is needed here.
     updatedSections.push(result.section);
+    if (result.fallback) {
+      fallbackSections.push({
+        title: result.section.title,
+        reason: result.fallback.reason,
+      });
+    }
   }
 
   const refreshedContext = await loadTenderProposalContext(
@@ -318,6 +329,7 @@ export async function generateTenderSectionsForProject(input: {
     assistant: refreshedContext
       ? buildTenderProposalAssistant(refreshedContext)
       : null,
+    fallbackSections,
   };
 }
 

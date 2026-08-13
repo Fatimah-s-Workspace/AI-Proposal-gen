@@ -1,5 +1,8 @@
+// Must load before @/server/db, which reads DATABASE_URL at import time.
+import "dotenv/config";
 import test from "node:test";
 import assert from "node:assert/strict";
+import { prisma } from "@/server/db";
 import {
   BASE_URL,
   cleanupUser,
@@ -122,4 +125,38 @@ test("reset-password rejects an invalid token", async (t) => {
   });
 
   assert.equal(response.status, 400);
+});
+
+// Clearing hashedPassword is how an account gets locked without deleting it
+// or disturbing the rows it owns - it is what the seeded demo account in
+// production now relies on, after its credentials were published on the
+// public sign-in page. Nothing else guards that mechanism.
+test("an account with no password hash cannot sign in at all", async (t) => {
+  const email = uniqueEmail("locked");
+  const password = "password123";
+
+  const signUpResponse = await signUp({
+    name: "Locked Account",
+    companyName: "Locked Co",
+    email,
+    password,
+  });
+  assert.equal(signUpResponse.ok, true);
+  t.after(() => cleanupUser(email));
+
+  // The password works before the lock, so a pass afterwards can't be a
+  // false negative from some unrelated signup failure.
+  const before = await signIn(email, password);
+  assert.match(before, /next-auth\.session-token|__Secure-next-auth/);
+
+  await prisma.user.update({
+    where: { email: email.toLowerCase() },
+    data: { hashedPassword: null },
+  });
+
+  const after = await signIn(email, password);
+  assert.ok(
+    !/next-auth\.session-token|__Secure-next-auth/.test(after),
+    "a locked account must not receive a session cookie",
+  );
 });

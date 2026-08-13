@@ -1,6 +1,11 @@
 import { captureError } from "@/lib/monitoring";
 
-const BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/emails";
+// Singular "email", not "emails". The plural is not a Brevo route at all:
+// it answers 404 {"error":"HTTP route not found"}, which is a gateway
+// error rather than an API error, so it carries no hint that the URL is
+// the problem. Every email this app ever tried to send failed on it -
+// welcome, verification, password reset, team invites, renewal reminders.
+const BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email";
 
 export function hasBrevoApiKey() {
   return Boolean(process.env.BREVO_API_KEY?.trim());
