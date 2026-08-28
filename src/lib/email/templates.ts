@@ -1,8 +1,68 @@
+/**
+ * The brand teal, matching `--primary` in the app.
+ *
+ * Written out rather than read from the theme because email has no CSS
+ * variables: every colour has to be a literal in an inline style.
+ */
+const BRAND = "#0F6B64";
+
+/**
+ * The one call to action, so the four emails that have one cannot drift apart.
+ *
+ * `display: inline-block` is what makes the padding hold - several clients
+ * drop padding on a plain inline anchor and the button collapses to bare
+ * underlined text. White on this teal is 6.35:1, past AA for the 14px label.
+ */
+function button(href: string, label: string) {
+  return `<a href="${href}" style="display: inline-block; background: ${BRAND}; color: #ffffff; padding: 12px 22px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600;">${label}</a>`;
+}
+
+/**
+ * Where the logo is fetched from.
+ *
+ * Mail clients render the HTML outside the app, so a relative path resolves
+ * against the client's own domain and 404s. The URL has to be absolute, and
+ * it has to be reachable from the public internet: in local development this
+ * points at localhost, so the mark will show as alt text in a real inbox
+ * until NEXT_PUBLIC_APP_URL is a deployed origin.
+ */
+function logoUrl() {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  return `${baseUrl.replace(/\/$/, "")}/brand/mark-128.png`;
+}
+
 function wrapper(title: string, bodyHtml: string) {
   return `<!doctype html>
 <html>
   <body style="font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #f4f4f5; padding: 24px;">
     <div style="max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 8px; padding: 32px;">
+      <!--
+        The lockup is an image plus real text, not one image.
+
+        Most mail clients block remote images until the reader allows them, and
+        a lone <img> with fixed width and height leaves a 32px empty box with
+        its alt text clipped out of sight - the email opens with a blank
+        header. With the wordmark as HTML the brand still reads when the mark
+        does not load, and the mark is then decorative, so alt is empty rather
+        than repeating the words next to it.
+
+        Laid out as a table because Outlook ignores flex and inline-block
+        vertical alignment. The image is served at 128px and displayed at 32 so
+        it stays sharp on high-density screens, with width and height as
+        attributes because Outlook ignores the CSS and would otherwise lay it
+        out at its full size.
+      -->
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 20px;">
+        <tr>
+          <td style="padding-right: 10px; vertical-align: middle;">
+            <img src="${logoUrl()}" alt="" width="32" height="32"
+                 style="display: block; width: 32px; height: 32px; border: 0;" />
+          </td>
+          <td style="vertical-align: middle; font-size: 16px; font-weight: 600; color: #0b1220;">
+            TenderFlow <span style="font-weight: 400; color: #5a6b78;">AI</span>
+          </td>
+        </tr>
+      </table>
       <h1 style="font-size: 18px; margin: 0 0 16px;">${title}</h1>
       ${bodyHtml}
       <p style="margin-top: 32px; font-size: 12px; color: #71717a;">TenderFlow AI</p>
@@ -18,7 +78,7 @@ export function resetPasswordEmail(resetUrl: string) {
     subject,
     `<p style="font-size: 14px; color: #3f3f46;">We received a request to reset your password. This link is valid for 1 hour.</p>
      <p style="margin: 24px 0;">
-       <a href="${resetUrl}" style="background: #18181b; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">Reset password</a>
+       ${button(resetUrl, "Reset password")}
      </p>
      <p style="font-size: 12px; color: #71717a;">If you didn't request this, you can safely ignore this email.</p>`,
   );
@@ -43,7 +103,7 @@ export function verifyEmailEmail(verifyUrl: string) {
     subject,
     `<p style="font-size: 14px; color: #3f3f46;">Confirm your email address to finish setting up your account. This link is valid for 24 hours.</p>
      <p style="margin: 24px 0;">
-       <a href="${verifyUrl}" style="background: #18181b; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">Confirm email address</a>
+       ${button(verifyUrl, "Confirm email address")}
      </p>
      <p style="font-size: 12px; color: #71717a;">If you didn't create an account, you can safely ignore this email.</p>`,
   );
@@ -57,7 +117,7 @@ export function teamInviteEmail(inviterName: string, orgName: string, inviteUrl:
     subject,
     `<p style="font-size: 14px; color: #3f3f46;">${inviterName} invited you to join <strong>${orgName}</strong> on TenderFlow AI. This link is valid for 7 days.</p>
      <p style="margin: 24px 0;">
-       <a href="${inviteUrl}" style="background: #18181b; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">Accept invite</a>
+       ${button(inviteUrl, "Accept invite")}
      </p>
      <p style="font-size: 12px; color: #71717a;">If you weren't expecting this, you can safely ignore this email.</p>`,
   );
@@ -74,7 +134,7 @@ export function renewalReminderEmail(daysRemaining: number, billingUrl: string) 
     subject,
     `<p style="font-size: 14px; color: #3f3f46;">Renew now to keep your Pro upload and AI generation limits.</p>
      <p style="margin: 24px 0;">
-       <a href="${billingUrl}" style="background: #18181b; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">Renew Pro plan</a>
+       ${button(billingUrl, "Renew Pro plan")}
      </p>
      <p style="font-size: 12px; color: #71717a;">If you don't renew, your account reverts to the Starter plan's limits when it expires - your data and projects are unaffected.</p>`,
   );
