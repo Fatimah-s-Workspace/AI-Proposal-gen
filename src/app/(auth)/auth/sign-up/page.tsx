@@ -1,3 +1,4 @@
+import { Logo } from "@/components/brand/logo";
 import { Suspense } from "react";
 import { SignUpForm } from "@/components/auth/sign-up-form";
 import { pendingInviteFromCallback } from "@/server/invites";
@@ -17,7 +18,7 @@ export default async function SignUpPage({
       <div className="mx-auto flex min-h-svh w-full max-w-6xl items-center px-6 py-10">
         <div className="grid w-full gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <section className="space-y-6">
-            <p className="text-sm font-medium text-primary">TenderFlow AI</p>
+            <Logo markClassName="size-9" />
             <h1 className="max-w-xl text-4xl font-semibold leading-tight tracking-normal">
               Build compliant tenders, RFPs, and grant proposals with local context.
             </h1>

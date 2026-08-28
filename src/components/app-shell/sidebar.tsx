@@ -20,6 +20,7 @@ import {
 } from "@/components/app-shell/account-menu-content";
 import { NavPending } from "@/components/app-shell/nav-pending";
 import { OrganizationSwitcher } from "@/components/organization/organization-switcher";
+import { Logo, LogoMark } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -100,24 +101,13 @@ export function Sidebar({ user: initialUser }: SidebarProps) {
       <div className="border-b p-5 relative">
         <div className="flex items-center justify-between">
           {!sidebarCollapsed && (
-            <Link href="/dashboard" className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
-                TF
-              </div>
-              <div>
-                <p className="font-semibold tracking-normal">TenderFlow AI</p>
-                <p className="text-xs text-muted-foreground">
-                  Proposal workspace
-                </p>
-              </div>
+            <Link href="/dashboard">
+              <Logo showSubtitle />
             </Link>
           )}
           {sidebarCollapsed && (
-            <Link
-              href="/dashboard"
-              className="flex size-6 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground"
-            >
-              TF
+            <Link href="/dashboard" aria-label="TenderFlow AI">
+              <LogoMark className="size-8" />
             </Link>
           )}
           <Button
