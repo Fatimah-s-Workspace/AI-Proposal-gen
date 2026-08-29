@@ -152,7 +152,16 @@ async function main() {
   // process all agree on which database they're talking to. dotenv and
   // Next's own .env loading both leave already-set variables alone, so this
   // wins over the DATABASE_URL in .env.
-  const env = { ...process.env, DATABASE_URL: databaseUrl };
+  const env = {
+    ...process.env,
+    DATABASE_URL: databaseUrl,
+    // These tests sign up dozens of accounts against a real server. Without
+    // this, every run makes dozens of live calls to Have I Been Pwned, which
+    // is slow, flaky when the network is poor, and impolite to a free
+    // service. The flag is ignored when NODE_ENV is production, so it cannot
+    // silently disable the check on a real deployment.
+    DISABLE_BREACH_CHECK: "1",
+  };
 
   await ensureDatabase(databaseUrl);
 

@@ -40,7 +40,17 @@ export async function signUp(input: {
 // /api/auth/csrf (tied to a cookie from that same response), then both the
 // token and that cookie are sent back with the credentials POST. The
 // resulting session cookie is what makes subsequent requests authenticated.
-export async function signIn(email: string, password: string): Promise<string> {
+/**
+ * Attempts a sign-in and reports what came back, without judging it.
+ *
+ * For the tests that are *about* sign-in being refused - a rotated password,
+ * an account whose hash was cleared, an unconfirmed address. `signIn` below
+ * is the one to use everywhere else.
+ */
+export async function attemptSignIn(
+  email: string,
+  password: string,
+): Promise<{ cookies: string; signedIn: boolean }> {
   const csrfResponse = await fetch(`${BASE_URL}/api/auth/csrf`);
   const csrfCookies = csrfResponse.headers.getSetCookie();
   const { csrfToken } = (await csrfResponse.json()) as { csrfToken: string };
@@ -56,7 +66,29 @@ export async function signIn(email: string, password: string): Promise<string> {
   });
 
   const sessionCookies = signInResponse.headers.getSetCookie();
-  return cookieHeaderFrom([...csrfCookies, ...sessionCookies]);
+  const cookies = cookieHeaderFrom([...csrfCookies, ...sessionCookies]);
+
+  // Matched on the suffix: NextAuth prefixes the cookie with "__Secure-" over
+  // https, so pinning the plain name would pass locally and fail the moment
+  // these run against a deployed origin.
+  return { cookies, signedIn: cookies.includes("session-token") };
+}
+
+/**
+ * Signs in, and fails loudly if it did not work.
+ *
+ * NextAuth answers a refused sign-in with a redirect and no session cookie.
+ * The helper used to hand that back regardless, so a refusal surfaced much
+ * later as a 401 from whatever the test did next - when the email
+ * verification gate landed, one root cause appeared as 43 unrelated-looking
+ * failures, none of which mentioned sign-in.
+ */
+export async function signIn(email: string, password: string): Promise<string> {
+  const { cookies, signedIn } = await attemptSignIn(email, password);
+  if (!signedIn) {
+    throw new Error(`signIn: no session cookie was set for ${email}`);
+  }
+  return cookies;
 }
 
 // Signup deliberately leaves an account unverified, and inviting teammates
@@ -69,9 +101,25 @@ export async function markEmailVerified(email: string) {
   });
 }
 
+/**
+ * Clears a confirmed address again.
+ *
+ * signUpAndSignIn has to confirm the address to obtain a session at all, so
+ * tests about the unverified state get there by signing in first and then
+ * undoing it. The session survives because it is a JWT minted at sign-in;
+ * routes that care read emailVerified live from the database, which is the
+ * behaviour under test.
+ */
+export async function unverifyEmail(email: string) {
+  await prisma.user.update({
+    where: { email: email.toLowerCase() },
+    data: { emailVerified: null },
+  });
+}
+
 export async function signUpAndSignIn(overrides?: Partial<{ name: string; companyName: string; password: string }>) {
   const email = uniqueEmail("integration");
-  const password = overrides?.password ?? "password123";
+  const password = overrides?.password ?? "Integration!Pass1";
 
   const signUpResponse = await signUp({
     name: overrides?.name ?? "Integration Test",
@@ -81,8 +129,16 @@ export async function signUpAndSignIn(overrides?: Partial<{ name: string; compan
   });
 
   if (!signUpResponse.ok) {
-    throw new Error(`signUpAndSignIn: signup failed with ${signUpResponse.status}`);
+    const detail = await signUpResponse.text().catch(() => "");
+    throw new Error(
+      `signUpAndSignIn: signup failed with ${signUpResponse.status} ${detail}`,
+    );
   }
+
+  // Accounts created now fall after the verification cutoff, so they cannot
+  // sign in until the address is confirmed. Standing in for the click on the
+  // emailed link, which is the one step of the real flow a test cannot make.
+  await markEmailVerified(email);
 
   const cookie = await signIn(email, password);
   return { email, password, cookie };

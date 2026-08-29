@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "crypto";
 import { prisma } from "@/server/db";
-import { BASE_URL, cleanupUser, signUpAndSignIn, uniqueEmail } from "./helpers";
+import { BASE_URL, cleanupUser, signUpAndSignIn, unverifyEmail, uniqueEmail } from "./helpers";
 
 function identifierFor(email: string) {
   return `email-verify:${email.toLowerCase()}`;
@@ -31,6 +31,9 @@ async function seedVerificationToken(email: string, expiresAt?: Date) {
 test("signup leaves the account unverified and stores only a hashed token", async (t) => {
   const user = await signUpAndSignIn();
   t.after(() => cleanupUser(user.email));
+  // Signing in requires a confirmed address now, so the state this test is
+  // about has to be restored afterwards.
+  await unverifyEmail(user.email);
 
   const record = await prisma.user.findUnique({ where: { email: user.email.toLowerCase() } });
   assert.equal(record?.emailVerified, null, "a fresh signup is not verified");
@@ -45,6 +48,9 @@ test("signup leaves the account unverified and stores only a hashed token", asyn
 test("a valid link confirms the address and is single-use", async (t) => {
   const user = await signUpAndSignIn();
   t.after(() => cleanupUser(user.email));
+  // Signing in requires a confirmed address now, so the state this test is
+  // about has to be restored afterwards.
+  await unverifyEmail(user.email);
 
   const rawToken = await seedVerificationToken(user.email);
 
@@ -75,6 +81,9 @@ test("a valid link confirms the address and is single-use", async (t) => {
 test("an expired link is rejected and the account stays unverified", async (t) => {
   const user = await signUpAndSignIn();
   t.after(() => cleanupUser(user.email));
+  // Signing in requires a confirmed address now, so the state this test is
+  // about has to be restored afterwards.
+  await unverifyEmail(user.email);
 
   const rawToken = await seedVerificationToken(user.email, new Date(Date.now() - 1000));
 
@@ -94,6 +103,8 @@ test("a token minted for one address cannot confirm another", async (t) => {
   const bob = await signUpAndSignIn();
   t.after(() => cleanupUser(alice.email));
   t.after(() => cleanupUser(bob.email));
+  await unverifyEmail(alice.email);
+  await unverifyEmail(bob.email);
 
   const aliceToken = await seedVerificationToken(alice.email);
 
@@ -113,6 +124,9 @@ test("a token minted for one address cannot confirm another", async (t) => {
 test("verification status requires authentication and reports the live value", async (t) => {
   const user = await signUpAndSignIn();
   t.after(() => cleanupUser(user.email));
+  // Signing in requires a confirmed address now, so the state this test is
+  // about has to be restored afterwards.
+  await unverifyEmail(user.email);
 
   const anonymous = await fetch(`${BASE_URL}/api/auth/verify-email`);
   assert.equal(anonymous.status, 401);
@@ -146,6 +160,9 @@ test("resending requires authentication", async () => {
 test("an unverified account cannot invite teammates, a verified one can", async (t) => {
   const user = await signUpAndSignIn();
   t.after(() => cleanupUser(user.email));
+  // Signing in requires a confirmed address now, so the state this test is
+  // about has to be restored afterwards.
+  await unverifyEmail(user.email);
 
   // Inviting sends mail to a third party in this account's name, so it's
   // gated until the address is confirmed.
