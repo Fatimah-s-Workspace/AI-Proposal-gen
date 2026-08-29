@@ -10,6 +10,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Label } from "@/components/ui/label";
 import { signUpSchema } from "@/lib/validations";
 import { apiErrorMessage, authMessages, genericMessages } from "@/lib/messages";
@@ -138,9 +139,8 @@ export function SignUpForm({ invite }: { invite?: PendingInvite | null }) {
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="new-password"
           {...form.register("password")}
         />
@@ -153,8 +153,8 @@ export function SignUpForm({ invite }: { invite?: PendingInvite | null }) {
       </div>
       {error ? <Feedback tone="error">{error}</Feedback> : null}
       {success ? (
-        <Feedback tone="success" title="Account created">
-          {authMessages.accountCreated}
+        <Feedback tone="success" title="Check your inbox">
+          {authMessages.signupSubmitted}
         </Feedback>
       ) : null}
       <Button

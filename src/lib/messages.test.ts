@@ -119,3 +119,13 @@ test("no two messages in the vocabulary are duplicates of each other", () => {
   const all = [...Object.values(authMessages), ...Object.values(genericMessages)];
   assert.equal(new Set(all).size, all.length, "duplicate message text in the vocabulary");
 });
+
+test("the signup reply does not reveal whether the address is registered", () => {
+  // Signup answers this whether it created an account or found one. Anything
+  // that reads as "created" would be a lie in the second case, and a tell in
+  // the first.
+  const message = authMessages.signupSubmitted.toLowerCase();
+  for (const leak of ["created", "already", "exists", "taken", "welcome"]) {
+    assert.ok(!message.includes(leak), `"${leak}" reveals which branch ran`);
+  }
+});

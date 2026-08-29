@@ -46,15 +46,26 @@ test("signup creates an account and signs in with the same credentials", async (
   assert.equal(session.user.email, email);
 });
 
-test("signup rejects a duplicate email", async (t) => {
+test("signup answers the same for a taken address, and creates nothing", async (t) => {
   const email = uniqueEmail("dup");
   t.after(() => cleanupUser(email));
 
   const first = await signUp({ name: "First", companyName: "Co", email, password: "Integration!Pass1" });
   assert.equal(first.status, 201);
+  const firstBody = await first.json();
 
+  // Used to answer 409 "an account already exists", which made signup a way
+  // to test which addresses are registered. The second attempt has to be
+  // indistinguishable from the first.
   const second = await signUp({ name: "Second", companyName: "Co", email, password: "Integration!Pass1" });
-  assert.equal(second.status, 409);
+  assert.equal(second.status, 201);
+  assert.deepEqual(await second.json(), firstBody, "the two answers must not differ");
+
+  // Indistinguishable to the caller, but the second attempt must not have
+  // overwritten the account or made another one.
+  const users = await prisma.user.findMany({ where: { email: email.toLowerCase() } });
+  assert.equal(users.length, 1, "the second attempt must not create a second account");
+  assert.equal(users[0].name, "First", "the second attempt must not overwrite the first");
 });
 
 test("signup rejects invalid input", async () => {

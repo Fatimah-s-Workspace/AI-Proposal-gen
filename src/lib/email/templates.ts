@@ -96,6 +96,40 @@ export function welcomeEmail(name: string) {
   return { subject, text, html };
 }
 
+/**
+ * Sent when someone tries to sign up with an address that already has an
+ * account.
+ *
+ * Signup cannot say "that address is taken" without becoming a way to test
+ * which addresses are registered, so the answer goes to the one person
+ * entitled to it: the owner of the address. It doubles as a warning - if they
+ * did not just try to sign up, someone else did, and knowing that is worth
+ * more than the tidier signup form we gave up to tell them.
+ */
+export function duplicateSignupEmail(signInUrl: string, resetUrl: string) {
+  const subject = "You already have a TenderFlow AI account";
+  const text = `Someone just tried to create a TenderFlow AI account with this email address, and one already exists.
+
+If that was you, sign in instead: ${signInUrl}
+
+If you've forgotten your password, you can reset it: ${resetUrl}
+
+If it wasn't you, no account was created and nothing has changed. You don't need to do anything, though it's worth making sure your password is one you don't use anywhere else.`;
+
+  const html = wrapper(
+    subject,
+    `<p style="font-size: 14px; color: #3f3f46;">Someone just tried to create a TenderFlow AI account with this email address, and one already exists.</p>
+     <p style="font-size: 14px; color: #3f3f46;">If that was you, sign in instead.</p>
+     <p style="margin: 24px 0;">
+       ${button(signInUrl, "Sign in")}
+     </p>
+     <p style="font-size: 14px; color: #3f3f46;">Forgotten your password? <a href="${resetUrl}" style="color: ${BRAND};">Reset it here</a>.</p>
+     <p style="font-size: 12px; color: #71717a;">If it wasn't you, no account was created and nothing has changed. You don't need to do anything, though it's worth making sure your password is one you don't use anywhere else.</p>`,
+  );
+
+  return { subject, text, html };
+}
+
 export function verifyEmailEmail(verifyUrl: string) {
   const subject = "Confirm your TenderFlow AI email address";
   const text = `Confirm your email address to finish setting up your TenderFlow AI account (link valid for 24 hours): ${verifyUrl}\n\nIf you didn't create an account, you can safely ignore this email.`;

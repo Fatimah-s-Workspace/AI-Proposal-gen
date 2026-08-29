@@ -64,7 +64,14 @@ export const authMessages = {
 
   passwordUpdated: "Password updated. You can sign in with it now.",
 
-  accountCreated: "Account created. Check your inbox to confirm your email address.",
+  /**
+   * Shown after any signup attempt, including one for an address that already
+   * has an account - signup cannot distinguish the two out loud without
+   * becoming a membership oracle. True either way: one address gets a
+   * confirmation link, the other gets a notice that it is already registered.
+   */
+  signupSubmitted:
+    "Check your inbox. We've sent an email to that address with what to do next.",
 
   signedOut: "You've been signed out.",
 } as const;
