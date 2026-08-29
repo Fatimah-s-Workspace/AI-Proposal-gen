@@ -1,13 +1,14 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { unauthorized } from "@/server/responses";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ projectId: string; sectionId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId, sectionId } = await params;
   const limit = await rateLimit(

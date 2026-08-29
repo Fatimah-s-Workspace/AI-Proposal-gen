@@ -1,9 +1,10 @@
 import { requireApiUser, listUserOrganizations } from "@/server/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { unauthorized } from "@/server/responses";
 
 export async function GET() {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   // The workspace switcher refetches on mount and on every ORGANIZATIONS_CHANGED
   // event, so this is deliberately loose - it guards against a script, not a

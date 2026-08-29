@@ -5,12 +5,13 @@ import { exportProposalSchema } from "@/lib/validations";
 import { incrementUsage } from "@/server/usage";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
+import { unauthorized } from "@/server/responses";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId } = await params;
   const limit = await rateLimit(`export:${user.id}:${projectId}`, 10, 60_000);

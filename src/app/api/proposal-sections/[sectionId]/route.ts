@@ -3,10 +3,11 @@ import { requireApiUser } from "@/server/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { updateProposalSectionSchema } from "@/lib/validations";
 import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
+import { unauthorized } from "@/server/responses";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ sectionId: string }> }) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   // The editor autosaves on a 900ms debounce, so sustained typing can legitimately
   // reach ~60 requests a minute. Set well clear of that: a limit tuned for a

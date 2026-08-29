@@ -4,6 +4,7 @@ import { prisma } from "@/server/db";
 import { resetPasswordSchema } from "@/lib/validations";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { captureError } from "@/lib/monitoring";
+import { serverError } from "@/server/responses";
 import {
   checkPasswordBreached,
   breachedPasswordMessage,
@@ -67,6 +68,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("RESET PASSWORD ERROR:", error);
     captureError(error, { route: "auth/reset-password" });
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return serverError();
   }
 }

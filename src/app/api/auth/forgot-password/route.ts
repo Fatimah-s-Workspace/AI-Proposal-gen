@@ -5,6 +5,7 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email";
 import { resetPasswordEmail } from "@/lib/email/templates";
 import { captureError } from "@/lib/monitoring";
+import { serverError } from "@/server/responses";
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
@@ -65,6 +66,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("FORGOT PASSWORD ERROR:", error);
     captureError(error, { route: "auth/forgot-password" });
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return serverError();
   }
 }

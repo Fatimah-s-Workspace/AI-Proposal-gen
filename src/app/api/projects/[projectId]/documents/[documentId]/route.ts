@@ -4,6 +4,7 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { canDeleteDocuments } from "@/server/permissions";
 import { deleteStoredFile } from "@/lib/storage";
 import { z } from "zod";
+import { unauthorized } from "@/server/responses";
 
 const updateDocumentSchema = z.object({
   originalName: z.string().min(1).optional(),
@@ -14,7 +15,7 @@ export async function PATCH(
   { params }: { params: Promise<{ projectId: string; documentId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const limit = await rateLimit(`document:update:${user.id}`, 60, 60_000);
   if (!limit.allowed) return rateLimitResponse();
@@ -57,7 +58,7 @@ export async function DELETE(
   { params }: { params: Promise<{ projectId: string; documentId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const limit = await rateLimit(`document:delete:${user.id}`, 30, 60_000);
   if (!limit.allowed) return rateLimitResponse();

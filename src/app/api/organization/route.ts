@@ -6,6 +6,7 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { slugifyOrganizationName } from "@/lib/utils";
 import { logAudit, AUDIT_ACTIONS } from "@/server/audit";
 import { captureError } from "@/lib/monitoring";
+import { unauthorized, serverError } from "@/server/responses";
 
 // A soft cap so a single account can't spray workspaces (each one carries a
 // subscription row and its own usage bucket). Well clear of what a real
@@ -16,7 +17,7 @@ const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 export async function POST(request: Request) {
   try {
     const user = await requireApiUser();
-    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) return unauthorized();
 
     const limit = await rateLimit(`org-create:${user.id}`, 5, 60 * 60_000);
     if (!limit.allowed) return rateLimitResponse();
@@ -78,6 +79,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("ORGANIZATION CREATE ERROR:", error);
     captureError(error, { route: "organization/create" });
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return serverError();
   }
 }

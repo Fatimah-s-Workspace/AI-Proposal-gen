@@ -4,6 +4,7 @@ import { requireApiUser } from "@/server/session";
 import { explainTenderClause } from "@/features/tender-intelligence/pipeline";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { explainClauseWithGemini } from "@/features/tender-intelligence/gemini";
+import { unauthorized } from "@/server/responses";
 
 const updateClauseSchema = z.object({
   title: z.string().min(1).optional().nullable(),
@@ -21,7 +22,7 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string; clauseId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId, clauseId } = await params;
   const limit = await rateLimit(`clause:explain:${user.id}:${clauseId}`, 30, 60_000);
@@ -93,7 +94,7 @@ export async function PATCH(
   { params }: { params: Promise<{ projectId: string; clauseId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId, clauseId } = await params;
   const limit = await rateLimit(`clause:update:${user.id}:${clauseId}`, 60, 60_000);
@@ -139,7 +140,7 @@ export async function DELETE(
   { params }: { params: Promise<{ projectId: string; clauseId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId, clauseId } = await params;
   const clause = await prisma.tenderClause.findFirst({

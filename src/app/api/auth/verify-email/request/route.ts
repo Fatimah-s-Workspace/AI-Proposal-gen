@@ -4,6 +4,7 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { sendEmailVerification } from "@/server/email-verification";
 import { captureError } from "@/lib/monitoring";
 import { authMessages } from "@/lib/messages";
+import { serverError } from "@/server/responses";
 
 /**
  * Sends a fresh confirmation link to someone who cannot sign in yet.
@@ -69,6 +70,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("VERIFY EMAIL REQUEST ERROR:", error);
     captureError(error, { route: "auth/verify-email/request" });
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return serverError();
   }
 }

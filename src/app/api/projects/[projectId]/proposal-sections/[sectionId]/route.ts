@@ -4,6 +4,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { generateTenderSectionsForProject } from "@/server/tender-proposal";
+import { unauthorized } from "@/server/responses";
 
 const updateSectionSchema = z.object({
   title: z.string().min(1).max(160).optional(),
@@ -22,7 +23,7 @@ export async function GET(
   context: { params: Promise<{ projectId: string; sectionId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId, sectionId } = await context.params;
   const section = await prisma.proposalSection.findFirst({
@@ -48,7 +49,7 @@ export async function PATCH(
   context: { params: Promise<{ projectId: string; sectionId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId, sectionId } = await context.params;
   const limit = await rateLimit(`proposal-section:update:${user.id}:${sectionId}`, 60, 60_000);
@@ -92,7 +93,7 @@ export async function POST(
   context: { params: Promise<{ projectId: string; sectionId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId, sectionId } = await context.params;
   const limit = await rateLimit(`proposal-section:generate:${user.id}:${sectionId}`, 20, 60_000);
@@ -141,7 +142,7 @@ export async function DELETE(
   context: { params: Promise<{ projectId: string; sectionId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId, sectionId } = await context.params;
   const limit = await rateLimit(`proposal-section:delete:${user.id}:${sectionId}`, 20, 60_000);

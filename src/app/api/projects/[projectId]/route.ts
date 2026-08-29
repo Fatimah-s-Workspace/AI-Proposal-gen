@@ -4,13 +4,14 @@ import { canDeleteProjects } from "@/server/permissions";
 import { createProjectSchema } from "@/lib/validations";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { deleteStoredFile } from "@/lib/storage";
+import { unauthorized } from "@/server/responses";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const limit = await rateLimit(`project:update:${user.id}`, 50, 60_000);
   if (!limit.allowed) return rateLimitResponse();
@@ -67,7 +68,7 @@ export async function DELETE(
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
   if (!canDeleteProjects(user.organizationRole)) {
     return Response.json(
       { error: "Only owners and admins can delete projects" },

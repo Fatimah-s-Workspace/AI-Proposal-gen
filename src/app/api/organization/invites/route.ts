@@ -8,12 +8,13 @@ import { sendEmail } from "@/lib/email";
 import { teamInviteEmail } from "@/lib/email/templates";
 import { logAudit, AUDIT_ACTIONS } from "@/server/audit";
 import { captureError } from "@/lib/monitoring";
+import { unauthorized, serverError } from "@/server/responses";
 
 const INVITE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function GET() {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
   if (!canManageMembers(user.organizationRole)) {
     return Response.json({ error: "Only owners and admins can view invites" }, { status: 403 });
   }
@@ -30,7 +31,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const user = await requireApiUser();
-    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) return unauthorized();
     if (!canManageMembers(user.organizationRole)) {
       return Response.json({ error: "Only owners and admins can invite members" }, { status: 403 });
     }
@@ -127,6 +128,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("ORG INVITE ERROR:", error);
     captureError(error, { route: "organization/invites" });
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return serverError();
   }
 }

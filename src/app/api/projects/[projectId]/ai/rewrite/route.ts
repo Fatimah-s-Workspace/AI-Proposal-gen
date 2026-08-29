@@ -3,13 +3,14 @@ import { checkUsageLimit, incrementUsage, usageLimitResponse } from "@/server/us
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { captureError } from "@/lib/monitoring";
 import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
+import { unauthorized } from "@/server/responses";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId } = await params;
   const limit = await rateLimit(`ai:rewrite:${user.id}:${projectId}`, 20, 60_000);

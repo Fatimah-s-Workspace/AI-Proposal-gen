@@ -1,5 +1,6 @@
 import { sendRenewalReminders } from "@/server/billing";
 import { captureError } from "@/lib/monitoring";
+import { unauthorized } from "@/server/responses";
 
 // Triggered by Vercel Cron (see vercel.json) once a day. Vercel adds
 // `Authorization: Bearer $CRON_SECRET` automatically when CRON_SECRET is set
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
 
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${secret}`) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   try {

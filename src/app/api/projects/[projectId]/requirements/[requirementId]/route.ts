@@ -4,13 +4,14 @@ import { updateRequirementSchema } from "@/lib/validations";
 import { calculateChecklistScore } from "@/features/tender-intelligence/pipeline";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
+import { unauthorized } from "@/server/responses";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ projectId: string; requirementId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId, requirementId } = await params;
   const limit = await rateLimit(`requirement:update:${user.id}:${requirementId}`, 60, 60_000);
@@ -68,7 +69,7 @@ export async function DELETE(
   { params }: { params: Promise<{ projectId: string; requirementId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId, requirementId } = await params;
   const limit = await rateLimit(`requirement:delete:${user.id}:${requirementId}`, 30, 60_000);
