@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Label } from "@/components/ui/label";
 import { signInSchema } from "@/lib/validations";
 import { authMessages, genericMessages, signInErrorMessage } from "@/lib/messages";
@@ -119,9 +120,8 @@ export function SignInForm({
             Forgot password?
           </Link>
         </div>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="current-password"
           {...form.register("password")}
         />

@@ -9,7 +9,7 @@ import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Label } from "@/components/ui/label";
 import { apiErrorMessage, authMessages, genericMessages } from "@/lib/messages";
 import { Feedback } from "@/components/ui/feedback";
@@ -82,9 +82,8 @@ export function ResetPasswordForm() {
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
       <div className="space-y-2">
         <Label htmlFor="password">New password</Label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="new-password"
           {...form.register("password")}
         />
