@@ -13,6 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signInSchema } from "@/lib/validations";
+import { authMessages, genericMessages, signInErrorMessage } from "@/lib/messages";
+import { Feedback } from "@/components/ui/feedback";
+import { ResendVerification } from "@/components/auth/resend-verification";
+import { useWatch } from "react-hook-form";
 import type { PendingInvite } from "@/server/invites";
 import type { DemoCredentials } from "@/lib/demo-credentials";
 
@@ -38,6 +42,10 @@ export function SignInForm({
       : { email: demo?.email ?? "", password: demo?.password ?? "" },
   });
 
+  // Read from the form rather than kept in a second piece of state, so the
+  // resend below cannot send to a stale address after the user edits it.
+  const typedEmail = useWatch({ control: form.control, name: "email" }) ?? "";
+
   // Carry the destination across, so bouncing between sign-in and sign-up
   // doesn't quietly drop the invite the visitor came here to accept.
   const callbackUrl = searchParams.get("callbackUrl");
@@ -58,7 +66,12 @@ export function SignInForm({
       });
 
       if (!result || result.error || !result.ok) {
-        setError(result?.error || "Invalid email or password.");
+        // NextAuth reports a wrong password as the bare code
+        // "CredentialsSignin", and this used to render that code verbatim.
+        // signInErrorMessage turns codes into sentences and passes through
+        // the messages authorize() throws, which is how the throttle and
+        // unverified-email notices arrive intact.
+        setError(signInErrorMessage(result?.error));
         return;
       }
 
@@ -67,11 +80,10 @@ export function SignInForm({
         : "/dashboard";
       router.replace(destination as Route);
     } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to sign in. Please try again.",
-      );
+      // Whatever went wrong here is a transport or runtime failure, not
+      // something the user did; its message is for the logs, not for them.
+      console.error("Sign-in failed", error);
+      setError(genericMessages.network);
     }
   }
 
@@ -119,7 +131,11 @@ export function SignInForm({
           </p>
         ) : null}
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? <Feedback tone="error">{error}</Feedback> : null}
+      {/* Only for the one failure a resend actually solves. */}
+      {error === authMessages.emailNotVerified ? (
+        <ResendVerification email={typedEmail} />
+      ) : null}
       <Button
         type="submit"
         className="w-full"

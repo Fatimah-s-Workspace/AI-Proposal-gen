@@ -7,6 +7,10 @@ import { sendEmail } from "@/lib/email";
 import { welcomeEmail } from "@/lib/email/templates";
 import { sendEmailVerification } from "@/server/email-verification";
 import { slugifyOrganizationName } from "@/lib/utils";
+import {
+  checkPasswordBreached,
+  breachedPasswordMessage,
+} from "@/server/breached-password";
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +28,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const email = parsed.data.email.toLowerCase();
+    // Normalised by the schema, so this is already trimmed and lowercased.
+    const email = parsed.data.email;
+
+    // Checked before the uniqueness lookup so a weak password is refused on
+    // its own terms, rather than the response depending on whether the
+    // address happens to be taken.
+    const breach = await checkPasswordBreached(parsed.data.password);
+    if (breach.status === "breached") {
+      return Response.json(
+        {
+          error: breachedPasswordMessage(breach.count),
+          issues: { fieldErrors: { password: [breachedPasswordMessage(breach.count)] } },
+        },
+        { status: 400 },
+      );
+    }
+
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return Response.json(
@@ -87,11 +107,12 @@ export async function POST(request: Request) {
     console.error("SIGNUP ERROR:", error);
     captureError(error, { route: "auth/signup" });
 
+    // Deliberately generic. The previous version returned error.message and
+    // the error object itself, which hands an attacker database constraint
+    // names, file paths and stack details straight from a public endpoint.
+    // The detail is in the logs and in Sentry, where it belongs.
     return Response.json(
-      {
-        message: error instanceof Error ? error.message : "Unknown error",
-        error,
-      },
+      { error: "Something went wrong. Please try again." },
       { status: 500 },
     );
   }

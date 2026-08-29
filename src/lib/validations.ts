@@ -1,43 +1,81 @@
 import { z } from "zod";
+import { firstPasswordProblem } from "@/lib/password-policy";
+
+/**
+ * Email as stored and compared: trimmed and lowercased.
+ *
+ * Normalising in the schema rather than at each call site means
+ * "  Ada@Example.com " and "ada@example.com" cannot become two accounts, and
+ * that a lookup by the second finds the first. Sign-in relies on this too:
+ * the throttle is keyed on the address, and an attacker who could vary the
+ * casing would otherwise get a fresh allowance per spelling.
+ */
+const emailField = (message = "Enter a valid email") =>
+  z.string().trim().toLowerCase().email(message);
+
+/**
+ * A password being set for the first time or changed.
+ *
+ * Checked with superRefine so the message names the one thing that is
+ * missing, rather than a single "password is not strong enough" that leaves
+ * the user guessing which rule they tripped.
+ */
+const newPasswordField = () =>
+  z.string().superRefine((value, ctx) => {
+    const problem = firstPasswordProblem(value);
+    if (problem) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+    }
+  });
 
 export const signUpSchema = z.object({
   name: z.string().min(2, "Enter your full name").max(80),
   companyName: z.string().min(2, "Company name is required").max(120),
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(8, "Use at least 8 characters"),
-  country: z.string().min(2).default("Nigeria")
+  email: emailField(),
+  password: newPasswordField(),
+  country: z.string().min(2).default("Nigeria"),
 });
 
+/**
+ * Sign-in checks only that something was typed.
+ *
+ * The strength rules belong on the *setting* of a password, never on the
+ * offering of one. A minimum here locks out every existing account whose
+ * password is shorter than it - they are told their own correct password is
+ * invalid, and the message even tells them the length, which is a free hint
+ * to anyone building a wordlist. Rejecting a valid password is also
+ * indistinguishable, from the user's side, from the account being broken.
+ */
 export const signInSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(1, "Password is required")
+  email: emailField(),
+  password: z.string().min(1, "Password is required"),
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email("Enter a valid email")
+  email: emailField(),
 });
 
 export const resetPasswordSchema = z.object({
-  email: z.string().email("Enter a valid email"),
+  email: emailField(),
   token: z.string().min(1, "Reset token is required"),
-  password: z.string().min(8, "Use at least 8 characters")
+  password: newPasswordField(),
 });
 
 export const verifyEmailSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-  token: z.string().min(1, "Verification token is required")
+  email: emailField(),
+  token: z.string().min(1, "Verification token is required"),
 });
 
 export const deleteAccountSchema = z.object({
-  email: z.string().min(1, "Confirm your email address")
+  email: z.string().min(1, "Confirm your email address"),
 });
 
 export const createOrganizationSchema = z.object({
-  name: z.string().trim().min(2, "Workspace name is required").max(120)
+  name: z.string().trim().min(2, "Workspace name is required").max(120),
 });
 
 export const updateOrganizationSchema = z.object({
-  name: z.string().trim().min(2, "Workspace name is required").max(120)
+  name: z.string().trim().min(2, "Workspace name is required").max(120),
 });
 
 const currentYear = new Date().getFullYear();
@@ -61,26 +99,28 @@ export const updateCompanyProfileSchema = z.object({
   profileSummary: z.string().trim().max(2000).optional().or(z.literal("")),
   capabilities: z.string().trim().max(3000).optional().or(z.literal("")),
   certifications: z.string().trim().max(2000).optional().or(z.literal("")),
-  pastPerformance: z.string().trim().max(4000).optional().or(z.literal(""))
+  pastPerformance: z.string().trim().max(4000).optional().or(z.literal("")),
 });
 
 export const inviteMemberSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-  role: z.enum(["admin", "member"]).default("member")
+  email: emailField(),
+  role: z.enum(["admin", "member"]).default("member"),
 });
 
 export const acceptInviteSchema = z.object({
-  token: z.string().min(1, "Invite token is required")
+  token: z.string().min(1, "Invite token is required"),
 });
 
 export const updateMembershipSchema = z.object({
-  role: z.enum(["owner", "admin", "member"])
+  role: z.enum(["owner", "admin", "member"]),
 });
 
 export const createProjectSchema = z.object({
   title: z.string().min(3, "Project title is required").max(160),
   clientName: z.string().min(2, "Issuer or client name is required").max(160),
-  opportunityType: z.enum(["Tender", "RFP", "Grant", "EOI", "RFQ"]).default("Tender"),
+  opportunityType: z
+    .enum(["Tender", "RFP", "Grant", "EOI", "RFQ"])
+    .default("Tender"),
   sector: z.string().min(2).max(80).default("General"),
   country: z.string().min(2).max(80).default("Nigeria"),
   authority: z.string().max(160).optional().or(z.literal("")),
@@ -95,7 +135,7 @@ export const createProjectSchema = z.object({
   winThemes: z.string().max(2000).optional().or(z.literal("")),
   contractDuration: z.string().max(160).optional().or(z.literal("")),
   incumbent: z.string().max(160).optional().or(z.literal("")),
-  submissionLanguage: z.string().min(2).max(40).default("English")
+  submissionLanguage: z.string().min(2).max(40).default("English"),
 });
 
 export const updateRequirementSchema = z.object({
@@ -106,26 +146,28 @@ export const updateRequirementSchema = z.object({
   status: z.enum(["met", "in_progress", "blocked", "waiver"]).optional(),
   sourceClause: z.string().max(1000).optional().nullable(),
   owner: z.string().max(80).optional().nullable().or(z.literal("")),
-  reviewNotes: z.string().max(1000).optional().nullable().or(z.literal(""))
+  reviewNotes: z.string().max(1000).optional().nullable().or(z.literal("")),
 });
 
 export const updateProposalSectionSchema = z.object({
   content: z.string().min(1),
-  status: z.enum(["not_started", "drafting", "review", "approved"]).default("drafting")
+  status: z
+    .enum(["not_started", "drafting", "review", "approved"])
+    .default("drafting"),
 });
 
 export const generateProposalSchema = z.object({
   sectionId: z.string().cuid().optional(),
   tone: z.enum(["formal", "confident", "technical", "ngo"]).default("formal"),
-  customPrompt: z.string().max(1200).optional()
+  customPrompt: z.string().max(1200).optional(),
 });
 
 export const exportProposalSchema = z.object({
-  format: z.enum(["docx", "pdf"])
+  format: z.enum(["docx", "pdf"]),
 });
 
 export const uploadMetaSchema = z.object({
-  projectId: z.string().cuid()
+  projectId: z.string().cuid(),
 });
 
 export type SignUpInput = z.infer<typeof signUpSchema>;
