@@ -4,6 +4,7 @@ import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { rateLimit } from "@/lib/rate-limit";
 import { captureError } from "@/lib/monitoring";
+import { unauthorized } from "@/server/responses";
 
 const createSectionSchema = z.object({
   title: z.string().min(1),
@@ -18,7 +19,7 @@ export async function GET(
   try {
     const user = await requireApiUser();
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const { projectId } = await context.params;
@@ -61,7 +62,7 @@ export async function POST(
   try {
     const user = await requireApiUser();
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const { projectId } = await context.params;

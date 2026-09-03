@@ -6,10 +6,11 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { hasPaystackKey, initializeTransaction } from "@/lib/payments/paystack";
 import { PRO_PLAN } from "@/lib/payments/plans";
 import { captureError } from "@/lib/monitoring";
+import { unauthorized } from "@/server/responses";
 
 export async function POST() {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
   // The subscription covers the whole organization, so anyone who could
   // start a checkout would be committing the org's money - keep that with
   // the owner rather than every member.

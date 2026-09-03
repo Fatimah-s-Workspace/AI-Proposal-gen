@@ -1,3 +1,4 @@
+import { Logo } from "@/components/brand/logo";
 import { Suspense } from "react";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 
@@ -7,7 +8,7 @@ export default function ResetPasswordPage() {
       <div className="grid min-h-svh lg:grid-cols-[0.9fr_1.1fr]">
         <section className="hidden border-r bg-slate-950 text-white lg:block">
           <div className="flex h-full flex-col justify-between p-10">
-            <div className="text-lg font-semibold">TenderFlow AI</div>
+            <Logo tone="onDark" markClassName="size-9" />
             <div className="space-y-6">
               <p className="max-w-md text-4xl font-semibold leading-tight tracking-normal">
                 Turn tender packs into compliant proposal drafts without losing the trail of evidence.

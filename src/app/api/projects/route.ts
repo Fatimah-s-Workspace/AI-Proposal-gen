@@ -3,10 +3,11 @@ import { requireApiUser } from "@/server/session";
 import { createProjectSchema } from "@/lib/validations";
 import { defaultProposalSections } from "@/features/projects/default-sections";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { unauthorized } from "@/server/responses";
 
 export async function GET() {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const projects = await prisma.project.findMany({
     where: { organizationId: user.organizationId },
@@ -27,7 +28,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const limit = await rateLimit(`project:create:${user.id}`, 20, 60_000);
   if (!limit.allowed) return rateLimitResponse();

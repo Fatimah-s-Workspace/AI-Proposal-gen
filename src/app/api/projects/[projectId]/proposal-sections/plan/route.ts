@@ -1,6 +1,7 @@
 import { buildTenderProposalAssistant } from "@/features/proposals/tender-proposal";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { requireApiUser } from "@/server/session";
+import { unauthorized } from "@/server/responses";
 import {
   loadTenderProposalContext,
   syncProposalSectionsFromTender,
@@ -11,7 +12,7 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId } = await params;
   const limit = await rateLimit(`proposal-plan:${user.id}:${projectId}`, 15, 60_000);

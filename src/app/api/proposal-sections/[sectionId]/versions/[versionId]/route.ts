@@ -1,13 +1,14 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { unauthorized } from "@/server/responses";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ sectionId: string; versionId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const limit = await rateLimit(`section:version:${user.id}`, 60, 60_000);
   if (!limit.allowed) return rateLimitResponse();

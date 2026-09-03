@@ -18,6 +18,7 @@ import {
   calculateChecklistScore,
 } from "@/features/tender-intelligence/pipeline";
 import { syncProposalSectionsFromTender } from "@/server/tender-proposal";
+import { unauthorized } from "@/server/responses";
 import {
   processUploadedDocument,
   procurementDocumentTypes,
@@ -41,7 +42,7 @@ export async function DELETE(
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
   if (!canDeleteDocuments(user.organizationRole)) {
     return Response.json(
       { error: "Only owners and admins can delete documents" },
@@ -98,7 +99,7 @@ export async function GET(
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId } = await params;
   const ids = new URL(request.url).searchParams.get("ids");
@@ -162,7 +163,7 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId } = await params;
   const limit = await rateLimit(`upload:${user.id}:${projectId}`, 10, 60_000);

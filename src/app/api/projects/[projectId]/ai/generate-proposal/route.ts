@@ -6,13 +6,14 @@ import { requireApiUser } from "@/server/session";
 import { generateTenderSectionsForProject } from "@/server/tender-proposal";
 import { checkUsageLimit, incrementUsage, usageLimitResponse } from "@/server/usage";
 import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
+import { unauthorized } from "@/server/responses";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId } = await params;
   const limit = await rateLimit(`ai:proposal:${user.id}:${projectId}`, 20, 60_000);

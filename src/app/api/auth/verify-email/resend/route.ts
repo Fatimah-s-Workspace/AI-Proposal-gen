@@ -2,6 +2,7 @@ import { requireApiUser } from "@/server/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { sendEmailVerification } from "@/server/email-verification";
 import { captureError } from "@/lib/monitoring";
+import { unauthorized, serverError } from "@/server/responses";
 
 // Signed-in only, so this resends to the address on the current account
 // rather than taking one from the request body - that would turn this into
@@ -9,7 +10,7 @@ import { captureError } from "@/lib/monitoring";
 export async function POST() {
   try {
     const user = await requireApiUser();
-    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) return unauthorized();
 
     if (user.emailVerified) {
       return Response.json({ ok: true, alreadyVerified: true });
@@ -28,6 +29,6 @@ export async function POST() {
   } catch (error) {
     console.error("RESEND VERIFICATION ERROR:", error);
     captureError(error, { route: "auth/verify-email/resend" });
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return serverError();
   }
 }

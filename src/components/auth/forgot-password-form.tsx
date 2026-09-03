@@ -9,6 +9,8 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { apiErrorMessage, genericMessages } from "@/lib/messages";
+import { Feedback } from "@/components/ui/feedback";
 import { forgotPasswordSchema } from "@/lib/validations";
 
 type FormValues = z.infer<typeof forgotPasswordSchema>;
@@ -32,18 +34,14 @@ export function ForgotPasswordForm() {
       });
 
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        setError(payload.error || "Something went wrong. Please try again.");
+        setError(await apiErrorMessage(response));
         return;
       }
 
       setSent(true);
     } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Something went wrong. Please try again.",
-      );
+      console.error("Password reset request failed", error);
+      setError(genericMessages.network);
     }
   }
 
@@ -76,7 +74,7 @@ export function ForgotPasswordForm() {
           </p>
         ) : null}
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? <Feedback tone="error">{error}</Feedback> : null}
       <Button
         type="submit"
         className="w-full"

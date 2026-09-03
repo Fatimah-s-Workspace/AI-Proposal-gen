@@ -5,11 +5,12 @@ import { acceptInviteSchema } from "@/lib/validations";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { logAudit, AUDIT_ACTIONS } from "@/server/audit";
 import { captureError } from "@/lib/monitoring";
+import { unauthorized, serverError } from "@/server/responses";
 
 export async function POST(request: Request) {
   try {
     const user = await requireApiUser();
-    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) return unauthorized();
 
     const limit = await rateLimit(`invite-accept:${user.id}`, 10, 60_000);
     if (!limit.allowed) return rateLimitResponse();
@@ -83,6 +84,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("INVITE ACCEPT ERROR:", error);
     captureError(error, { route: "organization/invites/accept" });
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return serverError();
   }
 }

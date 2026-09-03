@@ -5,13 +5,14 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { requireApiUser } from "@/server/session";
 import { verificationIdentifierFor } from "@/server/email-verification";
 import { captureError } from "@/lib/monitoring";
+import { unauthorized, serverError } from "@/server/responses";
 
 // Read live rather than from the session: emailVerified is stored on the
 // JWT nowhere on purpose, since a token minted before confirming would keep
 // reporting "unverified" until the user signed out and back in.
 export async function GET() {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   return Response.json({
     email: user.email,
@@ -74,6 +75,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("VERIFY EMAIL ERROR:", error);
     captureError(error, { route: "auth/verify-email" });
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return serverError();
   }
 }

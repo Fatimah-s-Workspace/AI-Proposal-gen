@@ -3,13 +3,14 @@ import { requireApiUser } from "@/server/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { canManageMembers } from "@/server/permissions";
 import { logAudit, AUDIT_ACTIONS } from "@/server/audit";
+import { unauthorized } from "@/server/responses";
 
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ inviteId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const limit = await rateLimit(`invite:revoke:${user.id}`, 20, 60_000);
   if (!limit.allowed) return rateLimitResponse();

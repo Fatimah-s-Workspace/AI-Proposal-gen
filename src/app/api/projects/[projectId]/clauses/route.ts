@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { explainTenderClause } from "@/features/tender-intelligence/pipeline";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { unauthorized } from "@/server/responses";
 
 const createClauseSchema = z.object({
   originalText: z.string().min(1),
@@ -14,7 +15,7 @@ const createClauseSchema = z.object({
 
 export async function GET(_request: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId } = await params;
   const project = await prisma.project.findFirst({
@@ -39,7 +40,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 
 export async function POST(request: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const { projectId } = await params;
   const limit = await rateLimit(`clause:create:${user.id}:${projectId}`, 30, 60_000);

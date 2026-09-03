@@ -5,6 +5,7 @@ import { deleteAccountSchema } from "@/lib/validations";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { deleteStoredFile } from "@/lib/storage";
 import { captureError } from "@/lib/monitoring";
+import { unauthorized, serverError } from "@/server/responses";
 
 // What deleting an account does to each workspace the user belongs to:
 //
@@ -21,7 +22,7 @@ import { captureError } from "@/lib/monitoring";
 export async function DELETE(request: Request) {
   try {
     const user = await requireApiUser();
-    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) return unauthorized();
 
     const limit = await rateLimit(`account-delete:${user.id}`, 5, 60 * 60_000);
     if (!limit.allowed) return rateLimitResponse();
@@ -121,6 +122,6 @@ export async function DELETE(request: Request) {
   } catch (error) {
     console.error("ACCOUNT DELETE ERROR:", error);
     captureError(error, { route: "account/delete" });
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return serverError();
   }
 }

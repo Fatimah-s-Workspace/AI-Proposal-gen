@@ -2,24 +2,26 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, UserPlus } from "lucide-react";
-import { signIn } from "next-auth/react";
 import Link from "next/link";
 import type { Route } from "next";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Label } from "@/components/ui/label";
 import { signUpSchema } from "@/lib/validations";
+import { apiErrorMessage, authMessages, genericMessages } from "@/lib/messages";
+import { Feedback } from "@/components/ui/feedback";
+import { PasswordRequirements } from "@/components/auth/password-requirements";
 import type { PendingInvite } from "@/server/invites";
 
 type FormInput = z.input<typeof signUpSchema>;
 type FormValues = z.output<typeof signUpSchema>;
 
 export function SignUpForm({ invite }: { invite?: PendingInvite | null }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -36,6 +38,10 @@ export function SignUpForm({ invite }: { invite?: PendingInvite | null }) {
       country: "Nigeria",
     },
   });
+
+  // Subscribed to on its own so the checklist updates as the user types,
+  // without re-rendering the whole form on every keystroke.
+  const password = useWatch({ control: form.control, name: "password" }) ?? "";
 
   // Carry the destination across, so bouncing between sign-up and sign-in
   // doesn't quietly drop the invite the visitor came here to accept.
@@ -58,34 +64,19 @@ export function SignUpForm({ invite }: { invite?: PendingInvite | null }) {
       });
 
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        setError(payload.error || "Could not create your account.");
+        setError(await apiErrorMessage(response, "Could not create your account."));
         return;
       }
 
-      const result = await signIn("credentials", {
-        email: values.email,
-        password: values.password,
-        redirect: false,
-        callbackUrl: "/dashboard",
-      });
-
-      if (!result || result.error || !result.ok) {
-        setError(
-          "Account created, but automatic sign-in failed. Please sign in with the same email and password.",
-        );
-        return;
-      }
-
+      // Deliberately no automatic sign-in. New accounts have to confirm their
+      // email first, so signing in here would always fail and the person's
+      // first experience of the product would be an error message a moment
+      // after being told it worked. Telling them to check their inbox is the
+      // honest version of the same step.
       setSuccess(true);
-      const destination = callbackUrl?.startsWith("/") ? callbackUrl : "/dashboard";
-      router.replace(destination as Route);
     } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to create account. Please try again.",
-      );
+      console.error("Sign-up failed", error);
+      setError(genericMessages.network);
     }
   }
 
@@ -148,23 +139,23 @@ export function SignUpForm({ invite }: { invite?: PendingInvite | null }) {
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="new-password"
           {...form.register("password")}
         />
+        <PasswordRequirements value={password} />
         {form.formState.errors.password ? (
           <p className="text-sm text-destructive">
             {form.formState.errors.password.message}
           </p>
         ) : null}
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? <Feedback tone="error">{error}</Feedback> : null}
       {success ? (
-        <p className="text-sm text-green-600">
-          Account created successfully! Redirecting...
-        </p>
+        <Feedback tone="success" title="Check your inbox">
+          {authMessages.signupSubmitted}
+        </Feedback>
       ) : null}
       <Button
         type="submit"

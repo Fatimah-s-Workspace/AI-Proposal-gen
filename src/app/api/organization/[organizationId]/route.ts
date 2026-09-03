@@ -7,6 +7,7 @@ import { updateOrganizationSchema } from "@/lib/validations";
 import { deleteStoredFile } from "@/lib/storage";
 import { logAudit, AUDIT_ACTIONS } from "@/server/audit";
 import { captureError } from "@/lib/monitoring";
+import { unauthorized, serverError } from "@/server/responses";
 
 // Scoped through Membership rather than looked up by id alone, so another
 // organization's id reads as "not found" instead of being actionable.
@@ -22,7 +23,7 @@ export async function PATCH(
   { params }: { params: Promise<{ organizationId: string }> },
 ) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const limit = await rateLimit(`org:rename:${user.id}`, 20, 60_000);
   if (!limit.allowed) return rateLimitResponse();
@@ -72,7 +73,7 @@ export async function DELETE(
 ) {
   try {
     const user = await requireApiUser();
-    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) return unauthorized();
 
     // Destroys every project, document and export in the workspace, so this is an
     // hourly cap rather than a per-minute one - matching account deletion.
@@ -130,6 +131,6 @@ export async function DELETE(
   } catch (error) {
     console.error("ORGANIZATION DELETE ERROR:", error);
     captureError(error, { route: "organization/delete" });
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return serverError();
   }
 }

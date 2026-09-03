@@ -4,6 +4,11 @@ import { prisma } from "@/server/db";
 import { resetPasswordSchema } from "@/lib/validations";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { captureError } from "@/lib/monitoring";
+import { serverError } from "@/server/responses";
+import {
+  checkPasswordBreached,
+  breachedPasswordMessage,
+} from "@/server/breached-password";
 
 function identifierFor(email: string) {
   return `password-reset:${email}`;
@@ -24,7 +29,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const email = parsed.data.email.toLowerCase();
+    const email = parsed.data.email;
+
+    // A reset is the moment an account is most likely to be handed a password
+    // the user has reused elsewhere, so it gets the same check as signup.
+    const breach = await checkPasswordBreached(parsed.data.password);
+    if (breach.status === "breached") {
+      return Response.json(
+        { error: breachedPasswordMessage(breach.count) },
+        { status: 400 },
+      );
+    }
+
     const identifier = identifierFor(email);
     const hashedToken = createHash("sha256").update(parsed.data.token).digest("hex");
 
@@ -52,6 +68,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("RESET PASSWORD ERROR:", error);
     captureError(error, { route: "auth/reset-password" });
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return serverError();
   }
 }

@@ -3,10 +3,11 @@ import { requireApiUser } from "@/server/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { updateRequirementSchema } from "@/lib/validations";
 import { calculateChecklistScore } from "@/features/tender-intelligence/pipeline";
+import { unauthorized } from "@/server/responses";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ requirementId: string }> }) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   const limit = await rateLimit(`requirement:update:${user.id}`, 60, 60_000);
   if (!limit.allowed) return rateLimitResponse();

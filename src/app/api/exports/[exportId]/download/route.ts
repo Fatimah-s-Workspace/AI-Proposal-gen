@@ -2,12 +2,13 @@ import { readStoredFile } from "@/lib/storage";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { unauthorized } from "@/server/responses";
 
 export const runtime = "nodejs";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ exportId: string }> }) {
   const user = await requireApiUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return unauthorized();
 
   // Every hit pulls the whole file out of object storage, so this is about
   // bandwidth rather than compute.

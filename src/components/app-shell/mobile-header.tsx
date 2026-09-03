@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Logo } from "@/components/brand/logo";
 import { usePathname } from "next/navigation";
 import {
   AccountMenuContent,
@@ -28,10 +29,7 @@ export function MobileHeader() {
   return (
     <header className="fixed top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden">
       <Link href="/dashboard" className="flex items-center gap-2">
-        <div className="flex size-8 items-center justify-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">
-          TF
-        </div>
-        <span className="font-semibold tracking-normal">TenderFlow AI</span>
+        <Logo markClassName="size-8" />
       </Link>
       {/* The Popover is keyed on the route so following a link inside the
           menu remounts it closed - client-side navigation alone doesn't
