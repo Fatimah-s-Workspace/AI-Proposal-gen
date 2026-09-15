@@ -32,7 +32,7 @@ jobs:
       EXPORT_DIR: "./exports"
       MAX_UPLOAD_MB: "15"
       GEMINI_API_KEY: ""
-      GEMINI_MODEL: "gemini-2.5-flash"
+      GEMINI_MODEL: "gemini-3.5-flash"
       UPSTASH_REDIS_REST_URL: ""
       UPSTASH_REDIS_REST_TOKEN: ""
       SUPABASE_URL: ""

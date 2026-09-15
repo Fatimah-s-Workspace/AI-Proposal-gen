@@ -1,0 +1,241 @@
+{
+  "document": "document.pdf",
+  "source": "Sample tender pack — Lagos Metro Infrastructure Agency (LMIA), Tender Reference LMIA/ICT/2026/041, Digital Procurement & Fleet Tracking System",
+  "labelledOn": "2026-09-14",
+  "requirements": [
+    {
+      "id": "deadline",
+      "title": "Submit by the tender deadline",
+      "category": "submission",
+      "priority": "high",
+      "sourceClause": "Submission Deadline: 30 June 2026, 5:00 PM WAT",
+      "evidenceNeeded": []
+    },
+    {
+      "id": "cac",
+      "title": "Certificate of Incorporation (CAC)",
+      "category": "mandatory",
+      "priority": "high",
+      "sourceClause": "Certificate of Incorporation (CAC)",
+      "evidenceNeeded": ["CAC registration"]
+    },
+    {
+      "id": "tax-clearance",
+      "title": "Valid Tax Clearance Certificate covering three years",
+      "category": "mandatory",
+      "priority": "high",
+      "sourceClause": "Valid Tax Clearance Certificate (3 years)",
+      "evidenceNeeded": ["Tax clearance"]
+    },
+    {
+      "id": "company-profile",
+      "title": "Company Profile",
+      "category": "mandatory",
+      "priority": "high",
+      "sourceClause": "Company Profile",
+      "evidenceNeeded": ["Company profile"]
+    },
+    {
+      "id": "similar-projects",
+      "title": "Evidence of similar projects completed within the last 5 years",
+      "category": "experience",
+      "priority": "high",
+      "sourceClause": "Evidence of similar projects completed within the last 5 years",
+      "evidenceNeeded": ["Project experience"]
+    },
+    {
+      "id": "audited-financials",
+      "title": "Audited Financial Statements",
+      "category": "financial",
+      "priority": "high",
+      "sourceClause": "Audited Financial Statements",
+      "evidenceNeeded": ["Audited financial statements"]
+    },
+    {
+      "id": "team-cvs",
+      "title": "Technical Team CVs",
+      "category": "mandatory",
+      "priority": "high",
+      "sourceClause": "Technical Team CVs",
+      "evidenceNeeded": ["Key personnel CVs"]
+    },
+    {
+      "id": "implementation-methodology",
+      "title": "Project Implementation Methodology",
+      "category": "technical",
+      "priority": "high",
+      "sourceClause": "Project Implementation Methodology",
+      "evidenceNeeded": ["Technical methodology"]
+    },
+    {
+      "id": "tech-executive-summary",
+      "title": "Executive Summary in the technical proposal",
+      "category": "technical",
+      "priority": "medium",
+      "sourceClause": "Executive Summary",
+      "evidenceNeeded": []
+    },
+    {
+      "id": "tech-objectives",
+      "title": "Understanding of Project Objectives",
+      "category": "technical",
+      "priority": "medium",
+      "sourceClause": "Understanding of Project Objectives",
+      "evidenceNeeded": []
+    },
+    {
+      "id": "tech-architecture",
+      "title": "Proposed Technical Architecture",
+      "category": "technical",
+      "priority": "high",
+      "sourceClause": "Proposed Technical Architecture",
+      "evidenceNeeded": ["Technical methodology"]
+    },
+    {
+      "id": "tech-timeline",
+      "title": "Implementation Timeline",
+      "category": "technical",
+      "priority": "medium",
+      "sourceClause": "Implementation Timeline",
+      "evidenceNeeded": []
+    },
+    {
+      "id": "tech-risk",
+      "title": "Risk Mitigation Strategy",
+      "category": "technical",
+      "priority": "medium",
+      "sourceClause": "Risk Mitigation Strategy",
+      "evidenceNeeded": []
+    },
+    {
+      "id": "tech-security",
+      "title": "Data Security and Compliance Measures",
+      "category": "legal",
+      "priority": "high",
+      "sourceClause": "Data Security and Compliance Measures",
+      "evidenceNeeded": []
+    },
+    {
+      "id": "tech-support",
+      "title": "Post-Deployment Support Plan",
+      "category": "technical",
+      "priority": "medium",
+      "sourceClause": "Post-Deployment Support Plan",
+      "evidenceNeeded": []
+    },
+    {
+      "id": "fin-currency",
+      "title": "Quote the financial proposal in Nigerian Naira",
+      "category": "financial",
+      "priority": "high",
+      "sourceClause": "Be quoted in Nigerian Naira (NGN)",
+      "evidenceNeeded": ["Financial proposal"]
+    },
+    {
+      "id": "fin-costs",
+      "title": "Include implementation and maintenance costs",
+      "category": "financial",
+      "priority": "high",
+      "sourceClause": "Include implementation and maintenance costs",
+      "evidenceNeeded": ["Financial proposal"]
+    },
+    {
+      "id": "fin-vat",
+      "title": "Clearly identify VAT where applicable",
+      "category": "financial",
+      "priority": "medium",
+      "sourceClause": "Clearly identify VAT where applicable",
+      "evidenceNeeded": []
+    },
+    {
+      "id": "fin-validity",
+      "title": "Keep the bid valid for 90 days after submission",
+      "category": "financial",
+      "priority": "high",
+      "sourceClause": "Remain valid for 90 days after submission",
+      "evidenceNeeded": []
+    },
+    {
+      "id": "sub-pdf",
+      "title": "Submit electronically in PDF format",
+      "category": "submission",
+      "priority": "high",
+      "sourceClause": "All submissions must be provided electronically in PDF format.",
+      "evidenceNeeded": []
+    },
+    {
+      "id": "sub-separation",
+      "title": "Separate the Technical and Financial sections",
+      "category": "submission",
+      "priority": "high",
+      "sourceClause": "Proposals should be clearly separated into Technical and Financial sections.",
+      "evidenceNeeded": []
+    },
+    {
+      "id": "sub-email",
+      "title": "Email the submission to the procurement address",
+      "category": "submission",
+      "priority": "high",
+      "sourceClause": "Submissions should be emailed to: procurement@lmia-demo.gov.ng",
+      "evidenceNeeded": []
+    },
+    {
+      "id": "clarification-deadline",
+      "title": "Submit clarification questions by 15 June 2026",
+      "category": "submission",
+      "priority": "medium",
+      "sourceClause": "Questions regarding this RFP must be submitted no later than 15 June 2026.",
+      "evidenceNeeded": []
+    }
+  ],
+  "nonRequirements": [
+    {
+      "text": "Develop a centralized procurement management portal",
+      "reason": "Scope of work. Describes what the winning bidder delivers after award, not what the bid must contain. Omitting it weakens a proposal but does not make it non-compliant."
+    },
+    {
+      "text": "Build vendor onboarding workflows",
+      "reason": "Scope of work — see above."
+    },
+    {
+      "text": "Implement fleet tracking dashboards",
+      "reason": "Scope of work — see above."
+    },
+    {
+      "text": "Provide AI-assisted reporting and analytics",
+      "reason": "Scope of work — see above."
+    },
+    {
+      "text": "Configure role-based access controls",
+      "reason": "Scope of work — see above."
+    },
+    {
+      "text": "Provide documentation and user training",
+      "reason": "Scope of work — see above."
+    },
+    {
+      "text": "Support cloud deployment and maintenance for 12 months",
+      "reason": "Scope of work — see above."
+    },
+    {
+      "text": "Technical Approach 30% Relevant Experience 25% Team Competence 20%",
+      "reason": "Evaluation criteria. Describes how the buyer scores a bid, not an action the bidder must take."
+    },
+    {
+      "text": "Reject any or all submissions",
+      "reason": "Buyer's reserved right under Terms & Conditions. An obligation on LMIA, not on the bidder."
+    },
+    {
+      "text": "Cancel the procurement process at any time",
+      "reason": "Buyer's reserved right — see above."
+    },
+    {
+      "text": "Request additional supporting documentation",
+      "reason": "Buyer's reserved right — see above."
+    },
+    {
+      "text": "Negotiate pricing and scope with shortlisted bidders",
+      "reason": "Buyer's reserved right — see above."
+    }
+  ]
+}

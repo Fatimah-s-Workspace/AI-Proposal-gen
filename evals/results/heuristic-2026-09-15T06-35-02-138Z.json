@@ -1,0 +1,90 @@
+{
+  "extractor": "heuristic",
+  "ranAt": "2026-09-15T06:35:02.137Z",
+  "scores": [
+    {
+      "slug": "lmia-digital-procurement",
+      "extractor": "heuristic",
+      "counts": {
+        "expected": 23,
+        "predicted": 32,
+        "matched": 22,
+        "boundaryMisses": 7
+      },
+      "recall": 0.9565217391304348,
+      "precision": 0.6875,
+      "clauseAttribution": 1,
+      "categoryAccuracy": 0.7727272727272727,
+      "priorityAccuracy": 0.6818181818181818,
+      "missed": [
+        {
+          "id": "deadline",
+          "title": "Submit by the tender deadline",
+          "category": "submission",
+          "priority": "high",
+          "sourceClause": "Submission Deadline: 30 June 2026, 5:00 PM WAT",
+          "evidenceNeeded": []
+        }
+      ],
+      "spurious": [
+        {
+          "title": "Submission checklist",
+          "sourceClause": "Submission Deadline: 30 June 2026, 5:00 PM WAT: consulting firms to submit proposals for the design, implementation, d...",
+          "boundary": null
+        },
+        {
+          "title": "Submission checklist",
+          "sourceClause": "Scope of Work: Develop a centralized procurement management portal",
+          "boundary": "Develop a centralized procurement management portal"
+        },
+        {
+          "title": "Technical methodology",
+          "sourceClause": "Scope of Work: Build vendor onboarding workflows",
+          "boundary": "Build vendor onboarding workflows"
+        },
+        {
+          "title": "Technical methodology",
+          "sourceClause": "Scope of Work: Implement fleet tracking dashboards",
+          "boundary": "Implement fleet tracking dashboards"
+        },
+        {
+          "title": "Technical methodology",
+          "sourceClause": "Scope of Work: Provide AI-assisted reporting and analytics",
+          "boundary": "Provide AI-assisted reporting and analytics"
+        },
+        {
+          "title": "Technical methodology",
+          "sourceClause": "Scope of Work: Configure role-based access controls",
+          "boundary": "Configure role-based access controls"
+        },
+        {
+          "title": "Technical methodology",
+          "sourceClause": "Scope of Work: Provide documentation and user training",
+          "boundary": "Provide documentation and user training"
+        },
+        {
+          "title": "Technical methodology",
+          "sourceClause": "Scope of Work: Support cloud deployment and maintenance for 12 months",
+          "boundary": "Support cloud deployment and maintenance for 12 months"
+        },
+        {
+          "title": "Technical methodology",
+          "sourceClause": "Technical Proposal Requirements: Implementation Timeline",
+          "boundary": null
+        },
+        {
+          "title": "Instruction requirement: Responses to clarifications shall be",
+          "sourceClause": "Questions & Clarifications: Responses to clarifications shall be",
+          "boundary": null
+        }
+      ],
+      "unattributed": [],
+      "latencyMs": 4
+    }
+  ],
+  "totals": {
+    "recall": 0.9565217391304348,
+    "precision": 0.6875,
+    "clauseAttribution": 1
+  }
+}
