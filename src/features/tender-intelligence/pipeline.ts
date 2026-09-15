@@ -67,6 +67,19 @@ const evidenceDictionary = [
   },
 ];
 
+/**
+ * A stem is a directive line ending in a colon — "Bidders must submit the
+ * following:", "The technical proposal must include:". The obligation belongs
+ * to the list items underneath it, not to the stem itself.
+ *
+ * Without this, the extractor kept the stem (it carries "must") and dropped
+ * every bullet beneath it (they carry no directive verb of their own), which is
+ * exactly inverted: the stem is not a requirement and the bullets are.
+ */
+function isStem(text: string) {
+  return text.trim().endsWith(":") && directivePattern.test(text);
+}
+
 export function extractTenderClausesFromSections(
   sections: ParsedSection[],
 ): TenderClauseExtraction[] {
@@ -74,19 +87,47 @@ export function extractTenderClausesFromSections(
 
   for (const section of sections) {
     const candidates = splitIntoClauseCandidates(section.body);
+
+    // A section title can be the stem for its own body — parseTenderSections
+    // splits "Financial proposals must:" out as the title, leaving the bullets
+    // it governs alone in the body.
+    let stem: string | null = isStem(section.title) ? section.title : null;
+
     for (const candidate of candidates) {
-      if (!directivePattern.test(candidate)) continue;
+      if (isStem(candidate)) {
+        stem = candidate;
+        continue;
+      }
+
+      // Prose closes a list. Bullets in a tender pack are fragments, so a
+      // candidate ending in a full stop is a sentence that stands on its own.
+      if (stem && candidate.trim().endsWith(".")) stem = null;
+
+      const inherited = stem !== null;
+      if (!inherited && !directivePattern.test(candidate)) continue;
+
+      // The stem carries how binding the item is, not what it is about. Risk,
+      // confidence and actions read it so "Company Profile" inherits "must
+      // submit"; classifyClause deliberately does not, because a stem like
+      // "Bidders must submit the following:" contains "submit" and would type
+      // every bullet under it as `submission` — turning CAC from mandatory and
+      // Audited Financial Statements from financial into submission items.
+      //
+      // originalText stays the candidate alone: it has to remain verbatim
+      // document text for clause attribution to hold.
+      const contextText = stem ? `${stem}\n${candidate}` : candidate;
+
       const clauseType = classifyClause(candidate, section.title);
-      const riskLevel = classifyRisk(candidate, clauseType);
+      const riskLevel = classifyRisk(contextText, clauseType);
       const importance = riskLevel;
-      const actionsRequired = buildActions(candidate, clauseType);
+      const actionsRequired = buildActions(contextText, clauseType);
       clauses.push({
         title: buildClauseTitle(candidate, section.title),
         originalText: candidate,
         clauseType,
         importance,
         riskLevel,
-        confidence: scoreClauseConfidence(candidate),
+        confidence: scoreClauseConfidence(contextText),
         actionsRequired,
         parsedSectionOrder: section.order,
       });
