@@ -240,3 +240,56 @@ test("explainTenderClause treats deadline language as high risk", () => {
   assert.ok(explanation.plainEnglish.length > 0);
   assert.ok(explanation.action.length > 0);
 });
+
+/*
+ * Output caps used to be positional - `.slice(0, 80)` - which keeps whatever
+ * appeared first. On a long pack padded with boilerplate the cap is reached
+ * early, and the dangerous clauses near the end are dropped for being late.
+ * Verified on a synthetic 120-page pack: a bid-security clause on page 87 and
+ * an anti-corruption declaration on page 120 were both lost.
+ */
+test("a high-risk clause late in a long document survives the output cap", () => {
+  const filler = Array.from(
+    { length: 200 },
+    (_, i) => `Bidders shall note the general provisions applicable to clause set ${i + 1}.`,
+  ).join("\n\n");
+
+  const lateCritical =
+    "Bid security of 2% of the bid price must be provided as a bank guarantee.";
+
+  const clauses = extractTenderClausesFromSections([
+    { title: "General", body: `${filler}\n\n${lateCritical}`, order: 1 },
+  ]);
+
+  assert.ok(
+    clauses.some((clause) => clause.originalText.includes("Bid security")),
+    "a late high-risk clause was dropped by the output cap",
+  );
+});
+
+test("the cap still bounds the output", () => {
+  const body = Array.from(
+    { length: 400 },
+    (_, i) => `The bidder must submit document number ${i + 1} before the deadline.`,
+  ).join("\n\n");
+
+  const clauses = extractTenderClausesFromSections([{ title: "General", body, order: 1 }]);
+  assert.ok(clauses.length <= 80, `expected at most 80 clauses, got ${clauses.length}`);
+});
+
+test("clauses stay in document order after capping", () => {
+  // The checklist is read alongside the document; reordering it to put the
+  // scariest clause first would be its own kind of wrong.
+  const body = Array.from(
+    { length: 150 },
+    (_, i) => `The bidder must provide item ${String(i + 1).padStart(3, "0")} as specified.`,
+  ).join("\n\n");
+
+  const clauses = extractTenderClausesFromSections([{ title: "General", body, order: 1 }]);
+  const numbers = clauses
+    .map((c) => Number(c.originalText.match(/item (\d{3})/)?.[1]))
+    .filter((n) => Number.isFinite(n));
+
+  const sorted = [...numbers].sort((a, b) => a - b);
+  assert.deepEqual(numbers, sorted, "capping must not reorder the checklist");
+});

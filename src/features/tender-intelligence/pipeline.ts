@@ -80,6 +80,55 @@ function isStem(text: string) {
   return text.trim().endsWith(":") && directivePattern.test(text);
 }
 
+
+/**
+ * Output caps.
+ *
+ * These exist so a malformed or enormous document cannot produce a checklist
+ * nobody can work through. They are not a coverage limit - see capByImportance
+ * for why that distinction matters.
+ */
+const MAX_CLAUSES = 80;
+const MAX_REQUIREMENTS = 120;
+
+const IMPORTANCE_RANK = { high: 2, medium: 1, low: 0 } as const;
+
+/**
+ * Trims an over-long list by dropping the least important items, not the last
+ * ones.
+ *
+ * This was a plain `.slice(0, 80)`, which keeps whatever happened to appear
+ * first in the document. On a 120-page pack full of boilerplate that meant the
+ * cap was reached inside the first third, and the genuinely dangerous clauses -
+ * bid security on page 87, the anti-corruption declaration on page 120 - were
+ * dropped for being late. Measured on a synthetic pack of exactly that shape:
+ * both were lost.
+ *
+ * Document order is restored afterwards, because the checklist is read
+ * alongside the document and reordering it would be its own kind of wrong.
+ */
+function capByImportance<T extends { importance?: string; priority?: string; confidence: number }>(
+  items: T[],
+  limit: number,
+): T[] {
+  if (items.length <= limit) return items;
+
+  const weight = (item: T) => {
+    const level = (item.importance ?? item.priority ?? "low") as keyof typeof IMPORTANCE_RANK;
+    return (IMPORTANCE_RANK[level] ?? 0) * 10 + item.confidence;
+  };
+
+  const kept = new Set(
+    items
+      .map((item, index) => ({ index, score: weight(item) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((entry) => entry.index),
+  );
+
+  return items.filter((_, index) => kept.has(index));
+}
+
 export function extractTenderClausesFromSections(
   sections: ParsedSection[],
 ): TenderClauseExtraction[] {
@@ -134,7 +183,7 @@ export function extractTenderClausesFromSections(
     }
   }
 
-  return dedupeByText(clauses).slice(0, 80);
+  return capByImportance(dedupeByText(clauses), MAX_CLAUSES);
 }
 
 export function explainTenderClause(
@@ -158,7 +207,7 @@ export function explainTenderClause(
 export function extractRequirementsFromClauses(
   clauses: Array<TenderClauseExtraction & { id?: string }>,
 ): ExtractedRequirement[] {
-  return clauses
+  const requirements = clauses
     .filter((clause) => shouldBecomeRequirement(clause))
     .map((clause) => {
       const evidenceNeeded = detectEvidenceNeeded(
@@ -175,8 +224,9 @@ export function extractRequirementsFromClauses(
         confidence: Math.min(0.98, Math.max(0.55, clause.confidence - 0.03)),
         evidenceNeeded,
       };
-    })
-    .slice(0, 120);
+    });
+
+  return capByImportance(requirements, MAX_REQUIREMENTS);
 }
 
 export function detectEvidenceMatchesForRequirements(input: {
