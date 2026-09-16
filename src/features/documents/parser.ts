@@ -1,8 +1,30 @@
 import type { ParsedSection } from "@/features/ai";
 import { captureError } from "@/lib/monitoring";
 
-const emptyTextMessage =
+export const emptyTextMessage =
   "No machine-readable text was found in this document. Upload a text-based PDF/DOCX or run OCR before final analysis.";
+
+/**
+ * Whether extraction actually produced usable text.
+ *
+ * Emptiness is not a reliable signal. pdf-parse emits its own page markers -
+ * a genuinely image-only scan comes back as "\n\n-- 1 of 1 --\n\n", which is
+ * truthy, so the old `result.text || emptyTextMessage` check treated a scanned
+ * tender pack as a successful parse with twelve characters of text. The
+ * document was marked completed, the checklist came out empty, and nothing
+ * anywhere said why. Verified against a PDF containing zero text-drawing
+ * operators and two embedded images.
+ *
+ * Counting letters and digits rather than length is what separates real
+ * content from structural noise. A page of tender text has hundreds; page
+ * markers and stray punctuation have a handful.
+ */
+export function hasMachineReadableText(text: string, minimumAlphanumeric = 100) {
+  if (!text) return false;
+  const withoutPageMarkers = text.replace(/--\s*\d+\s*of\s*\d+\s*--/gi, " ");
+  const alphanumeric = withoutPageMarkers.match(/[A-Za-z0-9]/g)?.length ?? 0;
+  return alphanumeric >= minimumAlphanumeric;
+}
 
 export async function extractTextFromBuffer(buffer: Buffer, mimeType: string, fileName: string) {
   try {
@@ -11,14 +33,16 @@ export async function extractTextFromBuffer(buffer: Buffer, mimeType: string, fi
       const parser = new PDFParse({ data: buffer });
       const result = await parser.getText();
       await parser.destroy();
-      if (!result.text) {
+      if (!hasMachineReadableText(result.text ?? "")) {
         // pdf-parse succeeded but returned nothing - typically a scanned
         // PDF with no embedded text layer, but reported so a spike in these
         // is visible rather than silently indistinguishable from a real
         // extraction failure below.
         captureError(new Error("PDF text extraction returned empty text"), { fileName, mimeType });
       }
-      return cleanText(result.text || emptyTextMessage);
+      return cleanText(
+        hasMachineReadableText(result.text ?? "") ? result.text : emptyTextMessage,
+      );
     }
 
     if (
@@ -27,7 +51,9 @@ export async function extractTextFromBuffer(buffer: Buffer, mimeType: string, fi
     ) {
       const mammoth = await import("mammoth");
       const result = await mammoth.extractRawText({ buffer });
-      return cleanText(result.value || emptyTextMessage);
+      return cleanText(
+        hasMachineReadableText(result.value ?? "") ? result.value : emptyTextMessage,
+      );
     }
 
     if (mimeType.startsWith("text/") || fileName.toLowerCase().endsWith(".txt")) {

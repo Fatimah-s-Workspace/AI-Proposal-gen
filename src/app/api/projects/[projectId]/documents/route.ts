@@ -10,9 +10,14 @@ import { deleteStoredFile } from "@/lib/storage";
 import { captureError } from "@/lib/monitoring";
 import {
   extractTextFromBuffer,
+  hasMachineReadableText,
   parseTenderSections,
 } from "@/features/documents/parser";
 import { saveUploadedFile, validateUpload } from "@/features/documents/upload";
+import {
+  ocrUnavailableMessage,
+  transcribeScannedDocument,
+} from "@/features/documents/ocr";
 import {
   buildTextDedupeKey,
   calculateChecklistScore,
@@ -226,16 +231,29 @@ export async function POST(
     documentName: string;
     extractedText: string;
     localSections: ReturnType<typeof parseTenderSections>;
+    ocrNotice: string | null;
   }> = [];
   const uploaded = [];
 
   for (const file of files) {
     const saved = await saveUploadedFile(file, projectId);
-    const extractedText = await extractTextFromBuffer(
-      saved.buffer,
-      file.type,
-      file.name,
-    );
+    let extractedText = await extractTextFromBuffer(saved.buffer, file.type, file.name);
+    let ocrNotice: string | null = null;
+
+    // A scan has no text layer, so extraction yields nothing usable. Rather
+    // than hand the user an empty checklist, ask the model to transcribe the
+    // pages - it reads PDFs natively, so this costs a request rather than a
+    // new dependency. If that is unavailable too, the document still parses
+    // and the user is told plainly why it is empty.
+    if (!hasMachineReadableText(extractedText) && file.type === "application/pdf") {
+      const transcription = await transcribeScannedDocument(saved.buffer, file.type);
+      if (transcription.status === "ok") {
+        extractedText = transcription.text;
+      } else {
+        ocrNotice = ocrUnavailableMessage(transcription.reason);
+      }
+    }
+
     const localSections = parseTenderSections(extractedText);
 
     const shouldBecomePrimary =
@@ -275,6 +293,10 @@ export async function POST(
           ? "processing"
           : "completed",
         parsingError: null,
+        // A scan we could not transcribe is a warning on a usable upload, not
+        // a parsing failure - the file was read fine, it just has no text in
+        // it. Analysis may overwrite this with a coverage notice of its own.
+        analysisNotice: ocrNotice,
         parsedAt: procurementDocumentTypes.has(documentType) || evidenceDocumentTypes.has(documentType)
           ? null
           : new Date(),
@@ -288,6 +310,7 @@ export async function POST(
         documentName: file.name,
         extractedText,
         localSections,
+        ocrNotice,
       });
     }
 
@@ -335,6 +358,7 @@ async function finishProcessingBatch(input: {
     documentName: string;
     extractedText: string;
     localSections: ReturnType<typeof parseTenderSections>;
+    ocrNotice: string | null;
   }>;
 }) {
   const { projectId, project, documentType, pending } = input;
@@ -394,8 +418,10 @@ async function finishProcessingBatch(input: {
           parsedAt: new Date(),
           // Always written, including as null: re-processing a document that
           // previously hit the chunk budget must clear the old warning rather
-          // than leave it showing against fresh, complete results.
-          analysisNotice: result.analysisNotice,
+          // than leave it showing against fresh, complete results. An OCR
+          // warning set at upload is preserved, since analysis knows nothing
+          // about why the text was thin.
+          analysisNotice: result.analysisNotice ?? item.ocrNotice,
         },
       });
 

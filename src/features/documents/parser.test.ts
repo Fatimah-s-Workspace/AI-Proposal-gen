@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 
-import { extractTextFromBuffer, parseTenderSections } from "./parser";
+import {
+  extractTextFromBuffer,
+  hasMachineReadableText,
+  parseTenderSections,
+} from "./parser";
 
 test("parseTenderSections splits headings into separate sections", () => {
   const text = [
@@ -70,4 +75,59 @@ test("extractTextFromBuffer normalises excessive blank lines and whitespace", as
   const text = await extractTextFromBuffer(buffer, "text/plain", "notes.txt");
   assert.ok(!text.includes("\n\n\n"));
   assert.ok(!text.includes("   "));
+});
+
+/*
+ * Scanned documents were not detected at all.
+ *
+ * pdf-parse emits its own page markers, so an image-only PDF comes back as
+ * "\n\n-- 1 of 1 --\n\n". That is truthy, so the old `result.text || empty`
+ * check treated a scanned tender pack as a successful parse with twelve
+ * characters of text: marked completed, empty checklist, no explanation.
+ * Confirmed against a PDF with zero text-drawing operators and two images.
+ */
+test("pdf-parse page markers are not mistaken for document text", () => {
+  assert.equal(hasMachineReadableText("\n\n-- 1 of 1 --\n\n"), false);
+  assert.equal(hasMachineReadableText("\n-- 1 of 12 --\n-- 2 of 12 --\n"), false);
+});
+
+test("an empty or whitespace-only extraction is not readable", () => {
+  for (const value of ["", "   ", "\n\n\n", "...", "•\t•\t•"]) {
+    assert.equal(hasMachineReadableText(value), false, JSON.stringify(value));
+  }
+});
+
+test("a real page of tender text is readable", () => {
+  const page = `
+    SECTION 3 - ELIGIBILITY REQUIREMENTS
+    3.1 The bidder must attach a valid CAC certificate of incorporation.
+    3.2 The bidder shall submit a current tax clearance certificate.
+    3.3 Bid security of 2% of the bid price must be provided.
+  `;
+  assert.equal(hasMachineReadableText(page), true);
+});
+
+test("the threshold counts letters and digits, not length", () => {
+  // A long string of punctuation is not a document.
+  assert.equal(hasMachineReadableText("-".repeat(5000)), false);
+  // A short but genuine line of text passes at a lower threshold.
+  assert.equal(hasMachineReadableText("The bidder must attach a certificate.", 20), true);
+});
+
+test("a genuinely image-only PDF is reported as unreadable, not parsed", async () => {
+  // A real scan: one page of tender text rendered to an image and embedded in
+  // a PDF. Zero text-drawing operators, two embedded images. This is the exact
+  // artifact that exposed the bug - pdf-parse returns "-- 1 of 1 --" for it,
+  // which the old truthiness check accepted as a successful parse.
+  const buffer = readFileSync(
+    new URL("./__fixtures__/scanned-tender-page.pdf", import.meta.url),
+  );
+
+  const text = await extractTextFromBuffer(buffer, "application/pdf", "scan.pdf");
+
+  assert.match(
+    text,
+    /^No machine-readable text was found/,
+    "a scanned document must be detected, not silently accepted as parsed",
+  );
 });
