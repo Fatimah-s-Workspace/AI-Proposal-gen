@@ -64,6 +64,7 @@ export default async function ParsedOverviewPage({ params }: Props) {
     originalName: doc.originalName,
     parsingStatus: doc.parsingStatus,
     parsingError: doc.parsingError,
+    analysisNotice: doc.analysisNotice,
     parsedAt: doc.parsedAt,
     documentType: doc.documentType,
     isPrimary: doc.isPrimary,

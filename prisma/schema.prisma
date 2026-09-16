@@ -183,6 +183,11 @@ model TenderDocument {
   extractedText      String?
   parsingStatus      String               @default("pending")
   parsingError       String?
+  // A document that parsed fine but could not be analysed in full - too large
+  // for the chunk budget, or a chunk that failed. Separate from parsingError
+  // because this is a warning on a usable document, not a failure, and the UI
+  // colours the two differently.
+  analysisNotice     String?
   parsedAt           DateTime?
   sections           Json?
   status             String               @default("uploaded")

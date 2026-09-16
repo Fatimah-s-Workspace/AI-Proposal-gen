@@ -1,6 +1,9 @@
 import { z } from "zod";
 
 import { generateGeminiJson } from "@/features/ai/gemini-provider";
+import { chunkDocumentText } from "@/features/tender-intelligence/chunking";
+import { buildTextDedupeKey } from "@/features/tender-intelligence/pipeline";
+import { captureError } from "@/lib/monitoring";
 import type {
   ExtractedRequirement,
   ParsedSection,
@@ -163,6 +166,20 @@ const clauseExplanationJsonSchema = {
   required: ["plainEnglish", "riskLevel", "action", "actionsRequired"],
 } satisfies Record<string, unknown>;
 
+const SYSTEM_INSTRUCTION =
+  "You are a procurement intelligence engine for Nigerian and African tender, RFP, RFQ, EOI, and grant documents. Extract only instructions and requirements supported by the uploaded document text. Do not invent requirements. Do not write proposal copy. Return strict JSON only.";
+
+/**
+ * How many chunks are analysed at once.
+ *
+ * Sequential would be simplest, but twelve chunks at a few seconds each pushes
+ * past the time budget of the background task this runs in. Three keeps the
+ * wall clock reasonable while staying well inside the free tier's
+ * requests-per-minute allowance, which a wider fan-out would trip - and being
+ * rate-limited would lose whole chunks, which is the bug we are here to fix.
+ */
+const CHUNK_CONCURRENCY = 3;
+
 export async function analyseTenderDocumentWithGemini(input: {
   project: ProjectContext;
   documentName: string;
@@ -170,28 +187,114 @@ export async function analyseTenderDocumentWithGemini(input: {
   text: string;
   localSections: ParsedSection[];
 }) {
-  const textLimit = Number(process.env.GEMINI_DOCUMENT_TEXT_LIMIT ?? 45000);
-  const documentText = input.text.slice(0, textLimit);
-
-  const result = await generateGeminiJson({
-    schema: tenderIntelligenceJsonSchema,
-    validator: tenderIntelligenceSchema,
-    temperature: 0.1,
-    systemInstruction:
-      "You are a procurement intelligence engine for Nigerian and African tender, RFP, RFQ, EOI, and grant documents. Extract only instructions and requirements supported by the uploaded document text. Do not invent requirements. Do not write proposal copy. Return strict JSON only.",
-    input: buildTenderIntelligencePrompt(input, documentText),
+  const chunked = chunkDocumentText(input.text, {
+    chunkSize: Number(process.env.GEMINI_DOCUMENT_TEXT_LIMIT ?? 45000),
+    maxChunks: Number(process.env.GEMINI_MAX_DOCUMENT_CHUNKS ?? 12),
   });
 
-  if (!result) return null;
+  if (chunked.chunks.length === 0) return null;
+
+  const results = await mapWithConcurrency(
+    chunked.chunks,
+    CHUNK_CONCURRENCY,
+    async (chunk) => {
+      try {
+        return await generateGeminiJson({
+          schema: tenderIntelligenceJsonSchema,
+          validator: tenderIntelligenceSchema,
+          temperature: 0.1,
+          systemInstruction: SYSTEM_INSTRUCTION,
+          input: buildTenderIntelligencePrompt(input, chunk.text, {
+            index: chunk.index,
+            total: chunked.chunks.length,
+          }),
+        });
+      } catch (error) {
+        // One failed chunk must not discard the eleven that worked. Losing a
+        // slice of a document quietly is the whole problem this function
+        // exists to solve, so it is recorded rather than swallowed.
+        captureError(error, {
+          area: "tender-intelligence",
+          documentName: input.documentName,
+          chunkIndex: chunk.index,
+          chunkCount: chunked.chunks.length,
+        });
+        return null;
+      }
+    },
+  );
+
+  const succeeded = results.filter((result) => result !== null);
+  if (succeeded.length === 0) return null;
+
+  const failedChunks = results.length - succeeded.length;
 
   return {
-    provider: result.provider,
-    model: result.model,
-    raw: result.raw,
-    sections: normaliseSections(result.data.sections),
-    clauses: normaliseClauses(result.data.clauses),
-    requirements: normaliseRequirements(result.data.requirements),
+    provider: succeeded[0]!.provider,
+    model: succeeded[0]!.model,
+    raw: succeeded[0]!.raw,
+    sections: normaliseSections(succeeded.flatMap((r) => r!.data.sections)),
+    clauses: dedupeClauses(normaliseClauses(succeeded.flatMap((r) => r!.data.clauses))),
+    requirements: dedupeRequirements(
+      normaliseRequirements(succeeded.flatMap((r) => r!.data.requirements)),
+    ),
+    coverage: {
+      analysedChars: chunked.analysedChars,
+      totalChars: chunked.totalChars,
+      chunks: chunked.chunks.length,
+      failedChunks,
+      // Coverage is only honest if every chunk came back. A chunk that failed
+      // is a slice of the document nobody read.
+      complete: chunked.complete && failedChunks === 0,
+    },
   };
+}
+
+/** Runs `task` over `items`, at most `limit` at a time, preserving order. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  task: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (;;) {
+      const index = next;
+      next += 1;
+      if (index >= items.length) return;
+      results[index] = await task(items[index]);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
+/**
+ * Chunks overlap on purpose, so the same clause legitimately comes back from
+ * two of them. Deduped on the same fingerprint the rule-based pipeline uses,
+ * so "the same clause" means one thing everywhere in the app.
+ */
+function dedupeClauses(clauses: TenderClauseExtraction[]) {
+  const seen = new Set<string>();
+  return clauses.filter((clause) => {
+    const key = buildTextDedupeKey(clause.originalText);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function dedupeRequirements(requirements: ExtractedRequirement[]) {
+  const seen = new Set<string>();
+  return requirements.filter((requirement) => {
+    const key = buildTextDedupeKey(requirement.description);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export async function explainClauseWithGemini(input: {
@@ -232,6 +335,7 @@ function buildTenderIntelligencePrompt(
     localSections: ParsedSection[];
   },
   documentText: string,
+  chunk?: { index: number; total: number },
 ) {
   const localSectionHints = input.localSections
     .slice(0, 20)
@@ -261,6 +365,13 @@ function buildTenderIntelligencePrompt(
     "3. Convert clauses into checklist requirements only when the document clearly asks the bidder to do, submit, prove, provide, attach, comply with, or deliver something.",
     "4. Evidence needed should be concrete documents or proof items such as CAC certificate, tax clearance, audited accounts, bid security, CVs, methodology, pricing schedule, work plan, signed forms, declarations, or references.",
     "5. Mark risk and importance high for pass/fail, deadline, bid security, statutory eligibility, mandatory submission, and rejection/disqualification language.",
+    "",
+    // Without this the model sees an excerpt beginning mid-sentence and tries
+    // to summarise the "whole" document from it, inventing structure that is
+    // not there. Told it is part 3 of 8, it extracts what is actually present.
+    chunk && chunk.total > 1
+      ? `This is part ${chunk.index + 1} of ${chunk.total} of a single large document. Extract only what appears in this part. Do not infer or summarise content from other parts.`
+      : null,
     "",
     "Tender text:",
     documentText,

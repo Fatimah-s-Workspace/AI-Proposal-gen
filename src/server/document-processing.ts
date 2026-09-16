@@ -8,6 +8,7 @@ import {
   mergeEvidenceMatches,
 } from "@/features/tender-intelligence/pipeline";
 import { analyseTenderDocumentWithGemini } from "@/features/tender-intelligence/gemini";
+import { coverageNote } from "@/features/tender-intelligence/chunking";
 import { prisma } from "@/server/db";
 
 export const procurementDocumentTypes = new Set([
@@ -61,6 +62,8 @@ export type ProcessDocumentResult = {
   evidenceMatchCount: number;
   aiProvider: string;
   aiModel: string | null;
+  /** Set when the document could not be analysed in full. */
+  analysisNotice: string | null;
 };
 
 /**
@@ -77,6 +80,46 @@ export type ProcessDocumentResult = {
  * the data this function successfully produced for other documents in the
  * same batch.
  */
+/**
+ * Combines two extractions, preferring the first when both describe the same
+ * thing. Keyed on the fingerprint the rest of the app uses, so "the same
+ * clause" means one thing everywhere.
+ */
+export function mergeExtractions<T extends { originalText: string }>(
+  preferred: T[],
+  additional: T[],
+): T[] {
+  const seen = new Set(preferred.map((item) => buildTextDedupeKey(item.originalText, 120)));
+  const merged = [...preferred];
+
+  for (const item of additional) {
+    const key = buildTextDedupeKey(item.originalText, 120);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+
+  return merged;
+}
+
+export function mergeRequirements<T extends { title: string; description: string }>(
+  preferred: T[],
+  additional: T[],
+): T[] {
+  const keyOf = (item: T) => buildTextDedupeKey(`${item.title} ${item.description}`, 160);
+  const seen = new Set(preferred.map(keyOf));
+  const merged = [...preferred];
+
+  for (const item of additional) {
+    const key = keyOf(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+
+  return merged;
+}
+
 export async function processUploadedDocument(
   input: ProcessDocumentInput,
 ): Promise<ProcessDocumentResult> {
@@ -106,6 +149,14 @@ export async function processUploadedDocument(
       })
     : null;
 
+  // Returned rather than written here. This function deliberately does not
+  // touch TenderDocument - the caller owns parsingStatus and writes this
+  // alongside it, so a document is never left marked complete with a stale
+  // coverage warning from a previous run.
+  const analysisNotice = aiIntelligence?.coverage
+    ? coverageNote(aiIntelligence.coverage)
+    : null;
+
   const sections = aiIntelligence?.sections.length
     ? aiIntelligence.sections
     : localSections;
@@ -132,9 +183,22 @@ export async function processUploadedDocument(
   let duplicateRequirementCount = 0;
 
   if (procurementDocumentTypes.has(documentType)) {
-    let extractedClauses = aiIntelligence?.clauses.length
-      ? aiIntelligence.clauses
-      : extractTenderClausesFromSections(sections);
+    // AI results are added to the rule-based ones, not swapped for them.
+    //
+    // This used to be a straight either/or: any clauses from Gemini replaced
+    // the local extraction entirely. Combined with the old single-slice
+    // truncation that was actively harmful - the model saw the first 16 pages,
+    // returned a handful of clauses, and the full-document regex pass that had
+    // read all 120 pages was thrown away. A large document came out *worse*
+    // when the AI worked than when it failed.
+    //
+    // Chunking fixes the coverage; merging fixes the rest. The two extractors
+    // miss different things - the model reads context, the regex never gets
+    // bored - and the dedupe below means agreeing on a clause costs nothing.
+    let extractedClauses = mergeExtractions(
+      aiIntelligence?.clauses ?? [],
+      extractTenderClausesFromSections(sections),
+    );
 
     // If no sections were found or no clauses extracted, try extracting from the entire document
     if (sections.length === 0 || extractedClauses.length === 0) {
@@ -199,17 +263,20 @@ export async function processUploadedDocument(
     }
 
     createdClauseCount = createdClauses.length - duplicateClauseCount;
-    const candidateRequirements = aiIntelligence?.requirements.length
-      ? aiIntelligence.requirements.map((requirement) => ({
-          ...requirement,
-          sourceClauseId: matchRequirementToClauseId(requirement, createdClauses),
-        }))
-      : extractRequirementsFromClauses(
-          createdClauses.map(({ extraction, row }) => ({
-            ...extraction,
-            id: row.id,
-          })),
-        );
+    // Same merge, for the same reason: a requirement the model did not notice
+    // is still a requirement the bidder can be disqualified for missing.
+    const candidateRequirements = mergeRequirements(
+      (aiIntelligence?.requirements ?? []).map((requirement) => ({
+        ...requirement,
+        sourceClauseId: matchRequirementToClauseId(requirement, createdClauses),
+      })),
+      extractRequirementsFromClauses(
+        createdClauses.map(({ extraction, row }) => ({
+          ...extraction,
+          id: row.id,
+        })),
+      ),
+    );
 
     for (const requirement of candidateRequirements) {
       const dedupeKey = buildTextDedupeKey(
@@ -302,6 +369,7 @@ export async function processUploadedDocument(
     evidenceMatchCount: detectedEvidenceCount,
     aiProvider: aiIntelligence?.provider ?? "local",
     aiModel: aiIntelligence?.model ?? null,
+    analysisNotice,
   };
 }
 

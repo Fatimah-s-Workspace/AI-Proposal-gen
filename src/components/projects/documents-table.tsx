@@ -38,6 +38,7 @@ type Document = {
   status: string;
   parsingStatus: string | null;
   parsingError: string | null;
+  analysisNotice?: string | null;
   parsedAt: Date | null;
   documentType: string;
   isPrimary: boolean;
@@ -337,6 +338,16 @@ export function DocumentsTable({
                           as="p"
                           text={document.parsingError}
                           className="text-xs text-destructive"
+                        />
+                      ) : null}
+                      {/* Amber, not red: the document parsed and is usable,
+                          but part of it was not analysed. Showing this in the
+                          failure colour would be as misleading as hiding it. */}
+                      {document.analysisNotice ? (
+                        <TruncatedText
+                          as="p"
+                          text={document.analysisNotice}
+                          className="text-xs text-amber-700 dark:text-amber-400"
                         />
                       ) : null}
                     </TableCell>

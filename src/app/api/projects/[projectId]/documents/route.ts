@@ -392,6 +392,10 @@ async function finishProcessingBatch(input: {
           status: "processed",
           parsingStatus: "completed",
           parsedAt: new Date(),
+          // Always written, including as null: re-processing a document that
+          // previously hit the chunk budget must clear the old warning rather
+          // than leave it showing against fresh, complete results.
+          analysisNotice: result.analysisNotice,
         },
       });
 
