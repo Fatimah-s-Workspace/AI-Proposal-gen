@@ -28,3 +28,17 @@ export function unauthorized() {
 export function serverError() {
   return Response.json({ error: genericMessages.unexpected }, { status: 500 });
 }
+
+/**
+ * Rejects a scheduled-job request.
+ *
+ * Separate from unauthorized() because that one says "sign in again", which is
+ * meaningless advice to a scheduler and actively misleading to whoever is
+ * debugging why a cron stopped running.
+ */
+export function cronUnauthorized() {
+  return Response.json(
+    { error: "Invalid or missing cron secret." },
+    { status: 401 },
+  );
+}

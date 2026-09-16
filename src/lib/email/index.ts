@@ -50,10 +50,31 @@ type SendEmailResult =
 // then holds the request open until something upstream gives up.
 const SEND_TIMEOUT_MS = 10_000;
 
+// Once per process. This path runs on every send, and a thousand identical
+// reports a minute is noise nobody reads rather than a signal anybody acts on.
+let warnedMissingApiKey = false;
+
+function warnOnceMissingApiKey(alreadyWarned: boolean) {
+  if (alreadyWarned) return true;
+  const message = "BREVO_API_KEY is not set - no email is being delivered.";
+  console.error(`[email] ${message}`);
+  captureError(new Error(message), { area: "email", degraded: true });
+  return true;
+}
+
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const apiKey = process.env.BREVO_API_KEY?.trim();
   if (!apiKey) {
-    console.log(`[email:dev] Would send to ${input.to}: ${input.subject}\n${input.text}`);
+    // In development, printing the email is the feature - it is how you read
+    // a verification link without a provider. In production the same branch
+    // means every email silently fails, and since new accounts cannot sign in
+    // until they confirm by email, that is signup broken rather than degraded.
+    // Reported once per process so a busy instance does not bury itself.
+    if (process.env.NODE_ENV === "production") {
+      warnedMissingApiKey = warnOnceMissingApiKey(warnedMissingApiKey);
+    } else {
+      console.log(`[email:dev] Would send to ${input.to}: ${input.subject}\n${input.text}`);
+    }
     return { delivered: false, reason: "no_api_key" };
   }
 

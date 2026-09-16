@@ -47,6 +47,7 @@ jobs:
       PAYSTACK_SECRET_KEY: ""
       PRO_PLAN_PRICE_NGN: "5000"
       CRON_SECRET: "ci-test-cron-secret"
+      ALERT_EMAIL: ""
     steps:
       - name: Checkout
         uses: actions/checkout@v4
