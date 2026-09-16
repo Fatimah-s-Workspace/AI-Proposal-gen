@@ -26,11 +26,18 @@ function parseFromAddress(from: string) {
   return { email: from.trim() };
 }
 
+type SendEmailAttachment = {
+  /** Shown to the recipient, so it should read like a document, not an id. */
+  filename: string;
+  content: Buffer;
+};
+
 type SendEmailInput = {
   to: string;
   subject: string;
   html: string;
   text: string;
+  attachments?: SendEmailAttachment[];
 };
 
 type SendEmailResult =
@@ -65,6 +72,16 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         subject: input.subject,
         htmlContent: input.html,
         textContent: input.text,
+        // Brevo takes attachments as base64 under `attachment`. Omitted
+        // entirely when there are none: an empty array is rejected.
+        ...(input.attachments?.length
+          ? {
+              attachment: input.attachments.map((file) => ({
+                name: file.filename,
+                content: file.content.toString("base64"),
+              })),
+            }
+          : {}),
       }),
       signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     });

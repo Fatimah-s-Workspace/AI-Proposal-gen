@@ -158,6 +158,39 @@ export function teamInviteEmail(inviterName: string, orgName: string, inviteUrl:
   return { subject, text, html };
 }
 
+/**
+ * Sent with the invoice attached when a payment succeeds.
+ *
+ * The invoice is attached rather than linked because the person who needs it
+ * is usually not the person who paid - it gets forwarded to whoever does the
+ * books, and a link behind a login is useless to them.
+ */
+export function invoiceEmail(input: {
+  invoiceNumber: string;
+  amount: string;
+  planName: string;
+  billingUrl: string;
+}) {
+  const subject = `Your TenderFlow AI invoice ${input.invoiceNumber}`;
+  const text = `Thanks for your payment. Your ${input.planName} plan is active.
+
+Invoice ${input.invoiceNumber} for ${input.amount} is attached to this email.
+
+You can download this and any earlier invoice at any time: ${input.billingUrl}`;
+
+  const html = wrapper(
+    subject,
+    `<p style="font-size: 14px; color: #3f3f46;">Thanks for your payment. Your <strong>${input.planName}</strong> plan is active.</p>
+     <p style="font-size: 14px; color: #3f3f46;">Invoice <strong>${input.invoiceNumber}</strong> for <strong>${input.amount}</strong> is attached to this email.</p>
+     <p style="margin: 24px 0;">
+       ${button(input.billingUrl, "View your invoices")}
+     </p>
+     <p style="font-size: 12px; color: #71717a;">You can download this and any earlier invoice at any time from your billing settings.</p>`,
+  );
+
+  return { subject, text, html };
+}
+
 export function renewalReminderEmail(daysRemaining: number, billingUrl: string) {
   const subject =
     daysRemaining <= 0

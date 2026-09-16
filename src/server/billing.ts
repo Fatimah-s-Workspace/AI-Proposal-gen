@@ -3,7 +3,10 @@ import { captureError } from "@/lib/monitoring";
 import { verifyTransaction } from "@/lib/payments/paystack";
 import { PRO_PLAN } from "@/lib/payments/plans";
 import { sendEmail } from "@/lib/email";
-import { renewalReminderEmail } from "@/lib/email/templates";
+import { invoiceEmail, renewalReminderEmail } from "@/lib/email/templates";
+import { issueInvoiceForPayment } from "@/server/invoices";
+import { renderInvoicePdf } from "@/features/billing/invoice-pdf";
+import { formatMoney } from "@/features/billing/invoice";
 import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
 
 const REMINDER_WINDOW_DAYS = 3;
@@ -81,6 +84,41 @@ export async function finalizePayment(
       },
     }),
   ]);
+
+  // Issued here because this is where both sides of the Paystack race
+  // converge, and it already runs exactly once per payment. Failure to issue
+  // or email must never un-apply a payment that has been taken, so the whole
+  // thing is best-effort and the invoice stays downloadable regardless.
+  try {
+    const invoice = await issueInvoiceForPayment(payment.id, db);
+    if (invoice) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const { subject, text, html } = invoiceEmail({
+        invoiceNumber: invoice.number,
+        amount: formatMoney(invoice.total, invoice.currency),
+        planName: PRO_PLAN.name,
+        billingUrl: `${baseUrl}/usage`,
+      });
+
+      const recipient = invoice.buyer.email;
+      if (recipient) {
+        await sendEmail({
+          to: recipient,
+          subject,
+          text,
+          html,
+          attachments: [
+            {
+              filename: `${invoice.number}.pdf`,
+              content: await renderInvoicePdf(invoice),
+            },
+          ],
+        });
+      }
+    }
+  } catch (error) {
+    captureError(error, { area: "billing", stage: "invoice", reference });
+  }
 
   await logAudit(
     {

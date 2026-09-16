@@ -18,6 +18,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { UpgradeCard } from "@/components/billing/upgrade-card";
+import { InvoiceList } from "@/components/billing/invoice-list";
+import { listInvoices } from "@/server/invoices";
 import { canManageBilling } from "@/server/permissions";
 import { PRO_PLAN } from "@/lib/payments/plans";
 
@@ -39,6 +41,7 @@ function percentOf(part: number, total: number) {
 
 export default async function UsagePage() {
   const user = await requireUser();
+  const invoices = await listInvoices(user.organizationId);
 
   const usage = await prisma.usageTracking.findMany({
     where: { organizationId: user.organizationId },
@@ -295,6 +298,8 @@ export default async function UsagePage() {
           )}
         </CardContent>
       </Card>
+
+      <InvoiceList invoices={invoices} />
 
       <Card>
         <CardHeader>

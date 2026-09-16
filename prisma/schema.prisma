@@ -44,6 +44,10 @@ model Organization {
   capabilities       String?
   certifications     String?
   pastPerformance    String?
+  // Billing identity, shown on invoices. Separate from the profile above,
+  // which is about winning bids rather than paying for the tool.
+  billingAddress     String?
+  billingTaxId       String?
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
   memberships   Membership[]
@@ -493,6 +497,15 @@ model Payment {
   plan              String
   status            String       @default("pending")
   paidAt            DateTime?
+  // Issued once, when the payment succeeds. Unique because two payments
+  // sharing an invoice number is an accounting problem, not a display bug.
+  invoiceNumber     String?      @unique
+  invoicedAt        DateTime?
+  // A snapshot of the invoice's contents at the moment it was issued. An
+  // invoice is a legal record: if it were re-rendered live from current
+  // settings, changing the company address would silently rewrite every
+  // invoice ever sent.
+  invoiceData       Json?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
