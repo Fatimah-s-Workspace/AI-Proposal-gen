@@ -42,6 +42,9 @@ export function LegalPageShell({
             <Link href="/privacy" className="hover:text-foreground">
               Privacy Policy
             </Link>
+            <Link href="/dpa" className="hover:text-foreground">
+              Data Processing
+            </Link>
           </div>
         </div>
       </footer>

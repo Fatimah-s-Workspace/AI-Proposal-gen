@@ -324,6 +324,9 @@ export default function HomePage() {
             <Link href="/privacy" className="hover:text-foreground">
               Privacy
             </Link>
+            <Link href="/dpa" className="hover:text-foreground">
+              Data Processing
+            </Link>
           </div>
         </div>
       </footer>

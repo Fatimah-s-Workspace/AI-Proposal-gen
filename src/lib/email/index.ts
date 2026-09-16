@@ -50,6 +50,20 @@ type SendEmailResult =
 // then holds the request open until something upstream gives up.
 const SEND_TIMEOUT_MS = 10_000;
 
+/**
+ * A recipient address, reduced to what debugging actually needs.
+ *
+ * "ada@example.com" becomes "***@example.com". The domain is the useful part
+ * when diagnosing delivery - whether every address at one provider is failing
+ * is the first question - and the local part identifies a person, which is no
+ * business of an error tracker in another country. Fewer places holding
+ * personal data is also fewer places to declare in a processing agreement.
+ */
+function redactRecipient(email: string) {
+  const at = email.lastIndexOf("@");
+  return at > 0 ? `***${email.slice(at)}` : "***";
+}
+
 // Once per process. This path runs on every send, and a thousand identical
 // reports a minute is noise nobody reads rather than a signal anybody acts on.
 let warnedMissingApiKey = false;
@@ -111,14 +125,18 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     // past every caller that was written against the result type below. The
     // callers all treat email as best-effort, so the only thing that ever
     // achieved was turning an undelivered email into a failed signup.
-    captureError(error, { to: input.to, subject: input.subject, stage: "brevo_fetch" });
+    captureError(error, {
+      to: redactRecipient(input.to),
+      subject: input.subject,
+      stage: "brevo_fetch",
+    });
     return { delivered: false, reason: "unreachable" };
   }
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     captureError(new Error(`Brevo send failed: ${body.message ?? response.statusText}`), {
-      to: input.to,
+      to: redactRecipient(input.to),
       subject: input.subject,
       status: response.status,
       code: body.code,
