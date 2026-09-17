@@ -1,0 +1,296 @@
+<title>TenderFlow Launch Readiness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+:root {
+  --ground:#f6f8f7; --surface:#fff; --surface-2:#eef2f1;
+  --ink:#0d1a19; --ink-soft:#40514f; --ink-faint:#6b7d7a;
+  --rule:#dce4e2; --rule-soft:#e8eeec;
+  --teal:#0f6b64; --teal-soft:#0f6b6414;
+  --red:#a8291f; --red-soft:#a8291f14;
+  --amber:#b45309; --amber-soft:#b4530914;
+  --green:#1f6b3a; --green-soft:#1f6b3a14;
+  --code-bg:#eef2f1; --code-ink:#14302d;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:#0a1413; --surface:#0f1c1b; --surface-2:#162523;
+    --ink:#e6efed; --ink-soft:#a8bab7; --ink-faint:#7b8e8b;
+    --rule:#22322f; --rule-soft:#1a2a28;
+    --teal:#4fd6c4; --teal-soft:#4fd6c41f;
+    --red:#ef8279; --red-soft:#ef82791c;
+    --amber:#f0a95c; --amber-soft:#f0a95c1c;
+    --green:#5fc98a; --green-soft:#5fc98a1c;
+    --code-bg:#162523; --code-ink:#cfe4e0;
+  }
+}
+:root[data-theme="dark"] {
+  --ground:#0a1413; --surface:#0f1c1b; --surface-2:#162523;
+  --ink:#e6efed; --ink-soft:#a8bab7; --ink-faint:#7b8e8b;
+  --rule:#22322f; --rule-soft:#1a2a28;
+  --teal:#4fd6c4; --teal-soft:#4fd6c41f;
+  --red:#ef8279; --red-soft:#ef82791c;
+  --amber:#f0a95c; --amber-soft:#f0a95c1c;
+  --green:#5fc98a; --green-soft:#5fc98a1c;
+  --code-bg:#162523; --code-ink:#cfe4e0;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Source Serif 4",Georgia,serif;font-size:17px;line-height:1.66;
+  -webkit-font-smoothing:antialiased;font-optical-sizing:auto}
+.wrap{max-width:860px;margin:0 auto;padding:0 clamp(20px,5vw,48px)}
+.mast{padding:clamp(52px,8vw,92px) 0 36px;border-bottom:1px solid var(--rule)}
+.kicker{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:500;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin:0 0 18px}
+h1{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:700;
+  font-size:clamp(2.1rem,5.5vw,3.4rem);line-height:1.03;letter-spacing:-.028em;
+  text-wrap:balance;margin:0 0 20px}
+.stand{font-size:clamp(1.04rem,2vw,1.16rem);color:var(--ink-soft);max-width:62ch;margin:0 0 28px}
+.verdict{display:flex;flex-wrap:wrap;gap:8px 10px;margin:0;padding:0;list-style:none}
+.verdict li{font-family:"JetBrains Mono",monospace;font-size:11.5px;letter-spacing:.04em;
+  color:var(--ink-soft);border:1px solid var(--rule);background:var(--surface);
+  border-radius:999px;padding:5px 12px;font-variant-numeric:tabular-nums}
+.verdict b{color:var(--ink);font-weight:600}
+main{padding:44px 0 110px}
+h2{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:700;
+  font-size:clamp(1.55rem,3.2vw,2.1rem);line-height:1.12;letter-spacing:-.02em;
+  text-wrap:balance;margin:64px 0 10px;padding-bottom:14px;border-bottom:1px solid var(--rule)}
+h2:first-of-type{margin-top:8px}
+h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:600;
+  font-size:1.18rem;letter-spacing:-.01em;text-wrap:balance;margin:34px 0 10px}
+p{margin:0 0 16px;max-width:68ch}
+ul,ol{margin:0 0 18px;padding-left:22px;max-width:68ch}
+li{margin-bottom:6px}
+li::marker{color:var(--ink-faint)}
+strong{font-weight:600}
+code{font-family:"JetBrains Mono",monospace;font-size:.84em;background:var(--code-bg);
+  color:var(--code-ink);padding:.14em .38em;border-radius:4px;word-break:break-word}
+.eyebrow{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 8px}
+
+/* severity callouts */
+.finding{border:1px solid var(--rule);border-left:3px solid var(--rule);
+  border-radius:0 10px 10px 0;padding:20px 22px;margin:0 0 20px;background:var(--surface)}
+.finding.sev1{border-left-color:var(--red);background:var(--red-soft)}
+.finding.sev2{border-left-color:var(--amber);background:var(--amber-soft)}
+.finding .tag{font-family:"JetBrains Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;margin:0 0 8px}
+.sev1 .tag{color:var(--red)} .sev2 .tag{color:var(--amber)}
+.finding h3{margin:0 0 10px;font-size:1.12rem}
+.finding p:last-child{margin-bottom:0}
+
+.tablewrap{margin:0 0 22px;overflow-x:auto;border:1px solid var(--rule);
+  border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+thead th{font-family:"JetBrains Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);text-align:left;
+  padding:11px 15px;background:var(--surface-2);border-bottom:1px solid var(--rule);white-space:nowrap}
+tbody td{padding:11px 15px;border-bottom:1px solid var(--rule-soft);vertical-align:top;
+  color:var(--ink-soft);font-variant-numeric:tabular-nums}
+tbody tr:last-child td{border-bottom:none}
+tbody td:first-child{color:var(--ink);font-weight:600}
+.pill{display:inline-block;font-family:"JetBrains Mono",monospace;font-size:10px;
+  font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:4px;white-space:nowrap}
+.p0{color:var(--red);background:var(--red-soft)}
+.p1{color:var(--amber);background:var(--amber-soft)}
+.p2{color:var(--teal);background:var(--teal-soft)}
+.have{color:var(--green);background:var(--green-soft)}
+blockquote{margin:22px 0;padding:16px 20px;background:var(--teal-soft);
+  border-left:2px solid var(--teal);border-radius:0 8px 8px 0;max-width:68ch}
+blockquote p{margin:0;color:var(--ink)}
+.foot{border-top:1px solid var(--rule);padding:24px 0 56px;
+  font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-faint)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+<header class="mast">
+  <p class="kicker">Production readiness review · 16 September 2026</p>
+  <h1>What stands between TenderFlow and paying business customers</h1>
+  <p class="stand">A walk through the whole flow — signup, login, projects, upload, parsing,
+  drafting, export — against the bar for selling to businesses. Two findings change the
+  launch plan; the rest is a prioritised list.</p>
+  <ul class="verdict">
+    <li><b>2</b> launch blockers</li>
+    <li><b>9</b> must-fix before charging</li>
+    <li><b>250</b> tests passing</li>
+    <li>CI <b>green</b></li>
+  </ul>
+</header>
+
+<main>
+
+<h2>Start here: the honest verdict</h2>
+
+<p>The engineering foundation is genuinely strong — stronger than most products at this
+stage. CI runs typecheck, lint, 183 unit tests and 67 integration tests against a real
+database on every push. Authentication has been hardened past what most funded startups
+ship. Audit logging, roles, and multi-tenancy already exist.</p>
+
+<p><strong>But the core promise is currently not kept on real documents</strong>, and that
+is not a polish problem. Everything else on this list is ordinary launch work. The first
+two findings are not.</p>
+
+<h2>The two findings that change the plan</h2>
+
+<div class="finding sev1">
+  <p class="tag">Blocker 1 · correctness of the core promise</p>
+  <h3>On a real tender pack, the AI reads the first 16 pages and silently ignores the rest</h3>
+  <p><code>gemini.ts</code> truncates the document at 45,000 characters before sending it.
+  That is roughly 16 pages. Nigerian public tender packs routinely run 60–120 pages.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Document</th><th>Characters</th><th>AI actually reads</th></tr></thead>
+    <tbody>
+      <tr><td>20-page pack</td><td>~56,000</td><td>80%</td></tr>
+      <tr><td>60-page pack</td><td>~168,000</td><td>27%</td></tr>
+      <tr><td>120-page pack</td><td>~336,000</td><td><strong>13%</strong></td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>It gets worse.</strong> When Gemini returns anything at all, its results
+  <em>replace</em> the local full-document extraction rather than merging with it. So a large
+  document gets <em>worse</em> coverage when the AI works than when it fails. Nothing is
+  logged, and the user is never told.</p>
+  <p>For a product whose entire value is "you will not miss a requirement", this is the one
+  bug you cannot ship. A customer who loses a contract because a requirement on page 40 was
+  never extracted has a reputational and possibly legal claim against you — and they will
+  have a screenshot of your checklist saying they were 94% ready.</p>
+</div>
+
+<div class="finding sev1">
+  <p class="tag">Blocker 2 · a large share of your market's documents</p>
+  <h3>Scanned PDFs cannot be read at all, and that is most of the public sector</h3>
+  <p>There is no OCR. A scanned tender pack — a photograph of text — yields nothing. The app
+  handles this honestly (it says so rather than showing an empty checklist), which is the
+  right behaviour, but it means a meaningful share of Nigerian public procurement documents
+  are simply unusable.</p>
+  <p>You cannot market to businesses and then reject their documents. Either add OCR, or make
+  the limitation explicit before payment and route those users somewhere useful.</p>
+</div>
+
+<h2>Where you actually compete</h2>
+
+<p>PandaDoc, Proposify and Qwilr are not your competitors, and trying to match them would be
+a mistake. They are <strong>sales proposal tools</strong>: templates, e-signature, pricing
+tables, view-tracking. Their buyer is a sales team sending a quote.</p>
+
+<p><strong>Responsive (formerly RFPIO) is your real comparator</strong> — RFP response
+management, content libraries, SME collaboration. It sells at roughly $20–40k/year, targets
+US and EU enterprises, and knows nothing about CAC registration, PENCOM compliance, or BPP
+rules.</p>
+
+<blockquote><p>Your wedge is not "AI writes proposals" — everyone claims that now, including
+free chatbots. Your wedge is <strong>compliance extraction for African public procurement</strong>:
+the checklist, the evidence matching, the local statutory vocabulary. That is the part
+nobody else has and a chatbot cannot fake.</p></blockquote>
+
+<p>Which means the truncation bug is not one item on a list. It is the moat, currently
+leaking.</p>
+
+<h3>Table stakes you are missing, ranked by whether they actually matter</h3>
+
+<div class="tablewrap"><table>
+  <thead><tr><th>Feature</th><th>Who has it</th><th>Do you need it?</th></tr></thead>
+  <tbody>
+    <tr><td>Content library</td><td>Responsive, PandaDoc</td><td><span class="pill p1">Yes — P1</span> Repeat bidders reuse 60–80% of answers. This is Responsive's core and your most valuable missing feature.</td></tr>
+    <tr><td>Review &amp; comment workflow</td><td>All of them</td><td><span class="pill p1">Yes — P1</span> Bids are reviewed by 2–4 people. Today there is no way to leave a comment.</td></tr>
+    <tr><td>Proposal templates</td><td>All of them</td><td><span class="pill p1">Partly</span> Section scaffolding exists; saved reusable templates do not.</td></tr>
+    <tr><td>E-signature</td><td>PandaDoc, Proposify, Qwilr</td><td><span class="pill p2">No</span> Tenders are submitted through government portals, not signed in your app. Skip it.</td></tr>
+    <tr><td>View tracking / analytics</td><td>PandaDoc, Qwilr</td><td><span class="pill p2">No</span> You submit to a portal. Nobody "opens your link".</td></tr>
+    <tr><td>Pricing tables / CPQ</td><td>PandaDoc, Qwilr</td><td><span class="pill p2">No</span> Different product entirely.</td></tr>
+  </tbody>
+</table></div>
+
+<p>Two of those six matter. Four would be wasted months. The temptation when naming
+competitors is to match their feature list; resist it — their feature list is built for a
+different buyer.</p>
+
+<h2>P0 — before you take a single naira</h2>
+
+<div class="tablewrap"><table>
+  <thead><tr><th>#</th><th>Item</th><th>Why it blocks launch</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Fix document truncation</td><td>Chunk long documents and analyse every chunk; merge AI results <em>with</em> local extraction instead of replacing them. Tell the user how much was analysed.</td></tr>
+    <tr><td>2</td><td>OCR, or an explicit pre-payment limitation</td><td>Scanned packs are a large share of the market.</td></tr>
+    <tr><td>3</td><td>Invoices and receipts with VAT</td><td>Nigerian businesses cannot expense a payment without a proper invoice. There is currently no invoice generation at all. This blocks B2B sales outright, not just annoys.</td></tr>
+    <tr><td>4</td><td>Verified backups and a restore drill</td><td>Not "Supabase probably backs up". Restore into a scratch database and confirm the data is there. Untested backups are not backups.</td></tr>
+    <tr><td>5</td><td>Configure Upstash in production</td><td>Without it rate limiting runs in memory, and on serverless each request may hit a fresh instance — so the sign-in throttle barely binds. The code warns about this; heed it.</td></tr>
+    <tr><td>6</td><td>Email deliverability: SPF, DKIM, DMARC</td><td>Verification emails gate every new account. If they land in spam, signup is broken and you will not know.</td></tr>
+    <tr><td>7</td><td>Alerting that reaches a human</td><td>Sentry records errors. Confirm something actually pages you when signup or payment starts failing.</td></tr>
+    <tr><td>8</td><td>Terms, Privacy, and a DPA</td><td>The pages exist; they need to describe what you actually do with uploaded documents — including that text is sent to Google. Business buyers will ask.</td></tr>
+    <tr><td>9</td><td>A support channel and a stated response time</td><td>An email address and an honest "we reply within one business day" is enough. Nothing is not.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>P1 — within 30 days of launch</h2>
+
+<div class="tablewrap"><table>
+  <thead><tr><th>Item</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td>Content library</td><td>Your highest-value feature gap. Save approved answers, reuse across bids. This is what makes the second bid take an hour instead of a day — and it is what creates lock-in.</td></tr>
+    <tr><td>Comments and review workflow</td><td>Bids are reviewed by several people under deadline pressure.</td></tr>
+    <tr><td>Fix coverage detection</td><td>It currently uses exact substring matching, so it measures copying rather than covering. Word-overlap scoring is the fix.</td></tr>
+    <tr><td>Large-document performance</td><td>Chunked analysis will multiply AI cost and time. Measure both before customers find them.</td></tr>
+    <tr><td>Onboarding and empty states</td><td>A first-time user with no projects needs a guided path, not a blank screen.</td></tr>
+    <tr><td>Document-poisoning guard</td><td>Uploaded text goes into the LLM prompt. Schema-constrained output limits the blast radius, but hidden text in a PDF can still inject a fake requirement into someone's checklist. Delimit untrusted text explicitly and flag low-confidence extractions.</td></tr>
+    <tr><td>Per-workspace storage caps</td><td>Only per-file size and monthly counts are enforced. Nothing stops unbounded total storage.</td></tr>
+    <tr><td>Your own usage analytics</td><td>You cannot improve activation without knowing where people stop.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>P2 — what enterprise buyers will ask for</h2>
+
+<div class="tablewrap"><table>
+  <thead><tr><th>Item</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td>SSO / SAML</td><td>The first hard requirement from any company above ~200 staff.</td></tr>
+    <tr><td>Audit log export</td><td>The log exists and is good. They will want it exportable.</td></tr>
+    <tr><td>Data residency answer</td><td>Where documents are stored, and whether text leaves the country. Have a written answer ready; NDPR makes this a real question.</td></tr>
+    <tr><td>Uptime commitment</td><td>Even 99.5% stated honestly beats silence.</td></tr>
+    <tr><td>Custom branding on exports</td><td>Their logo on the cover sheet, not yours.</td></tr>
+    <tr><td>Annual invoicing</td><td>Enterprises pay yearly by transfer, not monthly by card.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>What is already done, and done well</h2>
+
+<p>Worth knowing what you do <em>not</em> need to spend time on:</p>
+
+<div class="tablewrap"><table>
+  <thead><tr><th>Area</th><th>State</th></tr></thead>
+  <tbody>
+    <tr><td>Authentication</td><td><span class="pill have">Strong</span> Timing attack closed and regression-tested, breach checking, account throttling, no user enumeration on signup, sign-in or reset.</td></tr>
+    <tr><td>Multi-tenancy</td><td><span class="pill have">Done</span> Organisations, memberships, owner/admin/member roles, invites.</td></tr>
+    <tr><td>Audit trail</td><td><span class="pill have">Done</span> Every meaningful action logged, filterable.</td></tr>
+    <tr><td>CI</td><td><span class="pill have">Strong</span> Typecheck, lint, 250 tests, migrations and build on every push.</td></tr>
+    <tr><td>Account deletion</td><td><span class="pill have">Done</span> With the sole-owner edge case handled.</td></tr>
+    <tr><td>Security headers</td><td><span class="pill have">Done</span> Nonce-based CSP, no unsafe-inline scripts.</td></tr>
+    <tr><td>Payments</td><td><span class="pill have">Mostly</span> Paystack with verified webhook signatures and amount checking. Missing only invoices.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>The sequence I would actually follow</h2>
+
+<ol>
+  <li><strong>Fix truncation and merge AI with local extraction.</strong> Until this is done
+  nothing else matters, because the product does not do what the marketing will say.</li>
+  <li><strong>Test it on three real tender packs of 60+ pages</strong> and count the
+  requirements found by hand. This is the only measurement that proves the fix.</li>
+  <li><strong>Decide the OCR question.</strong> Build it, or write the limitation into the
+  signup flow.</li>
+  <li><strong>Invoices, backups, Upstash, email deliverability, alerting.</strong> A week of
+  unglamorous work that turns a demo into a business.</li>
+  <li><strong>Sell to five customers by hand.</strong> Not a launch — five. Watch each one
+  use it. Every remaining item on this list will be re-prioritised by what you see.</li>
+  <li><strong>Then build the content library</strong>, because by then you will know whether
+  they reuse answers the way the theory says.</li>
+</ol>
+
+<blockquote><p>The most expensive mistake available right now is launching broadly before
+step 2. Compliance software gets exactly one reputation, and the bid that was lost because
+your checklist missed page 40 is the story that travels.</p></blockquote>
+
+</main>
+
+<footer class="foot">Reviewed against commit b8d08af · every figure measured, not estimated</footer>
+</div>

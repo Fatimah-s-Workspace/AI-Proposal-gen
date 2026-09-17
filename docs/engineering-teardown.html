@@ -1,0 +1,1059 @@
+<title>Building TenderFlow AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Tokens. Bare :root is the complete light palette; the two
+   blocks below redefine only tokens, never component rules, so
+   the un-stamped (system) state resolves correctly too.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --ground:      #f6f8f7;
+  --surface:     #ffffff;
+  --surface-2:   #eef2f1;
+  --ink:         #0d1a19;
+  --ink-soft:    #40514f;
+  --ink-faint:   #6b7d7a;
+  --rule:        #dce4e2;
+  --rule-soft:   #e8eeec;
+  --teal:        #0f6b64;
+  --teal-soft:   #0f6b6414;
+  --amber:       #b45309;
+  --amber-soft:  #b4530914;
+  --code-bg:     #eef2f1;
+  --code-ink:    #14302d;
+  --shadow:      0 1px 2px rgba(13,26,25,.05), 0 12px 32px -20px rgba(13,26,25,.28);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:     #0a1413;
+    --surface:    #0f1c1b;
+    --surface-2:  #162523;
+    --ink:        #e6efed;
+    --ink-soft:   #a8bab7;
+    --ink-faint:  #7b8e8b;
+    --rule:       #22322f;
+    --rule-soft:  #1a2a28;
+    --teal:       #4fd6c4;
+    --teal-soft:  #4fd6c41f;
+    --amber:      #f0a95c;
+    --amber-soft: #f0a95c1c;
+    --code-bg:    #162523;
+    --code-ink:   #cfe4e0;
+    --shadow:     0 1px 2px rgba(0,0,0,.4), 0 14px 36px -22px rgba(0,0,0,.75);
+  }
+}
+:root[data-theme="dark"] {
+  --ground:     #0a1413;
+  --surface:    #0f1c1b;
+  --surface-2:  #162523;
+  --ink:        #e6efed;
+  --ink-soft:   #a8bab7;
+  --ink-faint:  #7b8e8b;
+  --rule:       #22322f;
+  --rule-soft:  #1a2a28;
+  --teal:       #4fd6c4;
+  --teal-soft:  #4fd6c41f;
+  --amber:      #f0a95c;
+  --amber-soft: #f0a95c1c;
+  --code-bg:    #162523;
+  --code-ink:   #cfe4e0;
+  --shadow:     0 1px 2px rgba(0,0,0,.4), 0 14px 36px -22px rgba(0,0,0,.75);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-size: 17px;
+  line-height: 1.68;
+  -webkit-font-smoothing: antialiased;
+  font-optical-sizing: auto;
+}
+
+/* Reading progress: earns its place on a document this long. */
+#progress {
+  position: fixed; top: 0; left: 0; height: 2px; width: 0;
+  background: var(--teal); z-index: 60; transition: width .12s linear;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 5vw, 56px);
+}
+@media (min-width: 1040px) {
+  .shell { grid-template-columns: 232px minmax(0, 1fr); gap: 64px; }
+}
+
+/* ── masthead ────────────────────────────────────────────── */
+.masthead {
+  grid-column: 1 / -1;
+  padding: clamp(56px, 9vw, 104px) 0 clamp(32px, 5vw, 56px);
+  border-bottom: 1px solid var(--rule);
+}
+.kicker {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px; font-weight: 500;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--teal); margin: 0 0 20px;
+}
+.masthead h1 {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(2.3rem, 6vw, 3.9rem);
+  line-height: 1.02;
+  letter-spacing: -.028em;
+  text-wrap: balance;
+  margin: 0 0 22px;
+}
+.standfirst {
+  font-size: clamp(1.06rem, 2vw, 1.2rem);
+  color: var(--ink-soft);
+  max-width: 60ch;
+  margin: 0 0 32px;
+}
+.facts { display: flex; flex-wrap: wrap; gap: 8px 10px; margin: 0; padding: 0; list-style: none; }
+.facts li {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11.5px; letter-spacing: .04em;
+  color: var(--ink-soft);
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-variant-numeric: tabular-nums;
+}
+.facts b { color: var(--ink); font-weight: 600; }
+
+/* ── sidebar ─────────────────────────────────────────────── */
+.rail { display: none; }
+@media (min-width: 1040px) {
+  .rail {
+    display: block;
+    position: sticky; top: 0; align-self: start;
+    max-height: 100vh; overflow-y: auto;
+    padding: 48px 0 64px;
+    scrollbar-width: thin;
+  }
+}
+.rail-title {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink-faint); margin: 0 0 16px;
+}
+.rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.rail a {
+  display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: baseline;
+  padding: 7px 10px 7px 8px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--ink-soft);
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-size: 13.5px; line-height: 1.35;
+  border-left: 2px solid transparent;
+  transition: color .14s, background .14s, border-color .14s;
+}
+.rail a .n {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums;
+}
+.rail a:hover { color: var(--ink); background: var(--surface-2); }
+.rail a.on { color: var(--teal); border-left-color: var(--teal); background: var(--teal-soft); }
+.rail a.on .n { color: var(--teal); }
+.rail a:focus-visible, .content a:focus-visible {
+  outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 3px;
+}
+
+/* ── content ─────────────────────────────────────────────── */
+.content { padding: 48px 0 120px; min-width: 0; }
+.content > section { scroll-margin-top: 24px; }
+
+.eyebrow {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--teal);
+  margin: 0 0 10px;
+}
+.content h2 {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.75rem, 3.6vw, 2.5rem);
+  line-height: 1.1; letter-spacing: -.022em;
+  text-wrap: balance;
+  margin: 0 0 28px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.content h3 {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1.24rem; line-height: 1.28; letter-spacing: -.012em;
+  text-wrap: balance;
+  color: var(--ink);
+  margin: 46px 0 14px;
+  scroll-margin-top: 24px;
+}
+.content p { margin: 0 0 18px; max-width: 68ch; }
+.content ul, .content ol { margin: 0 0 20px; padding-left: 22px; max-width: 68ch; }
+.content li { margin-bottom: 7px; }
+.content li::marker { color: var(--ink-faint); }
+.content a { color: var(--teal); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.content strong { font-weight: 600; }
+.content section + section { margin-top: 92px; }
+
+/* code */
+code {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: .845em;
+  background: var(--code-bg);
+  color: var(--code-ink);
+  padding: .14em .38em;
+  border-radius: 4px;
+  word-break: break-word;
+}
+.code {
+  margin: 0 0 22px;
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.code pre { margin: 0; padding: 16px 18px; }
+.code code {
+  background: none; padding: 0; border-radius: 0;
+  font-size: 13px; line-height: 1.62;
+  white-space: pre;
+}
+
+/* tables */
+.tablewrap {
+  margin: 0 0 24px;
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--surface);
+}
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+thead th {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-faint);
+  text-align: left;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule-soft);
+  vertical-align: top;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody td:first-child { color: var(--ink); font-weight: 600; }
+tbody td code { font-size: .82em; }
+
+/* blockquote: used in the source for the transferable rules */
+blockquote {
+  margin: 26px 0;
+  padding: 18px 22px;
+  background: var(--teal-soft);
+  border-left: 2px solid var(--teal);
+  border-radius: 0 8px 8px 0;
+  max-width: 68ch;
+}
+blockquote p {
+  margin: 0;
+  font-size: 1.02rem;
+  color: var(--ink);
+}
+
+/* Appendix B is the honest-failures section; amber marks it as different
+   material, not decoration. */
+#appendix-b-things-that-are-wrong-or-unfinished .eyebrow,
+#appendix-b-things-that-are-wrong-or-unfinished h3 { color: var(--amber); }
+#appendix-b-things-that-are-wrong-or-unfinished blockquote {
+  background: var(--amber-soft); border-left-color: var(--amber);
+}
+#appendix-b-things-that-are-wrong-or-unfinished thead th { color: var(--amber); }
+
+hr { display: none; }
+
+.colophon {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--rule);
+  padding: 28px 0 64px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  color: var(--ink-faint);
+  display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+
+<div id="progress"></div>
+
+<div class="shell">
+  <header class="masthead">
+    <p class="kicker">A guide anyone can follow</p>
+    <h1>How We Built TenderFlow AI</h1>
+    <p class="standfirst">
+      Every screen, every algorithm, every package, and every decision that turned
+      out to be wrong — explained in plain words, with nothing left out for being
+      too hard. Written so a ten-year-old can follow it and an engineer still
+      finds it precise.
+    </p>
+    <ul class="facts">
+      <li><b>19</b> screens</li>
+      <li><b>41</b> packages</li>
+      <li><b>25</b> data models</li>
+      <li><b>250</b> tests</li>
+      <li>no coding knowledge needed</li>
+    </ul>
+  </header>
+
+  <nav class="rail" aria-label="Contents">
+    <p class="rail-title">Contents</p>
+    <ol>
+      <li><a href="#how-to-read-this" data-target="how-to-read-this"><span class="n">·</span><span>How to read this</span></a></li>
+      <li><a href="#part-0-what-the-thing-actually-is" data-target="part-0-what-the-thing-actually-is"><span class="n">0</span><span>What the thing actually is</span></a></li>
+      <li><a href="#part-1-the-app-screen-by-screen" data-target="part-1-the-app-screen-by-screen"><span class="n">1</span><span>The app, screen by screen</span></a></li>
+      <li><a href="#part-2-data-structures-and-algorithms" data-target="part-2-data-structures-and-algorithms"><span class="n">2</span><span>Data structures and algorithms</span></a></li>
+      <li><a href="#part-3-backend-engineering" data-target="part-3-backend-engineering"><span class="n">3</span><span>Backend engineering</span></a></li>
+      <li><a href="#part-4-frontend-engineering" data-target="part-4-frontend-engineering"><span class="n">4</span><span>Frontend engineering</span></a></li>
+      <li><a href="#part-5-design" data-target="part-5-design"><span class="n">5</span><span>Design</span></a></li>
+      <li><a href="#part-6-product-management" data-target="part-6-product-management"><span class="n">6</span><span>Product management</span></a></li>
+      <li><a href="#appendix-a-every-package-explained" data-target="appendix-a-every-package-explained"><span class="n">A</span><span>Every package, explained</span></a></li>
+      <li><a href="#appendix-b-what-is-wrong-or-unfinished" data-target="appendix-b-what-is-wrong-or-unfinished"><span class="n">B</span><span>What is wrong or unfinished</span></a></li>
+      <li><a href="#where-to-start-reading-the-code" data-target="where-to-start-reading-the-code"><span class="n">·</span><span>Where to start reading the code</span></a></li>
+    </ol>
+  </nav>
+
+  <main class="content">
+
+
+<p>This explains a real, working piece of software: what it does, how every part of it works, and why each choice was made instead of the other options. It uses plain words. Every new term is explained the first time it appears. Nothing is left out because it seemed too hard — the hard parts just get more explaining.</p>
+<p>If you are ten years old, this is written for you. If you are a working engineer, everything here is still true and precise; it is just kinder about it.</p>
+<section class="part" id="how-to-read-this"><h2>How to read this</h2>
+<p>There are five parts. You can read them in any order.</p>
+<div class="tablewrap"><table><thead><tr><th>Part</th><th>What it covers</th><th>In plain words</th></tr></thead><tbody><tr><td><strong>0</strong></td><td>What the thing is</td><td>The problem, and the shape of the solution</td></tr><tr><td><strong>1</strong></td><td>The app, screen by screen</td><td>Every page, what it does, what is happening underneath</td></tr><tr><td><strong>2</strong></td><td>Data structures and algorithms</td><td>The clever recipes that do the thinking</td></tr><tr><td><strong>3</strong></td><td>Backend engineering</td><td>The part you never see, doing the work</td></tr><tr><td><strong>4</strong></td><td>Frontend engineering</td><td>The buttons and screens you touch</td></tr><tr><td><strong>5</strong></td><td>Design</td><td>Why it looks and reads the way it does</td></tr><tr><td><strong>6</strong></td><td>Product management</td><td>Why we built <em>this</em> and not something else</td></tr><tr><td><strong>A</strong></td><td>Every package explained</td><td>All 41 libraries, and why each beat its alternatives</td></tr><tr><td><strong>B</strong></td><td>What is wrong or unfinished</td><td>The honest list</td></tr></tbody></table></div>
+<p>Two words you will see constantly. Learn them now and the rest is easy:</p>
+<blockquote><p><strong>Code</strong> is a list of instructions for a computer, written down. <strong>A program</strong> (or <strong>app</strong>) is a big pile of those instructions that does something useful.</p></blockquote>
+</section>
+<section class="part" id="part-0-what-the-thing-actually-is"><p class="eyebrow">Part 0</p><h2>What the thing actually is</h2>
+<h3 id="the-problem-told-as-a-story">The problem, told as a story</h3>
+<p>Imagine a huge competition. A hospital needs someone to supply 10,000 beds, and whoever wins gets paid a lot of money. To enter, you must send in an application.</p>
+<p>The hospital publishes a <strong>rulebook</strong>. It is 80 pages long. Buried inside are rules like:</p>
+<ul><li>&quot;You <strong>must</strong> attach your tax certificate.&quot;</li><li>&quot;Applications sent after 3pm on Friday will <strong>not</strong> be accepted.&quot;</li><li>&quot;You <strong>must</strong> show three similar jobs you have done before.&quot;</li></ul>
+<p>Here is the cruel part: <strong>if you miss even one rule, they throw your application in the bin without reading it.</strong> All that work, gone, because of one sentence on page 61 that nobody noticed.</p>
+<p>In real life this rulebook is called a <strong>tender pack</strong>, and this happens to real companies constantly.</p>
+<h3 id="what-our-program-does-about-it">What our program does about it</h3>
+<p>TenderFlow AI is a helper that:</p>
+<ol><li><strong>Reads the rulebook for you.</strong> You give it the file; it reads all 80 pages.</li><li><strong>Finds every rule.</strong> It hunts for the sentences that are actually orders,</li></ol>
+<p>   and ignores the waffle.</p>
+<ol><li><strong>Turns each rule into a checklist item.</strong> Like a packing list before a trip.</li><li><strong>Notices what you have already got.</strong> If you upload your tax certificate,</li></ol>
+<p>   it ticks off the rule that asked for a tax certificate.</p>
+<ol><li><strong>Helps you write the application</strong>, pointing at each rule as it goes.</li><li><strong>Gives you a score</strong> — &quot;you are 72% ready&quot; — so you know if you are safe to</li></ol>
+<p>   send it.</p>
+<ol><li><strong>Makes the final document</strong> you actually submit.</li></ol>
+<h3 id="the-single-most-important-idea-in-the-whole-program">The single most important idea in the whole program</h3>
+<p>Here is the map of what happens when you upload a file. Read it once now; the rest of this guide is just zooming in on each box.</p>
+<div class="code"><pre><code>     You upload the rulebook (a PDF)
+                │
+                ▼
+     Is this file safe and real?          ← we check, carefully
+                │
+                ▼
+     Save it somewhere                    ← a cupboard for files
+                │
+                ▼
+     Get the words out of the PDF         ← PDFs are surprisingly hard
+                │
+                ▼
+     Chop the words into sections         ← &quot;Part 1&quot;, &quot;Eligibility&quot;, etc.
+                │
+                ▼
+        ┌───────────────────────┐
+        │  Can we ask the AI?   │
+        └───────────────────────┘
+           yes │         │ no (or it broke)
+               ▼         ▼
+        Ask Google&#x27;s AI   Use our own recipes
+               │         │
+               └────┬────┘
+                    ▼
+          A list of rules found
+                    ▼
+          Turn them into checklist items
+                    ▼
+          Match your documents to the rules
+                    ▼
+          Work out a readiness score
+                    ▼
+          Help you write it, then export it</code></pre></div>
+<p>Look at that fork in the middle. That is the most important decision in this entire program, so let us be clear about why it is there.</p>
+<p><strong>AI is not always available.</strong> Sometimes the AI service is broken. Sometimes it is too busy. Sometimes we have used up our free allowance for the month. Sometimes the internet is simply down.</p>
+<p>Most programs would just show an error and give up. Ours does not. If the AI cannot help, the program uses its own set of ordinary recipes — no AI, no internet — and still gives you a full, usable answer. The AI makes it <em>better</em>; it is not what makes it <em>work</em>.</p>
+<blockquote><p><strong>The rule to remember:</strong> anything that depends on someone else can fail. So always have a plan B — and make plan B good enough to live with.</p></blockquote>
+<p>You will see this same idea four more times in this guide: for storing files, for counting requests, for checking passwords, and for sending email. It is the single most useful habit in the whole codebase.</p>
+<h3 id="what-the-program-is-made-of">What the program is made of</h3>
+<ul><li><strong>One program</strong> doing everything. Not lots of little separate programs talking</li></ul>
+<p>  to each other. Fewer moving parts, fewer things to break.</p>
+<ul><li><strong>A database</strong> to remember things. A database is just a very organised set of</li></ul>
+<p>  labelled boxes that never forgets what you put in them.</p>
+<ul><li><strong>Most of the work happens on the server.</strong> More on what that means in Part 3.</li><li><strong>No waiting queue.</strong> Slow jobs run <em>after</em> the page has already replied to</li></ul>
+<p>  you, so you are never left staring at a spinner.</p>
+</section>
+<section class="part" id="part-1-the-app-screen-by-screen"><p class="eyebrow">Part 1</p><h2>The app, screen by screen</h2>
+<p>This is a walk through every page, in the order a real person meets them. For each one: what you see, what you do, and what is secretly happening underneath.</p>
+<p>Terms you need for this part:</p>
+<blockquote><p><strong>A page</strong> is one screen in the app. Its <strong>URL</strong> (or <strong>route</strong>) is the address you type — like <code>/dashboard</code>. <strong>Public</strong> pages can be seen by anyone. <strong>Private</strong> pages check who you are first and send strangers away.</p></blockquote>
+<h3 id="11-the-front-door-public">1.1 <code>/</code> — The front door (public)</h3>
+<p>The first thing a stranger sees. Its only job is to answer &quot;what is this and should I care?&quot; in about ten seconds.</p>
+<p>It has four blocks, in this order, and the order is deliberate:</p>
+<ol><li><strong>The promise.</strong> &quot;Turn tender packs into compliant proposal drafts without</li></ol>
+<p>   losing the trail of evidence.&quot; One sentence saying what you get.</p>
+<ol><li><strong>Six features</strong> — Tender intelligence, Compliance checklist, Plain-English</li></ol>
+<p>   clauses, AI proposal drafting, Evidence matching, Export-ready output.</p>
+<ol><li><strong>How it works</strong>, in four steps: Create a project → Upload the tender pack →</li></ol>
+<p>   Review the checklist → Draft and export. This is the whole product in four    words-and-a-bit, so nobody has to guess.</p>
+<ol><li><strong>Who it is for</strong> — SMEs &amp; contractors, NGOs &amp; impact teams, BD &amp;</li></ol>
+<p>   procurement teams. People decide &quot;is this for someone like me?&quot; faster than    they decide &quot;is this good?&quot;</p>
+<p><em>Underneath:</em> this page is <strong>pre-rendered</strong>, meaning the server builds the finished page and sends it. Your browser does almost no work, so it appears fast even on a slow phone on a slow network — which matters, because most of the people this is built for are on exactly that.</p>
+<h3 id="12-authsign-up-making-an-account-public">1.2 <code>/auth/sign-up</code> — Making an account (public)</h3>
+<p>A form: full name, country (Nigeria by default), organisation, email, password.</p>
+<p>Watch the password box as you type. Underneath it, five little rules light up green one by one:</p>
+<ul><li>At least 8 characters</li><li>A lowercase letter</li><li>An uppercase letter</li><li>A number</li><li>A symbol</li></ul>
+<p><strong>Why show them live?</strong> Because the alternative is cruel. You type a password, press the button, and <em>then</em> get told it was wrong — and now you have to work out which of five rules you broke. Showing the rules as you type means you never fail at all.</p>
+<p>There is also a small <strong>eye icon</strong> in the password box. Click it and your password becomes readable. This exists because a password you cannot see is a password you can typo, and a typo in a new password locks you out of an account you just made.</p>
+<p><em>Underneath, when you press &quot;Create account&quot;:</em></p>
+<ol><li>The rules are checked again on the server. (Never trust the browser — see</li></ol>
+<p>   Part 3.)</p>
+<ol><li>Your password is checked against a list of **passwords stolen in real data</li></ol>
+<p>   breaches**. If yours is on it, you are asked for a different one.</p>
+<ol><li>Your account is made, along with your own private workspace.</li><li>A confirmation email is sent.</li></ol>
+<p>You are <strong>not</strong> signed in automatically. You have to confirm your email first. Part 6 explains why we chose that, and what it costs.</p>
+<h3 id="13-authsign-in-coming-back-public">1.3 <code>/auth/sign-in</code> — Coming back (public)</h3>
+<p>Email, password, &quot;Sign in&quot;. A link to reset a forgotten password.</p>
+<p>Three things are happening that you cannot see:</p>
+<ul><li><strong>Wrong password?</strong> You get: *&quot;That email and password combination doesn&#x27;t</li></ul>
+<p>  match an account.&quot;* Notice it does <strong>not</strong> say whether the email exists. That   is on purpose, and Part 3 explains the attack it prevents.</p>
+<ul><li><strong>Too many tries?</strong> After 8 wrong attempts on the same account, it stops</li></ul>
+<p>  accepting them for a few minutes.</p>
+<ul><li><strong>Email not confirmed yet?</strong> You get told so — and a button appears offering</li></ul>
+<p>  to send you a fresh confirmation link.</p>
+<h3 id="14-authforgot-password-and-authreset-password">1.4 <code>/auth/forgot-password</code> and <code>/auth/reset-password</code></h3>
+<p>You type your email. The page says: <em>&quot;If that address has an account, a reset link is on its way.&quot;</em></p>
+<p>Read that sentence again. It says <strong>&quot;if&quot;</strong>. It says the same thing whether or not you actually have an account. A stranger typing in your email learns nothing at all.</p>
+<p>The reset link works once and expires after an hour. When you use it, you pick a new password — and it goes through exactly the same rules and the same breached-password check as sign-up, because a reset is the moment people are most tempted to reuse an old password from somewhere else.</p>
+<h3 id="15-authverify-email-confirming-it-is-you">1.5 <code>/auth/verify-email</code> — Confirming it is you</h3>
+<p>You land here from the link in your email. It checks the link and stamps your account as confirmed.</p>
+<p>The link is <strong>single-use</strong> and expires after 24 hours. If it has expired, you are told plainly and offered a new one, rather than being left at a dead end.</p>
+<h3 id="16-invitetoken-joining-someone-elses-team">1.6 <code>/invite/[token]</code> — Joining someone else&#x27;s team</h3>
+<p>Somebody invited you. This page reads the invite code from the address bar, shows you which team you have been invited to, and lets you accept.</p>
+<p>If you do not have an account yet, it sends you to sign-up <strong>with your email already filled in</strong>, so you cannot accidentally join with the wrong address.</p>
+<h3 id="17-dashboard-home-base-private">1.7 <code>/dashboard</code> — Home base (private)</h3>
+<p>The first thing you see after signing in. It answers &quot;what is going on?&quot; at a glance:</p>
+<ul><li><strong>Four counters</strong> across the top: Active projects, Uploaded documents,</li></ul>
+<p>  Requirements tracked, Proposal sections.</p>
+<ul><li><strong>Recent projects</strong>, or a friendly nudge to make your first one.</li><li><strong>Plan usage</strong> on the right: which plan you are on, how many document uploads</li></ul>
+<p>  and AI generations you have used this month, and how many exports.</p>
+<p><em>Underneath:</em> the counters come from the database in one go when the page is built, not from lots of little requests after it loads. That is why it appears complete instead of filling in piece by piece.</p>
+<h3 id="18-projects-all-your-work-private">1.8 <code>/projects</code> — All your work (private)</h3>
+<p>Every project, with a compliance percentage next to each. There is a search box so you can find one by name once you have more than a handful.</p>
+<p><strong>What is a project?</strong> One bid for one contract. It holds the rulebook you uploaded, the checklist that came out of it, the proposal you are writing, and every version you exported.</p>
+<h3 id="19-projectsnew-starting-a-bid-private">1.9 <code>/projects/new</code> — Starting a bid (private)</h3>
+<p>A form describing what you are bidding for: title, client, opportunity type (Tender, RFP, Grant, EOI, RFQ), sector, country, deadline, budget range.</p>
+<p>Then some optional but powerful fields: <strong>evaluation criteria</strong>, <strong>win themes</strong>, contract duration, and whether there is an <strong>incumbent</strong> (the company doing the job now).</p>
+<p>Those last ones are not decoration. They get fed to the AI when it drafts your proposal, so it can write toward the things the buyer actually scores you on. A generic proposal loses to a targeted one.</p>
+<h3 id="110-projectsid-one-projects-home-private">1.10 <code>/projects/[id]</code> — One project&#x27;s home (private)</h3>
+<p>The hub for a single bid. Shows the project&#x27;s details, its documents, its compliance score, and links to everywhere else.</p>
+<p>This is also where you <strong>upload the tender pack</strong>. Drag a PDF, DOCX or TXT in. The moment it lands, the whole pipeline from Part 0 starts running.</p>
+<p>You get a reply immediately — the file is saved and accepted — while the slow reading and analysing carries on in the background. You are not made to wait.</p>
+<h3 id="111-projectsidparsed-overview-what-the-computer-found">1.11 <code>/projects/[id]/parsed-overview</code> — What the computer found</h3>
+<p>The most interesting screen in the app. After the rulebook is analysed, this shows you the results:</p>
+<ul><li><strong>Parsed documents</strong> — what was read, and whether it worked.</li><li><strong>Checklist items</strong> — every rule found, what type it is, and how risky it is.</li><li><strong>Evidence matches</strong> — which of your uploaded documents seem to satisfy which</li></ul>
+<p>  rules.</p>
+<p>Each clause comes with a <strong>plain-English explanation</strong>. Instead of <em>&quot;The Bidder shall furnish a Bid Security in the sum of 2% of the Bid Price...&quot;</em>, you get told what that means and what to do about it.</p>
+<p>If a document could not be read, this page says so, in words, with a reason — usually &quot;this is a scanned picture of text, not text&quot;. That is far kinder than silently showing you an empty checklist.</p>
+<h3 id="112-projectsidworkspace-writing-the-proposal-private">1.12 <code>/projects/[id]/workspace</code> — Writing the proposal (private)</h3>
+<p>The word processor. The left side lists your proposal&#x27;s sections; the middle is where you write; the AI tools sit alongside.</p>
+<p>You can ask it to <strong>draft against the checklist</strong> — it reads your requirements and writes sections aimed at them, then tells you which rules each section covers and which are still missing.</p>
+<p>Your edits save as you work, and old versions are kept, so you can go back.</p>
+<h3 id="113-projectsidexport-making-the-final-document">1.13 <code>/projects/[id]/export</code> — Making the final document</h3>
+<p>Choose <strong>DOCX</strong> (Word) or <strong>PDF</strong>. The file is built and downloaded.</p>
+<p>Every export starts with a <strong>cover sheet</strong>: project title, client, reference number, date. An evaluator opening your file should know who is bidding, for what, before reading a single word of prose.</p>
+<p>Past exports are listed, so you can always get back the exact file you sent.</p>
+<h3 id="114-projectsidedit-changing-project-details">1.14 <code>/projects/[id]/edit</code> — Changing project details</h3>
+<p>Same form as creating, filled in with what is already there. Boring, and it should be — the interesting thing is that it reuses the identical form component, so the two screens can never drift apart.</p>
+<h3 id="115-activity-the-history-book-private">1.15 <code>/activity</code> — The history book (private)</h3>
+<p>Every meaningful action anyone in your team took, in plain sentences: <em>&quot;Updated a checklist requirement&quot;</em>, <em>&quot;Ran the draft assistant&quot;</em>, <em>&quot;Joined the team&quot;</em>, <em>&quot;Upgraded to the Pro plan&quot;</em>. Filterable.</p>
+<p>This matters more than it looks. When several people work on one bid, &quot;who changed this and when?&quot; is a question that gets asked in a panic the day before a deadline.</p>
+<h3 id="116-usage-what-you-have-used-private">1.16 <code>/usage</code> — What you have used (private)</h3>
+<p>Uploads, AI generations, exports, and an estimate of AI <strong>tokens</strong> used. (A token is roughly a chunk of a word — it is how AI usage is counted and billed.)</p>
+<p>Shown honestly as an <em>estimate</em>, because it is calculated from document and draft length rather than measured exactly. Saying &quot;estimated&quot; is more useful than a precise-looking number that is quietly wrong.</p>
+<h3 id="117-settings-four-settings-pages">1.17 <code>/settings/*</code> — Four settings pages</h3>
+<ul><li><strong>General</strong> — rename your workspace, or delete it.</li><li><strong>Account</strong> — your own name, email, whether it is confirmed, and deleting</li></ul>
+<p>  your account.</p>
+<ul><li><strong>Company</strong> — your company profile: legal name, registration number, founded</li></ul>
+<p>  year, team size, capabilities, certifications, past performance. This is fed   to the AI when drafting, so your proposals talk about <em>your</em> company instead   of a generic one.</p>
+<ul><li><strong>Team</strong> — invite people by email, set their role (admin or member), remove</li></ul>
+<p>  them. Only owners and admins see the controls.</p>
+<h3 id="118-billingsuccess-and-billingfailed">1.18 <code>/billing/success</code> and <code>/billing/failed</code></h3>
+<p>Where the payment provider sends you back to after you pay. Success confirms your upgrade; failure explains what to do next.</p>
+<h3 id="119-privacy-and-terms-public">1.19 <code>/privacy</code> and <code>/terms</code> (public)</h3>
+<p>The legal pages. Dull, mandatory, and genuinely required before you can take money from a business customer.</p>
+<h3 id="the-shape-of-the-whole-app">The shape of the whole app</h3>
+<div class="code"><pre><code>PUBLIC                          PRIVATE (must be signed in)
+──────                          ──────────────────────────
+/                               /dashboard
+/auth/sign-up                   /projects ──┬── /new
+/auth/sign-in                               ├── /[id] ──┬── /parsed-overview
+/auth/forgot-password                       │           ├── /workspace
+/auth/reset-password                        │           ├── /export
+/auth/verify-email                          │           └── /edit
+/invite/[token]                 /activity
+/privacy  /terms                /usage
+                                /settings ──┬── /general
+                                            ├── /account
+                                            ├── /company
+                                            └── /team
+                                /billing/success  /billing/failed</code></pre></div>
+<p>Everything under PRIVATE checks who you are <strong>on the server</strong>, before the page is built. Not in the browser. That difference is the whole of Part 3&#x27;s security argument, and it is the most common mistake beginners make.</p>
+</section>
+<section class="part" id="part-2-data-structures-and-algorithms"><p class="eyebrow">Part 2</p><h2>Data structures and algorithms</h2>
+<p>This is the thinking part. Two words first:</p>
+<blockquote><p><strong>A data structure</strong> is a way of arranging information so it is easy to work with. A shopping list is a data structure. So is a family tree. <strong>An algorithm</strong> is a recipe: a fixed set of steps that turns some input into some output. Long division is an algorithm. So is &quot;how to tie a shoelace&quot;.</p></blockquote>
+<p>Everything in this part lives in two files, and both are <strong>pure</strong> — they take information in and give an answer back, without touching the internet or the database. That makes them the easiest part of the program to test, which is not an accident: it is why they were written that way.</p>
+<h3 id="21-chopping-a-document-into-sections">2.1 Chopping a document into sections</h3>
+<p><strong>The problem.</strong> A PDF gives us one enormous blob of text. We need it split into sections — &quot;Eligibility&quot;, &quot;Submission&quot;, &quot;Evaluation&quot; — because a rule means different things depending on which section it is in.</p>
+<p><strong>The idea.</strong> Walk through the text one line at a time. Decide for each line: <em>is this a heading, or is this ordinary text?</em> If it is a heading, start a new section. If not, add it to whatever section we are currently in.</p>
+<p><strong>How we spot a heading.</strong> Two clues:</p>
+<ol><li>It is <strong>short</strong> — under 90 characters. Headings are short; paragraphs are not.</li><li>It either looks like a title (starts with a capital, maybe numbered like</li></ol>
+<p>   &quot;3.1&quot;) <strong>or</strong> starts with one of nine words we know show up as headings in    these documents: <em>scope, eligibility, submission, evaluation, financial,    technical, terms, instructions, requirements</em>.</p>
+<div class="code"><pre><code>for each line:
+    if line is short AND looks like a title:
+        finish the current section
+        start a new section with this line as its name
+    otherwise:
+        add this line to the current section</code></pre></div>
+<p><strong>The data structure</strong> is just two things: a box we are currently filling (<code>current</code>), and a shelf of finished boxes (<code>sections</code>). One pass through the text. If the document doubles in length, the work doubles — no worse. That is what people mean by <strong>O(n)</strong>: &quot;grows in a straight line with the input&quot;.</p>
+<p><strong>The bug this design avoids.</strong> What if the document starts with a paragraph <em>before</em> any heading? With a naive version, those lines have no box to go in and get silently thrown away. So the code creates a box called &quot;Tender overview&quot; to catch them. Losing the first page of a document, silently, is exactly the kind of bug that survives for years because nothing ever complains.</p>
+<p><strong>Why not something cleverer?</strong> Real PDF layout tools can look at font sizes and positions to find headings properly. They are also large, slow, and often fail on the badly-made PDFs that government offices produce. Our two clues are wrong sometimes — and being wrong just means a section boundary in an odd place, which a human can see and ignore. We picked the failure we could live with.</p>
+<h3 id="22-chopping-sections-into-individual-rules">2.2 Chopping sections into individual rules</h3>
+<p>A section is still a wall of text. We need it broken into single rules, because each rule becomes one checklist item.</p>
+<p><strong>Stage one: split into sentences.</strong> Not on every full stop — that breaks &quot;Ltd.&quot; and &quot;3.1&quot; into pieces. Instead: split at a space only when there is a full stop <em>before</em> it and a capital letter or digit <em>after</em> it.</p>
+<p><strong>Stage two: split the monsters.</strong> Legal writing chains several obligations into one endless sentence:</p>
+<blockquote><p>&quot;The bidder shall submit a tax certificate; provide audited accounts for three years; and attach evidence of similar work.&quot;</p></blockquote>
+<p>That is three separate things to do. If any sentence is longer than 420 characters, we split it again — at semicolons, and at commas followed by <em>and</em>, <em>or</em>, or <em>provided</em>.</p>
+<p>That number, 420, and that list of words, are <strong>domain knowledge</strong>: things we know about how procurement documents are written, written down as instructions. This is a real and underrated skill. Knowing your subject is worth more than knowing a clever technique.</p>
+<p>Finally, each piece is capped at 900 characters. Always put a limit on things.</p>
+<h3 id="23-deciding-what-kind-of-rule-it-is">2.3 Deciding what kind of rule it is</h3>
+<p>We have a rule. What sort is it? We check it against a list of questions, in order, and the <strong>first one that matches wins</strong>:</p>
+<div class="code"><pre><code>Does it mention deadlines, submitting, portals, sealed envelopes?  → submission
+Does it mention money, prices, bid security, bank guarantees?      → financial
+Does it mention methodology, work plans, scope, personnel?         → technical
+Does it mention CAC, tax, PENCOM, registration, eligibility?       → eligibility
+Does it mention experience, similar assignments, past performance? → experience
+Does it mention conflicts, anti-corruption, fraud, contracts?      → legal
+Does it mention evaluation, criteria, scoring?                     → evaluation
+None of the above?                                                 → instruction</code></pre></div>
+<p>This is called a <strong>decision list</strong>, and it is the simplest classifier there is. Four things about it are worth learning:</p>
+<p><strong>The order is the actual intelligence.</strong> Whatever is checked first wins. We check &quot;submission&quot; before &quot;technical&quot; because a deadline hidden inside a technical section is <em>still a deadline</em>, and missing a deadline is fatal. Reordering these lines changes the program&#x27;s behaviour more than rewriting any of them.</p>
+<p><strong>There is always an answer.</strong> The last line catches everything else. No rule can ever come out unlabelled and vanish.</p>
+<p><strong>You can always explain it.</strong> Ask &quot;why did it call this financial?&quot; and you can point at the exact line. Try that with a big AI model — you cannot. For something a person has to trust with their livelihood, explainability is a feature.</p>
+<p><strong>It deliberately over-worries.</strong> Risk is marked &quot;high&quot; if the text contains <em>must, shall, required, mandatory, disqualify</em> — or if it is one of four high-stakes types. It flags too much. That is the right way round: a false &quot;high risk&quot; costs someone five minutes of reading. A false &quot;low risk&quot; can lose them the contract.</p>
+<h3 id="24-how-sure-are-we-confidence-scoring">2.4 How sure are we? — confidence scoring</h3>
+<p>Every rule gets a confidence number. Start at 0.58, then add:</p>
+<div class="tablewrap"><table><thead><tr><th>If the rule...</th><th>Add</th></tr></thead><tbody><tr><td>contains <em>must, shall, required, submit, provide, attach, include</em></td><td>+0.22</td></tr><tr><td>mentions deadlines, eligibility, technical, financial, tax, CAC, bid security</td><td>+0.12</td></tr><tr><td>is longer than 80 characters</td><td>+0.06</td></tr></tbody></table></div>
+<p>Then cap it at 0.97.</p>
+<p>Two deliberate choices. <strong>It never reaches 1.0</strong> — a guessing recipe should never claim to be certain. <strong>It never starts at 0</strong> — anything that got this far already matched our &quot;this is an instruction&quot; test, so it has earned a base score.</p>
+<p>Later, when a rule becomes a checklist item, its confidence <em>drops</em> by 0.03. Every extra step of reasoning is another chance to be wrong, and the number should admit that.</p>
+<h3 id="25-removing-duplicates-the-fingerprint-trick">2.5 Removing duplicates — the fingerprint trick</h3>
+<p>The same requirement often appears three times in one rulebook, worded slightly differently. Showing it three times makes the checklist useless.</p>
+<p><strong>The idea:</strong> give every rule a <strong>fingerprint</strong>. If two fingerprints match, it is the same rule.</p>
+<p>Making a fingerprint:</p>
+<div class="code"><pre><code>&quot;Bid Security: 2% of the Bid Price!&quot;
+        │  make it all lowercase
+        ▼
+&quot;bid security: 2% of the bid price!&quot;
+        │  turn every punctuation mark and space run into one space
+        ▼
+&quot;bid security 2 of the bid price &quot;
+        │  trim, then keep only the first 120 characters
+        ▼
+&quot;bid security 2 of the bid price&quot;          ← the fingerprint</code></pre></div>
+<p>Now <code>&quot;Bid Security — 2 % of the Bid Price&quot;</code> produces <em>the same fingerprint</em>. Different typing, same rule, caught.</p>
+<p>Then we walk the list holding a bag of fingerprints we have already seen:</p>
+<div class="code"><pre><code>seen = empty bag
+for each rule:
+    f = fingerprint(rule)
+    if f is already in the bag:  throw this rule away
+    otherwise:                   keep it, and put f in the bag</code></pre></div>
+<p>The bag is a <strong>hash set</strong> — a container that answers &quot;have I seen this before?&quot; instantly, no matter how many things are in it. That instant answer is why the whole job takes one pass instead of comparing every rule against every other rule. For 100 rules that is 100 checks instead of 4,950.</p>
+<p><strong>Why only the first 120 characters?</strong> A trade-off, chosen on purpose. Using the whole sentence would miss near-duplicates where an addendum restates a rule with a different ending. Using a short prefix catches those — but occasionally merges two genuinely different rules that begin the same way. In this domain the same rule really does get repeated, so we err toward merging.</p>
+<p><strong>The best detail here:</strong> this fingerprint function is <em>exported and reused</em>. It runs both within a single upload <strong>and</strong> against rules already stored from earlier uploads. If those two used different fingerprinting, uploading the same file twice would create duplicates that the first upload had carefully removed. One shared function, one definition of &quot;the same&quot;.</p>
+<h3 id="26-matching-your-documents-to-the-rules">2.6 Matching your documents to the rules</h3>
+<p>You have uploaded a tax certificate. Which rules does it satisfy?</p>
+<p><strong>The naive approach</strong> — compare the document&#x27;s text to the rule&#x27;s text — works badly, because they are written in totally different language.</p>
+<p><strong>Our approach: give both sides a common vocabulary.</strong> We keep a small dictionary of about ten kinds of evidence, each with the words that hint at it:</p>
+<div class="tablewrap"><table><thead><tr><th>Evidence type</th><th>Hint words</th></tr></thead><tbody><tr><td>Tax clearance</td><td>tax clearance, TIN, FIRS, VAT</td></tr><tr><td>CAC registration</td><td>CAC, corporate affairs, registration</td></tr><tr><td>Bid security</td><td>bid security, bank guarantee, tender security, bond</td></tr><tr><td>Key personnel CVs</td><td>CV, curriculum vitae, key personnel, team lead</td></tr><tr><td>...and six more</td><td></td></tr></tbody></table></div>
+<p>Then, for every rule and every evidence type, we ask <strong>two</strong> questions:</p>
+<ol><li>Does the <strong>rule</strong> ask for this kind of evidence?</li><li>Does the <strong>document</strong> look like this kind of evidence?</li></ol>
+<p>Only if <em>both</em> are yes is it a match. Neither side is ever compared to the other directly — they are both translated into the same ten-word vocabulary first, and matched there. That is what makes it survive completely different wording.</p>
+<p><strong>Confidence</strong> is simple: if more than one hint word appears in the document, 0.86; otherwise 0.72. A document mentioning both &quot;tax clearance&quot; <em>and</em> &quot;FIRS&quot; is more likely to really be one than a document that says &quot;VAT&quot; once.</p>
+<p>We keep only the single best match per rule — a <strong>greedy</strong> choice, meaning we take the best-looking option without reconsidering later.</p>
+<p><strong>One lovely detail:</strong> when you re-upload a document, its old match is removed before the new one is added. So processing the same file five times leaves you with one match, not five. Doing something twice giving the same result as doing it once is called <strong>idempotence</strong>, and it prevents an enormous class of bugs.</p>
+<h3 id="27-the-readiness-score">2.7 The readiness score</h3>
+<p>This is the percentage you see on your dashboard, so it deserves care. It combines two separate ideas:</p>
+<p><strong>How much does this rule matter?</strong></p>
+<div class="tablewrap"><table><thead><tr><th>Priority</th><th>Weight</th></tr></thead><tbody><tr><td>High</td><td>1.35</td></tr><tr><td>Medium</td><td>1.00</td></tr><tr><td>Low</td><td>0.75</td></tr></tbody></table></div>
+<p><strong>How done is it?</strong></p>
+<div class="tablewrap"><table><thead><tr><th>Status</th><th>Credit</th></tr></thead><tbody><tr><td>Met</td><td>1.00</td></tr><tr><td>Waiver (officially excused)</td><td>0.85</td></tr><tr><td>In progress</td><td>0.45</td></tr><tr><td>Not started</td><td>0.25</td></tr><tr><td>Blocked</td><td>0.00</td></tr></tbody></table></div>
+<p>Then:</p>
+<div class="code"><pre><code>score = (sum of weight × credit)  ÷  (sum of weight)  × 100</code></pre></div>
+<p><strong>A worked example.</strong> Three rules:</p>
+<div class="tablewrap"><table><thead><tr><th>Rule</th><th>Priority</th><th>Status</th><th>Weight</th><th>Credit</th><th>Weight × Credit</th></tr></thead><tbody><tr><td>Tax certificate</td><td>High</td><td>Met</td><td>1.35</td><td>1.00</td><td>1.35</td></tr><tr><td>Three references</td><td>Medium</td><td>In progress</td><td>1.00</td><td>0.45</td><td>0.45</td></tr><tr><td>Company brochure</td><td>Low</td><td>Not started</td><td>0.75</td><td>0.25</td><td>0.19</td></tr><tr><td></td><td></td><td></td><td><strong>3.10</strong></td><td></td><td><strong>1.99</strong></td></tr></tbody></table></div>
+<p><code>1.99 ÷ 3.10 = 0.642</code> → <strong>64%</strong>.</p>
+<p>Three decisions inside that formula are worth understanding:</p>
+<p><strong>We divide by total weight, not by how many rules there are.</strong> That is what makes 64% mean the same thing on a project with 8 rules and one with 80.</p>
+<p><strong>Blocked scores zero, never negative.</strong> A blocked rule pulls the score down by removing its own weight from the top of the fraction — but it cannot drag you below what your other work earned. If it could, doing more work could make your score go <em>down</em>, and users rightly find that maddening.</p>
+<p><strong>A waiver is 0.85, not 1.00.</strong> Officially excused is not the same as done. There is a little risk left, and the number quietly says so.</p>
+<h3 id="28-the-compliance-score-three-views-and-a-penalty">2.8 The compliance score — three views and a penalty</h3>
+<p>A second, deeper score used after drafting. It builds three sub-scores:</p>
+<div class="code"><pre><code>completeness  = (rules covered ÷ total rules) × 100
+technical     = 100 − (blocked × 12) − (weak × 4)
+documentation = 100 − (blocked × 15) − (weak × 5)</code></pre></div>
+<p>Then blends them, with weights adding up to 1.0:</p>
+<div class="code"><pre><code>overall = completeness×0.55 + technical×0.25 + documentation×0.20 − (blocked × 2)</code></pre></div>
+<p>Notice a blocked rule is punished <strong>three times</strong>: once inside <code>technical</code>, once inside <code>documentation</code>, and once again at the end. That looks like a mistake. It is not. A blocked mandatory rule is the single strongest sign that a bid will be rejected, so the score is built to be dominated by it. Finally everything is clamped between 0 and 100, which is what stops that aggressive punishment producing a negative percentage.</p>
+<h3 id="29-the-weakest-algorithm-in-the-program-and-why-we-say-so">2.9 The weakest algorithm in the program (and why we say so)</h3>
+<p>After drafting, we check whether each rule is actually covered. The current method: take everything written, and ask <em>does the rule&#x27;s exact wording appear inside it?</em></p>
+<ul><li>Appears twice (both title and description) → <strong>covered</strong></li><li>Appears once → <strong>weak</strong></li><li>Not at all → <strong>missing</strong>, or <strong>blocked</strong> if it was mandatory</li></ul>
+<p><strong>This is not good enough, and it should be said plainly.</strong> It only finds <em>exact</em> copies. If the draft says &quot;we will provide our tax clearance certificate&quot; but the rule said &quot;furnish evidence of tax compliance&quot;, it scores zero — even though the draft covers it perfectly.</p>
+<p>It appears to work because drafts are generated <em>from</em> the rules, so the exact words often survive. But it is measuring <strong>copying</strong>, not <strong>covering</strong>.</p>
+<p><strong>The proper fix</strong> is to compare the <em>set of words</em> in each, rather than exact text — how much do they overlap? Two sentences sharing 80% of their meaningful words are almost certainly about the same thing, whatever order they are in.</p>
+<p>This is in the guide because noticing the limits of your own work is the actual skill. Anyone can write something that works on the happy path.</p>
+<h3 id="210-checking-the-writing-quality">2.10 Checking the writing quality</h3>
+<p>Three counters look through the draft for repeated phrases, generic waffle, and weak statements (&quot;we will try to&quot;, &quot;we hope to&quot;). Each has its own penalty:</p>
+<div class="code"><pre><code>quality = 100 − (repeats × 12) − (generic × 10) − (weak × 8)</code></pre></div>
+<p>Honest about its limits: it can only find bad writing it has been told about. It will never spot a new kind of bad writing. In exchange, it runs in a thousandth of a second and never invents a problem that is not there.</p>
+<h3 id="211-clever-tricks-elsewhere-in-the-program">2.11 Clever tricks elsewhere in the program</h3>
+<div class="tablewrap"><table><thead><tr><th>Where</th><th>The trick</th><th>Why it matters</th></tr></thead><tbody><tr><td>File upload</td><td><strong>Reading the first 8 bytes</strong> of the file</td><td>The name and type of a file are whatever the sender claims. The first few bytes are the file itself telling you what it is. Every real PDF starts <code>%PDF-</code>.</td></tr><tr><td>Request limiting</td><td><strong>Sliding window counting</strong></td><td>Counting per fixed hour lets someone fire everything at 10:59 and again at 11:00. A sliding window looks at &quot;the last 60 seconds&quot; from right now, so there is no seam to exploit.</td></tr><tr><td>Sign-in</td><td><strong>Always doing the same amount of work</strong></td><td>Explained fully in Part 3 — it is the best story in the whole project.</td></tr><tr><td>Passwords</td><td><strong>k-anonymity</strong></td><td>Checking your password against 800 million stolen ones <em>without ever sending your password anywhere</em>. Also Part 3.</td></tr><tr><td>Payments</td><td><strong>HMAC signatures</strong></td><td>A way to prove a message really came from who it claims. Without it, anyone finding the address could shout &quot;this person paid!&quot; and get a free upgrade.</td></tr><tr><td>Reading AI output</td><td><strong>Three rescue attempts</strong></td><td>AI often wraps its answer in chatter. So: try to read it directly; if that fails, look for a fenced code block; if that fails, grab everything between the first <code>{</code> and the last <code>}</code>. Each attempt is cheap, and they are ordered most-likely-correct first.</td></tr></tbody></table></div>
+<p>That last one deserves its own mention, because you will need it any time you work with a system whose output you do not control:</p>
+<div class="code"><pre><code>Try to read the whole thing as data.        → worked? done.
+Look for a ```json block and read that.     → worked? done.
+Grab from the first { to the last }.        → worked? done.
+Give up and say so clearly.</code></pre></div>
+<p>Getting a <em>slightly</em> wrong answer from a machine is far more common than getting a completely wrong one. Plan for slightly wrong.</p>
+</section>
+<section class="part" id="part-3-backend-engineering"><p class="eyebrow">Part 3</p><h2>Backend engineering</h2>
+<blockquote><p><strong>The backend</strong> is everything that happens on the <strong>server</strong> — a computer somewhere else that you never see. The <strong>frontend</strong> is what runs on your own phone or laptop. When you press a button, the frontend asks the backend a question, and the backend answers.</p></blockquote>
+<p>The backend&#x27;s job is to be the grown-up: it holds the real data, decides who is allowed to do what, and never believes anything the browser tells it.</p>
+<h3 id="31-why-never-trust-the-browser">3.1 Why never trust the browser</h3>
+<p>This is the first idea in security, and everything else depends on it.</p>
+<p>Anything running on your computer, <strong>you</strong> control. You can open the developer tools and change it. So if the browser sends the server a message saying &quot;I am the boss of this workspace, delete everything&quot; — the server must not simply believe it.</p>
+<p>So every private page and every action asks the server: <em>who is this really, and are they allowed?</em> The button being hidden in the interface is a <strong>convenience</strong>, not a <strong>protection</strong>. The protection is on the server.</p>
+<h3 id="32-the-framework-nextjs">3.2 The framework: Next.js</h3>
+<blockquote><p><strong>A framework</strong> is a pre-built skeleton for an app: routing, page building, and structure, so you do not write it all yourself.</p></blockquote>
+<p>We use <strong>Next.js</strong>, which lets one project contain both the pages you look at and the backend that serves them.</p>
+<p><strong>Why Next.js instead of the alternatives?</strong></p>
+<div class="tablewrap"><table><thead><tr><th>Option</th><th>What it means</th><th>Why not</th></tr></thead><tbody><tr><td><strong>Next.js</strong> ✅</td><td>Pages and backend in one project</td><td>Chosen: one thing to build, deploy, and reason about</td></tr><tr><td>React on its own</td><td>Just the screens</td><td>You would still need a whole separate backend</td></tr><tr><td>Express + React separately</td><td>Two projects</td><td>Two deployments, two sets of types, constant drift between them</td></tr><tr><td>Rails / Django</td><td>Mature all-in-one frameworks</td><td>Excellent — but the team writes TypeScript, and mixing languages doubles what everyone must know</td></tr></tbody></table></div>
+<p>The deciding factor is real: <strong>one language everywhere</strong>. The same description of what a &quot;Project&quot; is gets used by the database, the backend, and the screen. If someone changes it in one place, the others stop compiling immediately — instead of breaking quietly in front of a customer.</p>
+<h3 id="33-the-database-postgresql-and-prisma">3.3 The database: PostgreSQL and Prisma</h3>
+<blockquote><p><strong>A database</strong> stores information permanently and safely, even if the program restarts. <strong>PostgreSQL</strong> is one of the best free ones.</p></blockquote>
+<p>Our database has <strong>25 tables</strong>. A table is like one spreadsheet: <code>User</code>, <code>Project</code>, <code>Requirement</code>, <code>TenderClause</code>, <code>Payment</code>, and so on.</p>
+<p><strong>Prisma</strong> sits between our code and the database. You describe your tables once in a single file, and Prisma:</p>
+<ol><li>Creates the real tables for you.</li><li>Generates code so that if you type <code>project.titel</code> instead of <code>project.title</code>,</li></ol>
+<p>   it refuses to build — instead of returning nothing at 2am in production.</p>
+<p><strong>Why Prisma instead of the alternatives?</strong></p>
+<div class="tablewrap"><table><thead><tr><th>Option</th><th>Why not</th></tr></thead><tbody><tr><td><strong>Prisma</strong> ✅</td><td>Chosen: the safety net is automatic and complete</td></tr><tr><td>Writing SQL by hand</td><td>Total control, zero safety net. One typo in a column name is a runtime bug</td></tr><tr><td>TypeORM / Sequelize</td><td>Older tools; their type safety has real gaps</td></tr><tr><td>Drizzle</td><td>Genuinely good, lighter and closer to SQL. A fair alternative — Prisma won on maturity of its migration tooling</td></tr></tbody></table></div>
+<h3 id="34-migrations-and-a-real-production-accident">3.4 Migrations, and a real production accident</h3>
+<blockquote><p><strong>A migration</strong> is a recorded change to the database&#x27;s shape — &quot;add a column called <code>country</code>&quot;. They are numbered and run in order, so every copy of the database ends up identical.</p></blockquote>
+<p>There are 8 of them in this project.</p>
+<p><strong>What went wrong.</strong> One migration, <code>add_organizations</code>, ran halfway. It created some things and then failed. The database was left in a state that matched neither the &quot;before&quot; nor the &quot;after&quot;.</p>
+<p>The standard fix is a command that means &quot;mark this as done and move on&quot;. <strong>It would have been the wrong thing to do</strong>, because the migration genuinely had not finished — every one of its eight connections between tables was missing. Marking it done would have buried the damage under a clean-looking record.</p>
+<p><strong>The lesson:</strong> when a tool offers you a quick fix for a broken state, first check <em>which</em> broken state you are actually in. The fix that clears the error message is not always the fix that solves the problem.</p>
+<h3 id="35-sign-in-and-how-passwords-are-really-stored">3.5 Sign-in, and how passwords are really stored</h3>
+<p><strong>We never store your password.</strong> Not encrypted, not hidden — not at all.</p>
+<p>Instead we store a <strong>hash</strong>: the result of a one-way scrambling recipe.</p>
+<blockquote><p>Feeding &quot;hello&quot; into a hash always gives the same scrambled result. But there is no way to run it backwards and get &quot;hello&quot; back. It is like blending fruit: easy one way, impossible to reverse.</p></blockquote>
+<p>When you sign in, we scramble what you typed and compare the two scrambles. If they match, you knew the password — without us ever having stored it. If our database is ever stolen, the thief gets scrambles, not passwords.</p>
+<p>We use <strong>bcrypt</strong> with a <strong>cost of 12</strong>. The cost controls how slow the scrambling is: each step up doubles the time. Slowness is the <em>feature</em> — it makes each of an attacker&#x27;s billions of guesses cost real time. Ours takes about a quarter of a second.</p>
+<div class="tablewrap"><table><thead><tr><th>Option</th><th>Why not</th></tr></thead><tbody><tr><td><strong>bcrypt</strong> ✅</td><td>Chosen: everywhere, proven since 1999, deliberately slow</td></tr><tr><td>Plain text</td><td>Catastrophic. Never</td></tr><tr><td>MD5 / SHA-1</td><td>Built to be <em>fast</em>, which is exactly wrong here — a modern graphics card guesses billions per second</td></tr><tr><td>Argon2 / scrypt</td><td>Genuinely stronger, and resist specialised hardware better. bcrypt won on how boringly available it is everywhere</td></tr></tbody></table></div>
+<h3 id="36-the-best-story-in-the-project-the-timing-attack">3.6 The best story in the project: the timing attack</h3>
+<p>This is a real security hole that existed in this code, and how it was found.</p>
+<p><strong>The setup.</strong> When you try to sign in, the server looks up your email. If there is no such account, there is nothing to compare against — so the obvious code just says &quot;no&quot; immediately.</p>
+<p><strong>The hole.</strong> Watch what an attacker sees:</p>
+<div class="code"><pre><code>Try alice@example.com  → &quot;no&quot;  after 266 milliseconds
+Try zzz@nowhere.com    → &quot;no&quot;  after 0 milliseconds</code></pre></div>
+<p>Both say no. But <strong>the first one took a quarter of a second and the second was instant</strong>. Why? Because for Alice, the server did the slow scrambling work. For the made-up address, there was nothing to scramble, so it returned instantly.</p>
+<p>The attacker has learned that <strong>Alice has an account here</strong> — without ever guessing her password. Do that with a million email addresses and you have a list of every customer. That is a genuine privacy breach, and it is often the first step in a targeted attack.</p>
+<p><strong>The fix</strong> is to always do the same amount of work. When there is no account, compare against a fake stored scramble anyway, so the slow part happens either way.</p>
+<p><strong>The twist, and why this story is worth telling.</strong> That fix <em>was already in the code</em>. There was a fake scramble, and a comment explaining it. But it had two problems:</p>
+<ol><li>The fake was not a <strong>valid</strong> scramble — just a made-up string of letters. The</li></ol>
+<p>   scrambling tool looks at it, sees it is malformed, and rejects it    <em>immediately</em> without doing any work.</p>
+<ol><li>It was set to cost <strong>10</strong>, while real passwords used cost <strong>12</strong> — four times</li></ol>
+<p>   faster even if it had been valid.</p>
+<p>So the defence did nothing. Worse than nothing: it <em>looked</em> like protection, so nobody checked it. Measured:</p>
+<div class="tablewrap"><table><thead><tr><th>Situation</th><th>Time to say no</th></tr></thead><tbody><tr><td>Real account, wrong password</td><td><strong>266 ms</strong></td></tr><tr><td>No such account</td><td><strong>0 ms</strong></td></tr></tbody></table></div>
+<p><strong>The real lesson is not about passwords.</strong> It is this: a comment saying &quot;this is safe&quot; is not evidence. The hole was found by <em>measuring</em>, not by reading. And the tests written afterwards do not check that the fake scramble equals some particular text — they check the <strong>properties</strong> that matter: that it is a valid scramble, and that its cost matches the real one. If someone raises the cost later and forgets the fake, the tests fail instead of the hole silently reopening.</p>
+<h3 id="37-stopping-guessing-rate-limits">3.7 Stopping guessing: rate limits</h3>
+<p>If someone can try a million passwords, a slow hash only helps so much. So after <strong>8 wrong attempts on one account</strong>, we stop accepting them for a few minutes.</p>
+<p><strong>An interesting decision.</strong> The obvious extra layer is &quot;also block by internet address&quot;. We deliberately do <strong>not</strong>.</p>
+<p>Most of this app&#x27;s users are in Nigeria, on mobile networks. Those networks put <strong>thousands of unrelated people behind one shared address</strong>. Blocking by address would kick a whole city off together because one stranger typed a wrong password. Blocking per account gets the same protection without that.</p>
+<p>That is a security decision made by knowing <em>who the users are</em>. The textbook answer would have been actively harmful here.</p>
+<h3 id="38-checking-passwords-against-real-leaks-without-sending-them">3.8 Checking passwords against real leaks — without sending them</h3>
+<p><strong>The problem.</strong> <code>P@ssw0rd1</code> passes every rule we have: eight characters, capital, lowercase, number, symbol. It has also appeared in <strong>253,616</strong> known data breaches. Rules alone cannot catch it.</p>
+<p>There is a public service holding hundreds of millions of leaked passwords. But sending them your users&#x27; passwords would be insane.</p>
+<p><strong>The trick, called k-anonymity.</strong> Instead of asking about <em>your</em> password, ask about a whole <em>neighbourhood</em> of passwords.</p>
+<div class="code"><pre><code>1. Scramble your password           → 5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8
+2. Send only the first 5 characters → &quot;5BAA6&quot;
+3. They send back every leaked scramble starting with 5BAA6 — about 500 of them
+4. We look through that list ourselves, on our own server</code></pre></div>
+<p>They never learn which one you asked about — or whether any of them matched. Your password never leaves the building.</p>
+<p><strong>And if that service is down?</strong> We let the password through. That is a deliberate choice: a person who cannot sign up because someone <em>else&#x27;s</em> service is broken cannot fix it, cannot understand it, and simply leaves. A slightly weak password getting through is the smaller harm.</p>
+<blockquote><p><strong>Fail open or fail closed?</strong> Failing <em>closed</em> (blocking when unsure) is right for a bank vault. Failing <em>open</em> is right for an optional extra check. Knowing which you are building is the skill.</p></blockquote>
+<h3 id="39-teams-and-permissions">3.9 Teams and permissions</h3>
+<p>Every person belongs to one or more <strong>organisations</strong> (workspaces). Every project belongs to an organisation, not to a person — so when someone leaves, the work does not leave with them.</p>
+<p>Three roles:</p>
+<div class="tablewrap"><table><thead><tr><th>Role</th><th>Can do</th></tr></thead><tbody><tr><td><strong>Owner</strong></td><td>Everything, including billing and deleting the workspace</td></tr><tr><td><strong>Admin</strong></td><td>Invite and remove people, delete projects and documents</td></tr><tr><td><strong>Member</strong></td><td>Create and edit projects</td></tr></tbody></table></div>
+<p>Two careful details:</p>
+<p><strong>Admins cannot touch billing.</strong> Deliberately narrower than managing people, so you can let someone grow the team without giving them the payment method.</p>
+<p><strong>Admins cannot make someone an owner</strong>, or change an existing owner. Handing over ownership needs a proper flow that does not exist yet — so rather than half-support it, it is blocked.</p>
+<h3 id="310-which-workspace-am-i-in-a-lesson-about-trust">3.10 Which workspace am I in? — a lesson about trust</h3>
+<p>The app remembers your current workspace in a <strong>cookie</strong> (a small note the browser keeps and sends back each time).</p>
+<p>But a cookie lives on <em>your</em> computer, so <strong>you can change it</strong>. Someone could edit theirs to another workspace&#x27;s identifier.</p>
+<p>So the cookie is treated as a <strong>hint, never a fact</strong>. Every request the server re-checks: <em>is this person actually a member of that workspace?</em> If not, it quietly falls back to one they really do belong to. Not an error — a stale cookie should never lock you out, and it must never let you in.</p>
+<h3 id="311-a-scheduled-job-that-is-not-scheduled">3.11 A scheduled job that is not scheduled</h3>
+<p>Pro plans last 30 days. Something must notice when one runs out.</p>
+<p>The obvious answer is a program that wakes every night and checks everyone. That is another moving part to run, monitor, and pay for.</p>
+<p>Instead: the check happens <strong>the next time that workspace&#x27;s data is loaded anyway</strong>. If the expiry date has passed, it downgrades right then. Nobody can experience an expired-but-still-working plan, because experiencing it requires loading the data, which triggers the check.</p>
+<p>It only writes when a plan has genuinely expired, so it costs nothing the rest of the time. This is called <strong>lazy evaluation</strong> — do the work at the last useful moment, not on a schedule.</p>
+<h3 id="312-payments-and-two-messages-racing">3.12 Payments, and two messages racing</h3>
+<p>After you pay, we find out in two ways:</p>
+<ol><li>Your browser is <strong>redirected back</strong> to us.</li><li>The payment company sends our server a <strong>direct message</strong> (a <em>webhook</em>).</li></ol>
+<p>Either can arrive first. Either can fail — you might close the tab straight after paying.</p>
+<p>Both go to the same function, which first checks: <em>is this payment already marked successful?</em> If yes, it stops. So whichever arrives first does the work, and the other one harmlessly does nothing. Same idea as §2.6: <strong>doing it twice is the same as doing it once.</strong></p>
+<p>Two more safeguards:</p>
+<p><strong>The signature.</strong> The direct message is signed with a secret only we and the payment company know. Without checking it, anyone who found the address could send &quot;this person paid!&quot; and get a free upgrade.</p>
+<p><strong>The amount.</strong> We check the amount actually paid matches what we asked for. Never trust a number that travelled through the customer&#x27;s browser.</p>
+<h3 id="313-the-bug-that-broke-every-email-for-weeks">3.13 The bug that broke every email for weeks</h3>
+<p>Every email — welcome, confirm your address, reset password, team invites, renewal reminders — failed. For weeks. Nobody noticed, because nothing errored loudly; the emails just never arrived.</p>
+<p>The cause was <strong>one letter</strong>:</p>
+<div class="code"><pre><code>https://api.brevo.com/v3/smtp/emails      ← what we had.  Wrong.
+https://api.brevo.com/v3/smtp/email       ← correct.</code></pre></div>
+<p>The wrong address returned <code>404 HTTP route not found</code> — a <em>gateway</em> error, not an API error, so it carried no hint that the URL was the problem.</p>
+<p><strong>Why this is in the guide:</strong> it was misdiagnosed twice, blamed on a network restriction, before anyone simply sent the same message to both addresses and compared. Two minutes of measuring beat two rounds of confident theorising.</p>
+<h3 id="314-doing-slow-work-without-making-you-wait">3.14 Doing slow work without making you wait</h3>
+<p>Reading an 80-page PDF and analysing it takes a while. If the upload request did all that before replying, you would stare at a spinner — and the server might give up and kill the request.</p>
+<p>So the upload does the fast part (check the file, save it, record it), replies immediately, and the slow analysis runs <strong>after the reply has been sent</strong>, using a built-in feature for exactly this.</p>
+<p>No queue system, no extra service. For this size of app, that is the right trade: fewer moving parts. If it grows, a real queue is the next step.</p>
+<h3 id="315-how-we-know-it-works-testing">3.15 How we know it works: testing</h3>
+<blockquote><p><strong>A test</strong> is code that checks other code. You describe what <em>should</em> happen; the computer verifies it.</p></blockquote>
+<p>Two kinds here:</p>
+<p><strong>Unit tests (183)</strong> check one small piece with no database and no internet. They run in seconds, so you run them constantly.</p>
+<p><strong>Integration tests (67)</strong> start a real server and a real database, then do what a person would do: sign up, sign in, upload, export. Slower — about six minutes — but they catch things unit tests never can.</p>
+<p><strong>A story about why you need both.</strong> After a change, all 183 unit tests passed. Everything looked fine. Then the integration tests ran: <strong>50 of 65 failed.</strong></p>
+<p>The cause was one thing — a helper that created test accounts used the password <code>password123</code>, which the new rules rejected. One root cause, fifty different-looking failures.</p>
+<p>Worse, the helper that signed in <strong>did not check that it had worked</strong>. It returned whatever came back, so a refused sign-in showed up much later as a confusing error from something unrelated. It was fixed to fail loudly and immediately.</p>
+<blockquote><p><strong>The lesson:</strong> a test helper that quietly tolerates failure turns one obvious bug into fifty mysterious ones.</p></blockquote>
+</section>
+<section class="part" id="part-4-frontend-engineering"><p class="eyebrow">Part 4</p><h2>Frontend engineering</h2>
+<p>The frontend is everything you can see and touch. Its job is to make a complicated thing feel simple.</p>
+<h3 id="41-the-single-most-important-frontend-idea-here">4.1 The single most important frontend idea here</h3>
+<p>There are two places work can happen: <strong>on the server</strong>, before the page is sent to you, or <strong>in your browser</strong>, after it arrives.</p>
+<blockquote><p>Think of a restaurant. Some things happen in the <strong>kitchen</strong> before the plate reaches you. Other things happen <strong>at your table</strong> — pouring water, adding salt. Both are needed. Doing kitchen work at the table is slow and messy.</p></blockquote>
+<p>In this app, <strong>48 of 94 screen files run in your browser</strong>. The other half run only on the server. That is a deliberate default: <em>server unless there is a reason</em>.</p>
+<p><strong>Why prefer the server?</strong></p>
+<div class="tablewrap"><table><thead><tr><th>Server does the work</th><th>Browser does the work</th></tr></thead><tbody><tr><td>Page arrives finished</td><td>Page arrives empty, then fills in</td></tr><tr><td>No delay while code downloads</td><td>You wait for code, then wait for data</td></tr><tr><td>Database access is safe here</td><td>Secrets would be visible to anyone</td></tr><tr><td>Works on a slow phone</td><td>Struggles on a slow phone</td></tr></tbody></table></div>
+<p>The last row decided it. Many of this app&#x27;s users are on mid-range Android phones on mobile data. Every kilobyte of code is a real wait for them.</p>
+<p>Anything <strong>interactive</strong> — a form, a dropdown, the text editor — must run in the browser, and those files say <code>&quot;use client&quot;</code> at the top.</p>
+<h3 id="42-forms-react-hook-form-and-zod">4.2 Forms: react-hook-form and Zod</h3>
+<p>A form seems easy until you list what it must do: remember what you typed, validate it, show errors next to the right box, disable the button while saving, and not re-draw the entire screen on every keystroke.</p>
+<p><strong>react-hook-form</strong> handles that. Its trick is that it does <strong>not</strong> re-draw the page as you type. Typing 40 characters redraws the page 40 times in the naive approach; this does it approximately never.</p>
+<p><strong>Zod</strong> describes what <em>valid</em> means, once:</p>
+<div class="code"><pre><code>signUpSchema = {
+  name:        text, at least 2 characters
+  email:       must look like an email
+  password:    must pass the password rules
+  country:     text, at least 2 characters
+}</code></pre></div>
+<p><strong>The valuable part:</strong> that same description is used in the browser <strong>and</strong> on the server. One definition, two places. They cannot disagree — and the server one is the one that actually protects you, because the browser can be bypassed.</p>
+<div class="tablewrap"><table><thead><tr><th>Option</th><th>Why not</th></tr></thead><tbody><tr><td><strong>react-hook-form + Zod</strong> ✅</td><td>Chosen: fast, and one shared definition of valid</td></tr><tr><td>Plain React state</td><td>You write all of it yourself, and re-draw constantly</td></tr><tr><td>Formik</td><td>Popular, older, re-draws more</td></tr><tr><td>Yup</td><td>Fine validator, weaker TypeScript support than Zod</td></tr></tbody></table></div>
+<h3 id="43-a-small-bug-worth-learning-from">4.3 A small bug worth learning from</h3>
+<p>The password checklist needed to watch what you were typing. The obvious way:</p>
+<div class="code"><pre><code>form.watch(&quot;password&quot;)</code></pre></div>
+<p>The code checker flagged it. React&#x27;s newer optimiser cannot safely speed up code using <code>watch()</code>, because it cannot tell when the value really changed.</p>
+<p>The fix was one word:</p>
+<div class="code"><pre><code>useWatch({ control: form.control, name: &quot;password&quot; })</code></pre></div>
+<p>Same result, and it subscribes to just that one field. <strong>The lesson:</strong> when a tool warns you about something that &quot;works fine&quot;, it is usually warning about something that will stop working fine later.</p>
+<h3 id="44-two-kinds-of-memory">4.4 Two kinds of memory</h3>
+<p>An app remembers two very different things.</p>
+<p><strong>Server state</strong> — things that live in the database: your projects, your requirements. The browser only ever holds a <em>copy</em>, which can go stale.</p>
+<p><strong>Client state</strong> — things that only matter right now, on your screen: which section is selected, whether a menu is open. Nobody else needs to know.</p>
+<p>Beginners store both the same way, and it causes endless bugs. This app uses different tools for each:</p>
+<ul><li><strong>TanStack Query</strong> for server state. It fetches, caches, and knows when a copy</li></ul>
+<p>  is stale (after 30 seconds, here).</p>
+<ul><li><strong>Zustand</strong> for client state. About twenty lines to hold &quot;which section is</li></ul>
+<p>  selected&quot;.</p>
+<p><strong>An honest note:</strong> TanStack Query is used in exactly <strong>one</strong> file. Most pages load their data on the server instead, which needs no fetching library at all. It earns its place for the editor and nowhere else. That is worth admitting — a dependency used once is a dependency worth questioning.</p>
+<div class="tablewrap"><table><thead><tr><th>Option</th><th>Why not</th></tr></thead><tbody><tr><td><strong>Zustand</strong> ✅</td><td>Chosen: tiny, no ceremony</td></tr><tr><td>Redux</td><td>Powerful, lots of boilerplate; far too much for one selected id</td></tr><tr><td>React Context</td><td>Free, but re-draws everything underneath it on every change</td></tr></tbody></table></div>
+<h3 id="45-the-text-editor-tiptap">4.5 The text editor: TipTap</h3>
+<p>The proposal editor needs bold, italic, headings, lists — and to give us the content back as structured data, not a screenshot.</p>
+<p><strong>TipTap</strong> provides that. It is a layer over a serious editing engine (ProseMirror), which is genuinely hard to use directly.</p>
+<div class="tablewrap"><table><thead><tr><th>Option</th><th>Why not</th></tr></thead><tbody><tr><td><strong>TipTap</strong> ✅</td><td>Chosen: solid foundation, sane API</td></tr><tr><td>A plain <code>&lt;textarea&gt;</code></td><td>No formatting at all</td></tr><tr><td><code>contentEditable</code> by hand</td><td>Famously the worst API in the browser</td></tr><tr><td>Quill / Draft.js</td><td>Older, less actively maintained</td></tr></tbody></table></div>
+<h3 id="46-styling-tailwind-and-design-tokens">4.6 Styling: Tailwind and design tokens</h3>
+<p><strong>Tailwind</strong> lets you style by putting small named classes directly on elements: <code>className=&quot;flex items-center gap-3&quot;</code> means &quot;lay these out in a row, line them up, put a gap between them&quot;.</p>
+<p>It looks cluttered at first. The payoff: you never invent a name for something you will only use once, and you cannot accidentally break a different page by editing a shared stylesheet.</p>
+<p><strong>Tokens</strong> are the important half. Colours are never written directly. Instead:</p>
+<div class="code"><pre><code>--primary: 176 76% 26%      ← in normal mode: a deep teal
+--primary: 174 72% 42%      ← in dark mode:   a brighter teal</code></pre></div>
+<p>Everything says &quot;use primary&quot;. Switching to dark mode changes those definitions once, and the whole app follows. Nothing anywhere says &quot;teal&quot;.</p>
+<h3 id="47-buttons-and-dropdowns-radix">4.7 Buttons and dropdowns: Radix</h3>
+<p>Building a dropdown that fully works is much harder than it looks. It must handle keyboard arrows, Escape, focus moving correctly, screen readers, and closing when you click away.</p>
+<p><strong>Radix</strong> provides these <strong>unstyled</strong> — all behaviour, no appearance. We add the appearance with Tailwind.</p>
+<div class="tablewrap"><table><thead><tr><th>Option</th><th>Why not</th></tr></thead><tbody><tr><td><strong>Radix</strong> ✅</td><td>Chosen: correct behaviour, our own look</td></tr><tr><td>Build them ourselves</td><td>Months of work, and accessibility bugs forever</td></tr><tr><td>Material UI / Chakra</td><td>Complete, but bring their own look you then fight</td></tr></tbody></table></div>
+<h3 id="48-one-way-to-tell-you-something-went-wrong">4.8 One way to tell you something went wrong</h3>
+<p>Every message the app shows comes from <strong>one file</strong>, written under five rules:</p>
+<ol><li><strong>Never leak internal detail.</strong> <code>CredentialsSignin</code> is not a sentence.</li><li><strong>Never reveal whether an account exists.</strong></li><li><strong>Say what happened and what to do next.</strong></li><li><strong>Do not blame the reader.</strong> No &quot;you entered it wrong&quot;. No exclamation marks.</li><li><strong>Do not over-apologise</strong> either. One clear sentence.</li></ol>
+<p>And one component draws them all, so a failure and a success never look like the same sentence in different colours. Each carries an <strong>icon as well as a colour</strong>, because colour alone is not readable by everyone — roughly 1 in 12 men has some colour blindness.</p>
+<h3 id="49-the-bug-that-hid-a-fix">4.9 The bug that hid a fix</h3>
+<p>The best frontend bug in the project.</p>
+<p>The plan: if sign-in fails because your email is unconfirmed, show a button offering a fresh link. The code did this:</p>
+<div class="code"><pre><code>if (the error message == &quot;Confirm your email address before signing in...&quot;)
+    show the button</code></pre></div>
+<p>It compared the shown error against the official message. Sensible.</p>
+<p><strong>But the same sentence existed in two files.</strong> One file threw the error; the other held the text the check compared against. They had drifted apart by a few words.</p>
+<p>So the comparison <strong>never matched</strong>. The button would never have appeared. The escape hatch for locked-out users existed — and was unreachable.</p>
+<p>It was caught by <em>actually signing up and getting locked out</em>, and noticing the message on screen did not match the one in the code.</p>
+<p><strong>Two lessons.</strong> First: never write the same sentence in two places; write it once and point at it. Second: a feature you have not used yourself is a feature you have not tested.</p>
+<h3 id="410-no-flash-of-the-wrong-colour">4.10 No flash of the wrong colour</h3>
+<p>If you use dark mode, a badly-built app flashes white for a moment before switching. That flash is the browser drawing the page before the code deciding your theme has run.</p>
+<p>The fix: a tiny script that runs <strong>during</strong> the page&#x27;s construction, before anything is drawn, and sets the theme immediately.</p>
+<p>That script is a small security problem too — the app&#x27;s security policy blocks inline scripts, exactly to stop injected ones. So this one is allowed by its <strong>fingerprint</strong>: a hash of its exact contents. Change one character and it stops being allowed. A test checks this, so a silent change breaks the build rather than the page.</p>
+</section>
+<section class="part" id="part-5-design"><p class="eyebrow">Part 5</p><h2>Design</h2>
+<p>Design is not &quot;making it pretty&quot;. It is making it <strong>understandable</strong>. A beautiful screen nobody can use has failed.</p>
+<h3 id="51-colour-defined-once">5.1 Colour, defined once</h3>
+<p>Every colour in the app has a name and a job:</p>
+<div class="tablewrap"><table><thead><tr><th>Name</th><th>Job</th><th>Normal mode</th><th>Dark mode</th></tr></thead><tbody><tr><td><code>background</code></td><td>The page behind everything</td><td>Near-white</td><td>Near-black</td></tr><tr><td><code>foreground</code></td><td>Ordinary text</td><td>Near-black</td><td>Near-white</td></tr><tr><td><code>primary</code></td><td>The brand; main buttons</td><td>Deep teal</td><td>Brighter teal</td></tr><tr><td><code>muted-foreground</code></td><td>Less important text</td><td>Grey</td><td>Lighter grey</td></tr><tr><td><code>destructive</code></td><td>Danger — delete, errors</td><td>Red</td><td>Brighter red</td></tr><tr><td><code>accent</code></td><td>Highlights</td><td>Amber</td><td>Brighter amber</td></tr></tbody></table></div>
+<p>Two things make this work:</p>
+<p><strong>Every colour comes in pairs.</strong> <code>primary</code> always travels with <code>primary-foreground</code> — the colour guaranteed to be readable <em>on</em> it. You never have to wonder whether white text will show up on that button.</p>
+<p><strong>The teal changes between modes.</strong> The deep teal that looks rich on white is too dark on a black page. So dark mode uses a brighter one. This is why &quot;just invert the colours&quot; produces bad dark modes — the <em>relationships</em> have to be rebuilt, not flipped.</p>
+<h3 id="52-the-logo-and-how-it-was-picked">5.2 The logo, and how it was picked</h3>
+<p>The app shipped for a long time with a teal square containing the letters &quot;TF&quot;. A placeholder.</p>
+<p><strong>Ten designs were drawn and looked at.</strong> That mattered — several ideas that sounded good on paper failed the moment they were on screen:</p>
+<div class="tablewrap"><table><thead><tr><th>Idea</th><th>What it actually looked like</th></tr></thead><tbody><tr><td>An abstract &quot;flowing T&quot;</td><td>A cursive lowercase <em>t</em></td></tr><tr><td>Stacked chevrons</td><td>The fast-forward button on a video player</td></tr><tr><td>Stacked bars</td><td>The &quot;align text&quot; icon in a word processor</td></tr><tr><td>A shield with a tick</td><td>Antivirus software</td></tr><tr><td><strong>A folded page with rising bars</strong> ✅</td><td>A document that is doing well</td></tr></tbody></table></div>
+<p>The winner says what the product <em>is</em> on sight — a document tool — which matters for something sitting in a list beside other business software.</p>
+<p><strong>The tie-break was a technical test.</strong> The runner-up was the same page with a rising arrow. The bars won because at <strong>16 pixels</strong> — the size of the little icon in a browser tab — three separate vertical strokes stay readable, while a diagonal arrow blurs into a smudge.</p>
+<blockquote><p><strong>The lesson:</strong> a logo is not judged at poster size. It is judged at the smallest size it must survive.</p></blockquote>
+<p>The mark is also <strong>drawn in code</strong>, not saved as a picture, so it can take its colours from the theme. A fixed-colour picture would either wash out on dark or glare on light.</p>
+<h3 id="53-designing-for-email-which-is-a-hostile-place">5.3 Designing for email, which is a hostile place</h3>
+<p>Email is roughly 20 years behind the web. Modern layout tools do not work. Outlook uses Microsoft Word to draw emails.</p>
+<p><strong>The problem we hit.</strong> The logo was added as a single image at the top. It looked lovely — and then it was tested with images blocked, which is the <strong>default</strong> in most email programs. The header was completely empty: an image with a fixed 32-pixel size collapses to an empty box, and its alt text is clipped out of sight.</p>
+<p><strong>The fix:</strong> the mark stays an image, but the words &quot;TenderFlow AI&quot; are <strong>real text</strong> beside it.</p>
+<div class="tablewrap"><table><thead><tr><th>Images on</th><th>Images off</th></tr></thead><tbody><tr><td>Logo + wordmark</td><td>Wordmark still reads</td></tr></tbody></table></div>
+<p>And because the words are there, the image is marked <strong>decorative</strong> with empty alt text — otherwise a screen reader would announce the brand twice.</p>
+<p>Other email-specific compromises, each with a reason:</p>
+<ul><li>Laid out with an old-fashioned <code>&lt;table&gt;</code>, because Outlook ignores modern</li></ul>
+<p>  layout.</p>
+<ul><li>The image is sent at 128 pixels but shown at 32, so it stays sharp on</li></ul>
+<p>  high-resolution screens.</p>
+<ul><li>Size is set as an <strong>attribute</strong> as well as a style, because Outlook ignores</li></ul>
+<p>  the style.</p>
+<ul><li>Buttons are <code>inline-block</code>, without which some programs drop the padding and</li></ul>
+<p>  the button collapses into plain underlined text.</p>
+<h3 id="54-accessibility-as-a-design-constraint">5.4 Accessibility, as a design constraint</h3>
+<p>Not an add-on. Baked in:</p>
+<ul><li><strong>Colour is never the only signal.</strong> Every status carries an icon or a shape</li></ul>
+<p>  too.</p>
+<ul><li><strong>Everything works from the keyboard.</strong> Some people cannot use a mouse.</li><li><strong>Focus is always visible</strong> — you can see where you are.</li><li><strong>Screen readers get the right announcements</strong>: errors interrupt; confirmations</li></ul>
+<p>  wait their turn.</p>
+<ul><li><strong>Motion can be turned off</strong>, respecting the setting people with vestibular</li></ul>
+<p>  disorders use.</p>
+<p>One small, thoughtful detail: the show-password eye is deliberately <strong>skipped</strong> when you press Tab. Someone tabbing out of the password field expects the sign-in button, not a control they never asked for. It is still reachable by clicking, and still announced properly.</p>
+<h3 id="55-words-are-design-too">5.5 Words are design too</h3>
+<p>Compare:</p>
+<div class="tablewrap"><table><thead><tr><th>Before</th><th>After</th></tr></thead><tbody><tr><td><code>CredentialsSignin</code></td><td>That email and password combination doesn&#x27;t match an account. Check them and try again.</td></tr><tr><td>Invalid signup details</td><td>Password needs: an uppercase letter</td></tr><tr><td>Something went wrong</td><td>This password has appeared in 253,616 known data breaches. Choose a different one.</td></tr></tbody></table></div>
+<p>The right-hand column tells you <strong>what happened</strong> and <strong>what to do</strong>. It also never blames you and never shouts. There is a test that fails the build if any message contains an exclamation mark or the phrase &quot;you failed&quot; — because tone is the thing that quietly rots as a codebase grows.</p>
+</section>
+<section class="part" id="part-6-product-management"><p class="eyebrow">Part 6</p><h2>Product management</h2>
+<p>Product management answers: <strong>what should we build, for whom, and why not the other thing?</strong> Every &quot;yes&quot; is a &quot;no&quot; to something else.</p>
+<h3 id="61-the-problem-stated-precisely">6.1 The problem, stated precisely</h3>
+<blockquote><p>A small company in Nigeria wants to bid for a contract. The rulebook is 80 pages. Missing one rule means instant rejection. Big competitors have whole teams for this; the small company has one person doing it at midnight.</p></blockquote>
+<p>Notice what that sentence contains: <strong>who</strong> (small companies), <strong>where</strong> (Nigeria), <strong>what hurts</strong> (rejection over a missed rule), and <strong>why they cannot just try harder</strong> (no team). A problem stated that precisely answers most design questions on its own.</p>
+<h3 id="62-the-constraints-that-shaped-everything">6.2 The constraints that shaped everything</h3>
+<p>Real projects are shaped more by limits than by ambitions:</p>
+<div class="tablewrap"><table><thead><tr><th>Constraint</th><th>What it forced</th></tr></thead><tbody><tr><td><strong>No money to spend</strong> until customers pay</td><td>Every service must have a free tier and a working fallback</td></tr><tr><td><strong>Nigerian market</strong></td><td>Paystack, not Stripe. Prices in Naira</td></tr><tr><td><strong>Users on mobile data</strong></td><td>Server-rendered pages; small downloads</td></tr><tr><td><strong>Solo developer</strong></td><td>One codebase, one language, no microservices</td></tr><tr><td><strong>Enterprise buyers</strong></td><td>Audit logs, teams, roles, privacy and terms pages — before they will sign</td></tr></tbody></table></div>
+<p>That first row explains a surprising amount. AI has a local fallback. Storage has a local fallback. Rate limiting has a local fallback. Not architectural purity — the inability to pay for reliability, turned into a design principle that turned out to be better anyway.</p>
+<h3 id="63-the-order-things-were-built-in">6.3 The order things were built in</h3>
+<p>Ordering is most of product management. This is roughly what happened:</p>
+<ol><li><strong>Upload a document and get requirements out of it.</strong> The core magic. Without</li></ol>
+<p>   this the product has no reason to exist.</p>
+<ol><li><strong>Show the checklist.</strong> The magic made visible.</li><li><strong>Accounts and projects.</strong> Now people can keep their work.</li><li><strong>Drafting.</strong> Move from &quot;tells me what to do&quot; to &quot;helps me do it&quot;.</li><li><strong>Export.</strong> Without a file to submit, the whole thing is a toy.</li><li><strong>Payments.</strong> Only once it was worth paying for.</li><li><strong>Teams.</strong> Only once single users were happy.</li><li><strong>Security hardening.</strong> Before real customer data arrives.</li></ol>
+<p><strong>Why this order?</strong> Each step is useless without the one before it. Building teams before drafting would mean several people collaborating on nothing.</p>
+<p>A common mistake is building step 6 first, because payments feel like &quot;the business&quot;. You cannot charge for a product that does not work yet.</p>
+<h3 id="64-free-limits-as-a-product-decision-not-a-technical-one">6.4 Free limits as a product decision, not a technical one</h3>
+<div class="tablewrap"><table><thead><tr><th></th><th>Starter (free)</th><th>Pro</th></tr></thead><tbody><tr><td>Document uploads / month</td><td>100</td><td>500</td></tr><tr><td>AI generations / month</td><td>10</td><td>100</td></tr><tr><td>Price</td><td>Free</td><td>₦5,000 / month</td></tr></tbody></table></div>
+<p>The interesting number is <strong>10 AI generations</strong>. That is enough to genuinely finish one real bid — so a new user can experience winning something, not just sampling. It is not enough to run a bid business on. The free tier is designed to prove the value, then run out at exactly the point where the product has started earning its keep.</p>
+<p>The limit is a <strong>soft cap</strong>: it blocks a new action once you have hit the limit, rather than refusing an action that <em>might</em> exceed it. Since one request can produce several sections, predicting is unreliable — so it does not try.</p>
+<h3 id="65-decisions-that-cost-usability-to-earn-trust">6.5 Decisions that cost usability to earn trust</h3>
+<p>Three places where the harder path was chosen, with the cost stated honestly.</p>
+<p><strong>1. Signup will not tell you if an email is already registered.</strong></p>
+<p><em>The cost:</em> someone who forgot they had an account gets a confusing &quot;check your inbox&quot; instead of &quot;you already have an account&quot;.</p>
+<p><em>The reason:</em> otherwise anyone can type emails into your signup form and learn who your customers are. For a product where customers are companies bidding on contracts, &quot;who uses TenderFlow&quot; is commercially sensitive.</p>
+<p><em>The compromise:</em> the answer still gets delivered — by email, to the person who actually owns the address. They are told an account exists, with links to sign in or reset. And if it was not them, they learn someone else just tried.</p>
+<p><strong>2. New accounts must confirm their email before signing in.</strong></p>
+<p><em>The cost:</em> one extra step, and total dependence on email delivery.</p>
+<p><em>The reason:</em> an unconfirmed account can be created for an address you do not own.</p>
+<p><em>The compromise:</em> it applies <strong>only to new accounts</strong>. Everyone who signed up earlier is unaffected — verified against the real database before shipping, where <strong>0</strong> existing accounts were locked out. And because email had genuinely been broken for weeks, there is now a way to request a fresh link <strong>without signing in</strong> — otherwise the people who most needed it would have been the ones who could not ask.</p>
+<p><strong>3. Sign-in does not tell you which part was wrong.</strong></p>
+<p><em>The cost:</em> slightly less helpful.</p>
+<p><em>The reason:</em> &quot;no account with that email&quot; is a free membership check for anyone who asks.</p>
+<h3 id="66-what-is-deliberately-not-built">6.6 What is deliberately not built</h3>
+<p>Knowing what to leave out matters as much as what to include:</p>
+<div class="tablewrap"><table><thead><tr><th>Not built</th><th>Why</th></tr></thead><tbody><tr><td>Real-time collaborative editing</td><td>Very hard; bid teams are small and rarely type at once</td></tr><tr><td>A job queue</td><td>Current volumes do not need one. Real complexity, real cost</td></tr><tr><td>Automatic recurring billing</td><td>Needs a payment relationship that does not exist yet; renewal reminders cover it</td></tr><tr><td>Mobile apps</td><td>The website works on phones. Two more codebases would not pay for themselves</td></tr><tr><td>OCR for scanned PDFs</td><td>Genuinely wanted, genuinely expensive. For now the app <em>says clearly</em> it cannot read the file, which is better than pretending</td></tr></tbody></table></div>
+<p>That last row is the pattern worth copying: when you cannot solve something, <strong>failing clearly</strong> beats failing silently.</p>
+<h3 id="67-how-quality-is-actually-kept">6.7 How quality is actually kept</h3>
+<p>Not by intention — by making the computer check:</p>
+<ul><li><strong>250 automated tests</strong> across the two tiers.</li><li><strong>Type checking</strong> — the computer proves the pieces fit before it will build.</li><li><strong>Linting</strong> — an automatic reviewer catching known mistakes.</li><li>**Tests that pin <em>behaviour</em>, not text.** The password placeholder test checks</li></ul>
+<p>  it is valid and correctly costly, not that it equals a particular string. So   the test still protects you after someone edits the value.</p>
+<ul><li><strong>Tone tests.</strong> The build fails if a user-facing message contains an</li></ul>
+<p>  exclamation mark or blames the reader.</p>
+<p>That last one is unusual and worth stealing. Writing quality decays as a codebase grows and many hands touch it. Making it a test makes it survive.</p>
+</section>
+<section class="part" id="appendix-a-every-package-explained"><p class="eyebrow">Appendix A</p><h2>Every package, explained</h2>
+<blockquote><p><strong>A package</strong> (or <strong>library</strong>) is code somebody else wrote that you borrow instead of writing it yourself. You list the ones you want, and a tool downloads them. Every package is a trade. You get working code for free — and you take on someone else&#x27;s bugs, someone else&#x27;s security holes, and a download your users must wait for. So each one should earn its place.</p></blockquote>
+<p>This project has <strong>41 packages it ships with</strong> and <strong>~19 development tools</strong>. Here is every one.</p>
+<h3 id="the-foundation">The foundation</h3>
+<p>**<code>next</code>** — The framework. Provides page routing, server rendering, the API routes, and the build system. Everything else sits on it. <em>Why not alternatives:</em> Remix is excellent and similar; Astro is better for content sites but weaker for app-like interactivity; plain React would require building the backend separately. Next won on having pages and backend in one project.</p>
+<p>**<code>react</code><strong> and </strong><code>react-dom</code>** — The library that turns data into screens. You describe what the screen <em>should</em> look like for some data, and React works out the minimum changes needed. <code>react</code> is the thinking; <code>react-dom</code> is the part that actually touches the browser. <em>Why not alternatives:</em> Vue and Svelte are both very good — Svelte produces smaller downloads. React won on the size of its ecosystem: TipTap, Radix, react-hook-form and TanStack Query all exist for React first.</p>
+<p>**<code>typescript</code>** — Adds types to JavaScript. You say &quot;this is a number&quot;, and if you later treat it as text, the computer refuses to build. <em>Why it matters here:</em> the same shapes travel from database to server to screen. Types are what make a change in one place break loudly in the others, instead of quietly in front of a customer.</p>
+<h3 id="talking-to-the-database">Talking to the database</h3>
+<p>**<code>prisma</code><strong> (tool) and </strong><code>@prisma/client</code>** (code) — You describe your tables once; Prisma creates them and generates type-safe code to read and write them. <em>Why not:</em> raw SQL gives total control and zero safety; TypeORM and Sequelize have weaker type safety; Drizzle is a genuinely good lighter alternative that lost on migration tooling maturity.</p>
+<p>**<code>@prisma/adapter-pg</code>** — The piece that lets Prisma talk to PostgreSQL specifically.</p>
+<p>**<code>pg</code>** — The low-level PostgreSQL driver the adapter uses underneath. You never call it directly.</p>
+<h3 id="signing-in-and-staying-safe">Signing in and staying safe</h3>
+<p>**<code>next-auth</code>** — Handles sessions: proving who you are and remembering it across pages. Manages the cookies, the tokens, and the sign-in flow. <em>Why not:</em> Clerk and Auth0 are excellent and cost money — impossible under a no-spend constraint. Rolling your own session handling is a classic way to ship a security hole. <em>Honest note:</em> this is v4. v5 exists but was in beta when this was built, and authentication is the wrong place to be an early adopter.</p>
+<p>**<code>@auth/prisma-adapter</code>** — Connects next-auth to our database, so sessions and accounts are stored in our own tables.</p>
+<p>**<code>bcryptjs</code>** — Scrambles passwords one-way (§3.5). The <code>js</code> means it is written in pure JavaScript, so it installs anywhere without needing compilation — which matters on serverless hosts. <em>Why not:</em> the native <code>bcrypt</code> is faster but needs compiling per platform. Argon2 is stronger but the same install problem, worse.</p>
+<p>**<code>@upstash/ratelimit</code><strong> and </strong><code>@upstash/redis</code>** — Counting how many times someone has tried something, in a shared place all servers can see. Redis is a very fast store; Upstash is a version that works over plain web requests, which serverless functions need. <em>Why not:</em> a normal Redis needs a permanent connection, which serverless functions cannot hold. Counting in memory does not work when each request may land on a different machine.</p>
+<h3 id="reading-and-writing-documents">Reading and writing documents</h3>
+<p>**<code>pdf-parse</code>** — Pulls text out of PDFs. <em>Its limitation, which shapes the product:</em> it can only read PDFs that <em>contain</em> text. A scanned page is a photograph, and no text-extractor can read it. That is why the app detects this and says so, rather than showing an empty checklist.</p>
+<p>**<code>mammoth</code>** — Pulls text out of Word <code>.docx</code> files. Chosen because it converts to clean, simple output rather than trying to reproduce Word&#x27;s formatting mess.</p>
+<p>**<code>docx</code>** — <em>Creates</em> Word files, for export. Builds real <code>.docx</code> documents that open properly in Word, Google Docs, and LibreOffice.</p>
+<p>**<code>pdfkit</code>** — <em>Creates</em> PDF files, for export. <em>Why two export libraries:</em> because buyers demand specific formats, and &quot;just send a PDF&quot; is not always allowed.</p>
+<h3 id="the-ai-part">The AI part</h3>
+<p>**<code>@google/genai</code>** — The official client for Google&#x27;s Gemini models. Used to read tender documents more intelligently than our own recipes can, and to help draft proposals. <em>Why Gemini:</em> it has a genuinely usable free tier, which was decisive under the no-spend constraint. OpenAI and Anthropic models are strong alternatives; both cost money from the first request. <em>How it is used carefully:</em> the app asks for JSON specifically, validates the shape of what comes back with Zod, and if anything at all goes wrong, silently falls back to the local recipes.</p>
+<h3 id="storing-files">Storing files</h3>
+<p>**<code>@supabase/supabase-js</code>** — Talks to Supabase, which provides both the PostgreSQL database and file storage on a free tier. <em>Why it is needed:</em> most modern hosting has a <strong>read-only</strong> filesystem. You cannot simply save an uploaded file next to your code. It has to go somewhere built for it. <em>The fallback:</em> if Supabase is not configured, files save to local disk — which is fine for development and would lose files in production. The code says so plainly in a comment.</p>
+<h3 id="building-screens">Building screens</h3>
+<p>**<code>react-hook-form</code>** — Form state without redrawing on every keystroke (§4.2).</p>
+<p>**<code>zod</code>** — Describes what valid data looks like, and checks it. Used for form input, API input, and validating AI responses. <em>The special thing about it:</em> the description is also the type. One definition gives you both the runtime check and the compile-time type — they cannot drift. <em>Why not:</em> Yup is similar with weaker TypeScript; Joi is server-only; hand-written checks drift from your types immediately.</p>
+<p>**<code>@hookform/resolvers</code>** — The small adapter letting react-hook-form use a Zod description directly.</p>
+<p>**<code>@radix-ui/*</code>** (7 packages) — Unstyled, fully accessible building blocks: <code>alert-dialog</code> (confirm before deleting), <code>checkbox</code>, <code>popover</code> (the account menu), <code>select</code> (dropdowns), <code>tabs</code>, <code>tooltip</code>, and <code>slot</code> (a utility for composing components). <em>Why unstyled matters:</em> you get years of accessibility work — keyboard handling, focus management, screen reader support — and still control every pixel.</p>
+<p>**<code>@tanstack/react-query</code>** — Fetching and caching server data (§4.4). Used in one file.</p>
+<p>**<code>zustand</code>** — Small client-side state (§4.4). About 1KB.</p>
+<p>**<code>@tiptap/react</code><strong> and </strong><code>@tiptap/starter-kit</code>** — The rich text editor (§4.5). <code>starter-kit</code> bundles the usual extensions: bold, italic, headings, lists.</p>
+<p>**<code>lucide-react</code>** — The icons. Clean, consistent, and imported one at a time so only the ones used get downloaded. <em>Why not:</em> Font Awesome ships enormous files; Heroicons is smaller but has fewer icons; emoji are inconsistent across platforms and read badly to screen readers.</p>
+<h3 id="styling">Styling</h3>
+<p>**<code>tailwindcss</code>** — Styling with small utility classes (§4.6).</p>
+<p>**<code>tailwindcss-animate</code>** — Adds animation utilities, used for menus and dialogs appearing.</p>
+<p>**<code>clsx</code>** — Joins class names together conditionally. <code>clsx(&quot;base&quot;, isActive &amp;&amp; &quot;active&quot;)</code>.</p>
+<p>**<code>tailwind-merge</code>** — Solves a real Tailwind problem: if two conflicting classes end up on one element (<code>p-2</code> and <code>p-4</code>), which wins is unpredictable. This resolves them properly, keeping the last. <em>Together</em> these two make the <code>cn()</code> helper used throughout the codebase.</p>
+<p>**<code>class-variance-authority</code>** — Lets a component have named variants — a button that is <code>primary</code> or <code>destructive</code>, <code>small</code> or <code>large</code> — without a tangle of conditionals.</p>
+<p>**<code>postcss</code><strong> and </strong><code>autoprefixer</code>** — Build-time CSS tools. PostCSS is the processor Tailwind runs inside; autoprefixer adds the browser-specific prefixes some CSS still needs.</p>
+<h3 id="keeping-it-running">Keeping it running</h3>
+<p>**<code>@sentry/nextjs</code>** — Error tracking. When something breaks for a real user, this records what happened and where. <em>Why it matters:</em> without it you find out about bugs when someone complains, which is both late and rare — most people just leave.</p>
+<p>**<code>dotenv</code>** — Loads settings (database address, API keys) from a <code>.env</code> file, so secrets live outside the code and never reach version control.</p>
+<h3 id="development-tools">Development tools</h3>
+<p>**<code>eslint</code><strong>, </strong><code>eslint-config-next</code><strong>, </strong><code>@eslint/eslintrc</code>** — The automatic code reviewer. Catches unused variables, likely mistakes, and framework-specific errors. This is what caught the <code>watch()</code> problem in §4.3.</p>
+<p>**<code>tsx</code>** — Runs TypeScript files directly, without compiling first. Used for scripts and the test runner.</p>
+<p>**<code>@types/*</code>** (7 packages) — Type descriptions for libraries written in plain JavaScript, so TypeScript can still check your use of them.</p>
+<h3 id="two-honest-admissions">Two honest admissions</h3>
+<p>**<code>better-sqlite3</code><strong> and </strong><code>@prisma/adapter-better-sqlite3</code><strong> — Leftovers from when the project used SQLite before moving to PostgreSQL. They appear in the build configuration but </strong>nothing imports them**.</p>
+<p>**<code>framer-motion</code><strong> (animation) and </strong><code>date-fns</code><strong> (date formatting) — Both declared, both </strong>used in zero files**. Verified by searching the whole codebase.</p>
+<p>That is four packages being downloaded and installed for nothing. Not a catastrophe, but worth knowing: <strong>dependency lists rot</strong>. Things get added during an experiment and never removed. Checking occasionally is a real maintenance task, and admitting it here is more useful than a tidy list that hides it.</p>
+</section>
+<section class="part" id="appendix-b-what-is-wrong-or-unfinished"><p class="eyebrow">Appendix B</p><h2>What is wrong or unfinished</h2>
+<p>Every real project has this list. Most never write it down.</p>
+<h3 id="unused-packages">Unused packages</h3>
+<div class="tablewrap"><table><thead><tr><th>Package</th><th>Status</th></tr></thead><tbody><tr><td><code>framer-motion</code></td><td>Declared, never imported</td></tr><tr><td><code>date-fns</code></td><td>Declared, never imported</td></tr><tr><td><code>better-sqlite3</code></td><td>Left over from the SQLite era</td></tr><tr><td><code>@prisma/adapter-better-sqlite3</code></td><td>Same</td></tr></tbody></table></div>
+<h3 id="known-weaknesses">Known weaknesses</h3>
+<p><strong>Coverage detection uses exact text matching</strong> (§2.9). It measures copying, not covering. The fix is word-overlap comparison.</p>
+<p><strong>Quality review only finds problems on its list.</strong> A blocklist cannot detect anything it has not been told about.</p>
+<p><strong>No OCR.</strong> Scanned PDFs cannot be read at all. The app says so clearly, which is the right behaviour, but it is a real limitation for government documents that are often scans.</p>
+<p><strong>Rate limiting needs Upstash configured in production.</strong> Without it the counting happens in memory, and on serverless hosting each request may land on a different machine — so the limit barely binds. The code warns loudly about this rather than failing silently.</p>
+<p><strong>TanStack Query is used once.</strong> Worth either using more or removing.</p>
+<h3 id="operational-things-to-know">Operational things to know</h3>
+<p>**<code>NEXT_PUBLIC_APP_URL</code> must be the real deployed address.** Email links, invite links, and the logo in emails are all built from it. A wrong value means links that go nowhere.</p>
+<p><strong>Email delivery is a single point of failure.</strong> New accounts cannot sign in until they confirm by email. If email breaks, signup effectively breaks. This is why the &quot;send me a new link&quot; page exists without needing a sign-in.</p>
+<p>**<code>middleware</code> is deprecated in Next 16.** It still works, and it is what enforces the security policy, but it will need renaming to <code>proxy</code> eventually.</p>
+</section>
+<section class="part" id="where-to-start-reading-the-code"><h2>Where to start reading the code</h2>
+<p>If you want to actually explore it:</p>
+<p><strong>To understand the thinking</strong>, start with <code>src/features/tender-intelligence/pipeline.ts</code>. Pure functions, no database, no network. Everything in Part 2 is in that one file.</p>
+<p><strong>To understand the security</strong>, read <code>src/lib/auth.ts</code> and <code>src/lib/password-policy.ts</code> together, then the tests in <code>src/lib/password-policy.test.ts</code> — they explain the timing attack better than prose can.</p>
+<p><strong>To understand the shape of the data</strong>, read <code>prisma/schema.prisma</code>. All 25 tables, in one file.</p>
+<p><strong>To understand a full request</strong>, follow one upload: <code>src/app/api/projects/[projectId]/documents/route.ts</code> → <code>features/documents/upload.ts</code> → <code>features/documents/parser.ts</code> → <code>server/document-processing.ts</code>.</p>
+<p><strong>To understand the writing</strong>, read <code>src/lib/messages.ts</code>. Small, and the rules at the top explain themselves.</p>
+</section>
+<p><em>Every number in this guide — 253,616 breach sightings, 266 milliseconds, 50 of 65 failing tests, 0 accounts locked out — was measured against this repository, not estimated.</em></p>
+  </main>
+
+  <footer class="colophon">
+    <span>TenderFlow AI · how it was built</span>
+    <span>Every figure measured, not estimated</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var bar = document.getElementById("progress");
+  var links = Array.prototype.slice.call(document.querySelectorAll(".rail a"));
+  var sections = links
+    .map(function (a) { return document.getElementById(a.dataset.target); })
+    .filter(Boolean);
+
+  function onScroll() {
+    var h = document.documentElement;
+    var max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + "%";
+  }
+  document.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+
+  // Scroll-spy: mark the last section whose top has passed the reading line.
+  // Steadier here than IntersectionObserver, whose ratios jitter on sections
+  // taller than the viewport - which most of these are.
+  function spy() {
+    var line = window.scrollY + window.innerHeight * 0.28;
+    var current = sections[0];
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].offsetTop <= line) current = sections[i];
+    }
+    links.forEach(function (a) {
+      a.classList.toggle("on", current && a.dataset.target === current.id);
+    });
+  }
+  document.addEventListener("scroll", spy, { passive: true });
+  window.addEventListener("resize", spy);
+  spy();
+})();
+</script>

@@ -1,0 +1,417 @@
+<title>TenderFlow Go-Live Runbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#f6f8f7; --surface:#fff; --surface-2:#eef2f1;
+  --ink:#0d1a19; --ink-soft:#40514f; --ink-faint:#6b7d7a;
+  --rule:#dce4e2; --rule-soft:#e8eeec;
+  --teal:#0f6b64; --teal-soft:#0f6b6414;
+  --amber:#b45309; --amber-soft:#b4530914;
+  --red:#a8291f; --red-soft:#a8291f14;
+  --code-bg:#eef2f1; --code-ink:#14302d;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0a1413; --surface:#0f1c1b; --surface-2:#162523;
+  --ink:#e6efed; --ink-soft:#a8bab7; --ink-faint:#7b8e8b;
+  --rule:#22322f; --rule-soft:#1a2a28;
+  --teal:#4fd6c4; --teal-soft:#4fd6c41f;
+  --amber:#f0a95c; --amber-soft:#f0a95c1c;
+  --red:#ef8279; --red-soft:#ef82791c;
+  --code-bg:#162523; --code-ink:#cfe4e0;
+}}
+:root[data-theme="dark"]{
+  --ground:#0a1413; --surface:#0f1c1b; --surface-2:#162523;
+  --ink:#e6efed; --ink-soft:#a8bab7; --ink-faint:#7b8e8b;
+  --rule:#22322f; --rule-soft:#1a2a28;
+  --teal:#4fd6c4; --teal-soft:#4fd6c41f;
+  --amber:#f0a95c; --amber-soft:#f0a95c1c;
+  --red:#ef8279; --red-soft:#ef82791c;
+  --code-bg:#162523; --code-ink:#cfe4e0;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Source Serif 4",Georgia,serif;font-size:17px;line-height:1.62;
+  -webkit-font-smoothing:antialiased;font-optical-sizing:auto}
+.wrap{max-width:880px;margin:0 auto;padding:0 clamp(18px,5vw,44px)}
+.mast{padding:clamp(48px,8vw,84px) 0 28px;border-bottom:1px solid var(--rule)}
+.kicker{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:500;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin:0 0 16px}
+h1{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:700;
+  font-size:clamp(2rem,5.2vw,3.1rem);line-height:1.04;letter-spacing:-.028em;
+  text-wrap:balance;margin:0 0 18px}
+.stand{font-size:clamp(1.02rem,2vw,1.14rem);color:var(--ink-soft);max-width:62ch;margin:0 0 24px}
+.meter{display:flex;align-items:center;gap:12px;margin:0}
+.bar{flex:1;height:6px;border-radius:99px;background:var(--surface-2);overflow:hidden;max-width:280px}
+.bar span{display:block;height:100%;width:0;background:var(--teal);transition:width .2s ease}
+.count{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums}
+main{padding:36px 0 110px}
+h2{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:700;
+  font-size:clamp(1.4rem,3vw,1.9rem);line-height:1.14;letter-spacing:-.02em;
+  text-wrap:balance;margin:56px 0 8px}
+p{margin:0 0 14px;max-width:70ch}
+ul,ol{margin:0 0 16px;padding-left:22px;max-width:70ch}
+li{margin-bottom:6px}
+li::marker{color:var(--ink-faint)}
+strong{font-weight:600}
+code{font-family:"JetBrains Mono",monospace;font-size:.84em;background:var(--code-bg);
+  color:var(--code-ink);padding:.14em .38em;border-radius:4px;word-break:break-word}
+pre{margin:0 0 16px;background:var(--code-bg);border:1px solid var(--rule);
+  border-radius:8px;padding:14px 16px;overflow-x:auto}
+pre code{background:none;padding:0;font-size:13px;line-height:1.6;white-space:pre}
+
+.task{border:1px solid var(--rule);border-radius:12px;background:var(--surface);
+  padding:20px 22px;margin:0 0 16px}
+.task.done{opacity:.55}
+.task-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+.task-head input{margin-top:5px;width:18px;height:18px;accent-color:var(--teal);flex:0 0 auto;cursor:pointer}
+.task-title{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:600;
+  font-size:1.1rem;letter-spacing:-.01em;margin:0;flex:1;cursor:pointer}
+.task.done .task-title{text-decoration:line-through}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.tag{font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:4px;white-space:nowrap}
+.t-time{color:var(--ink-faint);background:var(--surface-2)}
+.t-block{color:var(--red);background:var(--red-soft)}
+.t-soon{color:var(--amber);background:var(--amber-soft)}
+.proof{border-left:2px solid var(--teal);background:var(--teal-soft);
+  border-radius:0 8px 8px 0;padding:12px 16px;margin:12px 0 0}
+.proof p{margin:0 0 8px;font-size:.94rem}
+.proof p:last-child{margin-bottom:0}
+.proof .label{font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin-bottom:6px}
+.warn{border-left:2px solid var(--amber);background:var(--amber-soft);
+  border-radius:0 8px 8px 0;padding:12px 16px;margin:12px 0 0;font-size:.94rem}
+.warn p{margin:0}
+.foot{border-top:1px solid var(--rule);padding:22px 0 56px;
+  font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-faint)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header class="mast">
+  <p class="kicker">Go-live runbook · 16 September 2026</p>
+  <h1>Everything left before TenderFlow can take money</h1>
+  <p class="stand">Ten tasks, none of them code. Each one ends with a way to prove it
+  worked — because clicking a setting and assuming is exactly how the email outage
+  survived for weeks.</p>
+  <div class="meter">
+    <div class="bar"><span id="fill"></span></div>
+    <p class="count" id="count">0 of 10 done</p>
+  </div>
+</header>
+
+<main>
+
+<h2>Do these in order</h2>
+<p>The order matters in two places: migrations must land before anything touches
+production, and DNS changes need hours to propagate so they should be started early.
+Everything else is independent.</p>
+
+<div class="task">
+  <div class="task-head">
+    <input type="checkbox" id="t1">
+    <label class="task-title" for="t1">1. Deploy the pending migrations</label>
+    <span class="tags"><span class="tag t-block">Blocks everything</span><span class="tag t-time">10 min</span></span>
+  </div>
+  <p>Three migrations have not reached production. The invoice one creates a database
+  sequence, so the app will error on the first payment without it.</p>
+  <pre><code>npx prisma migrate deploy</code></pre>
+  <p>Run it against the production <code>DATABASE_URL</code>. Never <code>migrate dev</code>,
+  which is interactive and can reset data.</p>
+  <div class="proof">
+    <p class="label">Prove it</p>
+    <pre><code>npx prisma migrate status</code></pre>
+    <p>Must say every migration has been applied. Expect
+    <code>add_document_analysis_notice</code> and <code>add_invoices</code> in the list.</p>
+  </div>
+</div>
+
+<div class="task">
+  <div class="task-head">
+    <input type="checkbox" id="t2">
+    <label class="task-title" for="t2">2. Start the DNS records for email</label>
+    <span class="tags"><span class="tag t-block">Start first</span><span class="tag t-time">30 min + wait</span></span>
+  </div>
+  <p>Do this early: DNS takes hours to propagate, so starting it now means it is ready
+  when you reach the smoke test. Without SPF, DKIM and DMARC, verification emails land
+  in spam — and since new accounts cannot sign in until they confirm, that is signup
+  broken for anyone who does not check their junk folder.</p>
+  <p>In Brevo: <strong>Senders, Domains &amp; Dedicated IPs → Domains → Authenticate</strong>.
+  It gives you a DKIM record and a Brevo SPF include. Add both at your DNS host, then add
+  a DMARC record:</p>
+  <pre><code>Type:  TXT
+Host:  _dmarc
+Value: v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com</code></pre>
+  <p><code>p=none</code> monitors without rejecting anything. Move to
+  <code>p=quarantine</code> only after a few weeks of clean reports.</p>
+  <div class="proof">
+    <p class="label">Prove it</p>
+    <pre><code>dig +short TXT yourdomain.com | grep spf
+dig +short TXT _dmarc.yourdomain.com
+dig +short TXT mail._domainkey.yourdomain.com</code></pre>
+    <p>All three must return a record. Then send yourself a real signup and check the
+    header shows <code>dkim=pass</code> and <code>spf=pass</code>. Or email
+    <a href="https://www.mail-tester.com">mail-tester.com</a> from the app and aim for 9/10
+    or better.</p>
+  </div>
+</div>
+
+<div class="task">
+  <div class="task-head">
+    <input type="checkbox" id="t3">
+    <label class="task-title" for="t3">3. Prove a backup restores</label>
+    <span class="tags"><span class="tag t-block">Blocks launch</span><span class="tag t-time">60 min</span></span>
+  </div>
+  <p>Not "check backups are enabled". An untested backup is not a backup — the failure
+  mode is discovering at the worst possible moment that it has been silently backing up
+  nothing useful.</p>
+  <ol>
+    <li>Supabase → <strong>Database → Backups</strong>. Confirm daily backups exist and
+    note the retention window.</li>
+    <li>Create a <strong>throwaway Supabase project</strong>.</li>
+    <li>Restore yesterday's backup into it.</li>
+    <li>Query it and compare against production.</li>
+  </ol>
+  <div class="proof">
+    <p class="label">Prove it</p>
+    <pre><code>psql "$RESTORED_URL" -c 'SELECT
+  (SELECT count(*) FROM "User")            AS users,
+  (SELECT count(*) FROM "Project")         AS projects,
+  (SELECT count(*) FROM "TenderDocument")  AS documents,
+  (SELECT count(*) FROM "Payment")         AS payments;'</code></pre>
+    <p>Counts should be close to production, allowing for a day of activity. Zero
+    anywhere means the backup is not capturing what you think. Delete the throwaway
+    project afterwards.</p>
+  </div>
+  <div class="warn">
+    <p>Uploaded files live in Supabase <em>Storage</em>, not the database, and are backed
+    up separately. Check that too — a database restore with no documents leaves every
+    project pointing at files that no longer exist.</p>
+  </div>
+</div>
+
+<div class="task">
+  <div class="task-head">
+    <input type="checkbox" id="t4">
+    <label class="task-title" for="t4">4. Configure Upstash</label>
+    <span class="tags"><span class="tag t-soon">Security</span><span class="tag t-time">15 min</span></span>
+  </div>
+  <p>Without it, rate limiting counts in memory — and on serverless each request may hit
+  a fresh instance, so the sign-in throttle barely binds. The code warns about this in
+  production, but the warning only helps if someone reads it.</p>
+  <ol>
+    <li>Create a free Redis database at <a href="https://upstash.com">upstash.com</a>,
+    in a region near your users.</li>
+    <li>Copy the REST URL and token.</li>
+    <li>Set <code>UPSTASH_REDIS_REST_URL</code> and <code>UPSTASH_REDIS_REST_TOKEN</code>
+    in your host's environment variables, then redeploy.</li>
+  </ol>
+  <div class="proof">
+    <p class="label">Prove it</p>
+    <pre><code>curl -H "Authorization: Bearer $CRON_SECRET" \
+  https://yourdomain.com/api/cron/health-check</code></pre>
+    <p>Must return <code>"status":"ok"</code>. If rate limiting is still unconfigured it
+    reports <code>degraded</code> and names it.</p>
+  </div>
+</div>
+
+<div class="task">
+  <div class="task-head">
+    <input type="checkbox" id="t5">
+    <label class="task-title" for="t5">5. Create the Sentry alert rule</label>
+    <span class="tags"><span class="tag t-soon">Do not skip</span><span class="tag t-time">10 min</span></span>
+  </div>
+  <p>This is the step that was missing before. Sentry was recording the Brevo failure
+  correctly the entire time it was broken — nobody was told.</p>
+  <p>Sentry → <strong>Alerts → Create Alert → Issues</strong>. Trigger on
+  <em>a new issue is created</em>, action: email you. Then add a second rule for
+  <em>an issue is seen more than 10 times in an hour</em>, which catches a working
+  feature that has started failing at volume.</p>
+  <div class="proof">
+    <p class="label">Prove it</p>
+    <p>Sentry's alert editor has a <strong>Send Test Notification</strong> button. Use it,
+    and confirm the mail arrives somewhere you will actually see it — not a folder you
+    filter away.</p>
+  </div>
+</div>
+
+<div class="task">
+  <div class="task-head">
+    <input type="checkbox" id="t6">
+    <label class="task-title" for="t6">6. Point an uptime monitor at the health endpoint</label>
+    <span class="tags"><span class="tag t-time">10 min</span></span>
+  </div>
+  <p>Free tiers at UptimeRobot or Better Stack are more than enough. Monitor
+  <code>https://yourdomain.com/api/health</code> every 5 minutes and alert on any
+  non-200.</p>
+  <p>Do not monitor the homepage. It will keep returning 200 from cache while the
+  database is unreachable and every signup is failing — which is precisely the outage
+  you need to hear about.</p>
+  <div class="proof">
+    <p class="label">Prove it</p>
+    <pre><code>curl -i https://yourdomain.com/api/health</code></pre>
+    <p>Expect <code>200</code> and <code>{"status":"ok"}</code>. A <code>503</code> means
+    something is genuinely down — run task 4's command to find out what.</p>
+  </div>
+</div>
+
+<div class="task">
+  <div class="task-head">
+    <input type="checkbox" id="t7">
+    <label class="task-title" for="t7">7. Fill in the invoice details</label>
+    <span class="tags"><span class="tag t-block">Blocks payment</span><span class="tag t-time">10 min</span></span>
+  </div>
+  <p>The invoice prints what you give it and invents nothing. Unset, it issues invoices
+  with no address and no registration number, which a customer's accounts department
+  will reject.</p>
+  <pre><code>INVOICE_SELLER_NAME="TenderFlow AI"
+INVOICE_SELLER_ADDRESS="your registered address"
+INVOICE_SELLER_EMAIL="billing@yourdomain.com"
+INVOICE_SELLER_RC="your CAC registration number"
+INVOICE_SELLER_TIN=""   # leave blank until you have one</code></pre>
+  <div class="warn">
+    <p>Leave <code>INVOICE_TAX_RATE_PERCENT</code> at <code>0</code> until you are
+    registered for VAT with FIRS. Charging VAT without registration is an offence. When
+    you do register, set it to <code>7.5</code> — no code change needed.</p>
+  </div>
+  <div class="proof">
+    <p class="label">Prove it</p>
+    <p>Run one payment through Paystack in test mode. Check the invoice email arrives
+    with a PDF attached, that the PDF carries your real address and RC number, and that
+    the same invoice downloads from <strong>Usage → Invoices</strong>.</p>
+  </div>
+</div>
+
+<div class="task">
+  <div class="task-head">
+    <input type="checkbox" id="t8">
+    <label class="task-title" for="t8">8. Create the addresses the app promises</label>
+    <span class="tags"><span class="tag t-time">20 min</span></span>
+  </div>
+  <p>Three addresses are referenced in the product or its legal pages. An address that
+  bounces is worse than none — the DPA naming a dead mailbox is a compliance failure by
+  itself.</p>
+  <ul>
+    <li><code>privacy@</code> — named in the Data Processing Agreement for data subject
+    requests and breach notifications.</li>
+    <li><code>support@</code> — your support channel.</li>
+    <li><code>billing@</code> — whatever you used for <code>INVOICE_SELLER_EMAIL</code>.</li>
+  </ul>
+  <p>Aliases forwarding to one inbox are fine. Then set
+  <code>ALERT_EMAIL</code> to an address a person reads daily.</p>
+  <div class="proof">
+    <p class="label">Prove it</p>
+    <p>Send a message to each from an outside account and confirm all three arrive.</p>
+  </div>
+</div>
+
+<div class="task">
+  <div class="task-head">
+    <input type="checkbox" id="t9">
+    <label class="task-title" for="t9">9. Publish a support commitment</label>
+    <span class="tags"><span class="tag t-time">30 min</span></span>
+  </div>
+  <p>A business buyer will ask what happens when something breaks. An honest, modest
+  answer beats silence, and beats a promise you cannot keep.</p>
+  <p>Something like: <em>"Email support@yourdomain.com. We reply within one business day,
+  Monday to Friday, 9am–5pm WAT."</em> Put it in the app footer and on the landing page.</p>
+  <div class="warn">
+    <p>Do not claim 24/7 or a one-hour response. A missed commitment in writing is worse
+    than a modest one met every time — and enterprise buyers check.</p>
+  </div>
+</div>
+
+<div class="task">
+  <div class="task-head">
+    <input type="checkbox" id="t10">
+    <label class="task-title" for="t10">10. Walk the whole product as a real customer</label>
+    <span class="tags"><span class="tag t-block">Final gate</span><span class="tag t-time">45 min</span></span>
+  </div>
+  <p>On production, with a real email address you own and a real tender pack — ideally a
+  long one, since that is what the chunking fix was for. Not the demo account, and not
+  staging.</p>
+  <ol>
+    <li>Sign up. The confirmation email arrives in the <strong>inbox, not spam</strong>.</li>
+    <li>Confirm the address and sign in.</li>
+    <li>Create a project and upload a 60+ page tender pack.</li>
+    <li>Check the checklist contains requirements from the <strong>last pages</strong>,
+    not just the first few. This is the fix that mattered most; verify it on real
+    output.</li>
+    <li>Upload a scanned PDF. Either it is transcribed, or you are told clearly that it
+    could not be read. An empty checklist with no explanation is a bug.</li>
+    <li>Draft a section, then export to DOCX and PDF. Open both.</li>
+    <li>Upgrade with a real card. Confirm the invoice email arrives with the PDF
+    attached.</li>
+    <li>Invite a teammate and confirm their invite arrives.</li>
+    <li>Delete the test project, then the test account.</li>
+  </ol>
+  <div class="proof">
+    <p class="label">Prove it</p>
+    <p>Every step completes without you reaching for a database console or a log. If any
+    step needs you to intervene, a customer hitting it will leave instead.</p>
+  </div>
+</div>
+
+<h2>After you open the doors</h2>
+<p>Not launch blockers, but the first things to watch:</p>
+<ul>
+  <li><strong>Re-verify the OCR quality.</strong> Transcription was built and its failure
+  paths tested, but the free-tier quota was exhausted at the time, so the transcription
+  itself has never run against a live model. Test it on a real scanned pack.</li>
+  <li><strong>Watch AI cost.</strong> Chunking multiplies requests by the number of chunks.
+  A 120-page pack is now five requests instead of one. Check the bill after the first
+  week of real use.</li>
+  <li><strong>Move DMARC to <code>p=quarantine</code></strong> once reports are clean.</li>
+  <li><strong>Sell to five customers by hand</strong> before opening it broadly. Watch each
+  one use it. Compliance software gets exactly one reputation.</li>
+</ul>
+
+</main>
+
+<footer class="foot">Generated against commit 4d82fb4 · every command here is runnable as written</footer>
+</div>
+
+<script>
+(function () {
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('.task input[type=checkbox]'));
+  var fill = document.getElementById('fill');
+  var count = document.getElementById('count');
+  var KEY = 'tenderflow-runbook-v1';
+
+  // Per-viewer convenience only. Wrapped because storage throws in private
+  // windows and when site data is blocked, and a runbook that refuses to render
+  // because it cannot remember a tick is worse than one that forgets.
+  function load() {
+    try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function save(state) {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* not fatal */ }
+  }
+
+  var state = load();
+
+  function render() {
+    var done = 0;
+    boxes.forEach(function (box) {
+      box.closest('.task').classList.toggle('done', box.checked);
+      if (box.checked) done++;
+    });
+    fill.style.width = (done / boxes.length) * 100 + '%';
+    count.textContent = done + ' of ' + boxes.length + ' done';
+  }
+
+  boxes.forEach(function (box) {
+    box.checked = Boolean(state[box.id]);
+    box.addEventListener('change', function () {
+      state[box.id] = box.checked;
+      save(state);
+      render();
+    });
+  });
+
+  render();
+})();
+</script>
