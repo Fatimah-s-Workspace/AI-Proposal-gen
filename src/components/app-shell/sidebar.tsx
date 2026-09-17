@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  BookMarked,
   ChevronDown,
   FolderKanban,
   History,
@@ -49,6 +50,7 @@ const navItems: Array<{
 }> = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/library", label: "Library", icon: BookMarked },
   { href: "/usage", label: "Usage", icon: BarChart3 },
   { href: "/activity", label: "Activity", icon: History },
   { href: "/settings/general", label: "Settings", icon: Settings },

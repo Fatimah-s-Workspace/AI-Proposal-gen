@@ -21,6 +21,9 @@ export const AUDIT_ACTIONS = {
   organizationCreate: "organization.create",
   organizationRename: "organization.rename",
   organizationProfileUpdate: "organization.profile_update",
+  libraryEntryCreate: "content_library.create",
+  libraryEntryUpdate: "content_library.update",
+  libraryEntryDelete: "content_library.delete",
   // No organization.delete: AuditLog.organizationId cascades, so deleting an
   // organization removes its own audit trail in the same transaction - the
   // entry could never be read back.

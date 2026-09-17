@@ -10,6 +10,11 @@ export const ACTIVITY_CATEGORIES = [
     label: "Proposals",
     prefixes: ["proposal.", "proposal_section."],
   },
+  {
+    value: "library",
+    label: "Content library",
+    prefixes: ["content_library."],
+  },
   { value: "exports", label: "Exports", prefixes: ["export."] },
   { value: "team", label: "Team", prefixes: ["member."] },
   { value: "workspace", label: "Workspace", prefixes: ["organization."] },

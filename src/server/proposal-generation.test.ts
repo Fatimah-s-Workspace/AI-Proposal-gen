@@ -16,6 +16,10 @@ type FakePrisma = {
   generatedContent: {
     create: (args: { data: Record<string, unknown> }) => Promise<unknown>;
   };
+  contentLibraryEntry: {
+    findMany: (args: unknown) => Promise<unknown[]>;
+    updateMany: (args: { where: unknown; data: unknown }) => Promise<{ count: number }>;
+  };
 };
 
 function createFakePrisma() {
@@ -23,6 +27,9 @@ function createFakePrisma() {
     section: {
       id: "section-1",
       projectId: "project-1",
+      // The draft path reads the workspace from the section's own project so
+      // that a library lookup can never reach across tenants.
+      project: { organizationId: "org-1" },
       content: "existing draft",
       status: "drafting",
       version: 1,
@@ -30,6 +37,8 @@ function createFakePrisma() {
     },
     generation: null as Record<string, unknown> | null,
     generatedContents: [] as Array<Record<string, unknown>>,
+    libraryEntries: [] as Array<Record<string, unknown>>,
+    usageRecordedFor: [] as unknown[],
   };
 
   const prisma: FakePrisma = {
@@ -67,6 +76,15 @@ function createFakePrisma() {
       update: async ({ data }: { data: Record<string, unknown> }) => {
         state.generation = { ...(state.generation ?? {}), ...data };
         return state.generation;
+      },
+    },
+    contentLibraryEntry: {
+      // An empty library by default, which is the state every workspace
+      // starts in. Individual tests replace this to supply entries.
+      findMany: async () => state.libraryEntries,
+      updateMany: async ({ where }: { where: unknown }) => {
+        state.usageRecordedFor.push(where);
+        return { count: state.libraryEntries.length };
       },
     },
     generatedContent: {
@@ -468,4 +486,159 @@ test("rolls back section updates if persistence fails mid-flight", async () => {
 
   assert.equal(state.section.content, "existing draft");
   assert.equal(state.generatedContents.length, 0);
+});
+
+test("an approved library answer reaches the prompt and is counted as used", async () => {
+  process.env.GEMINI_API_KEY = "test-key";
+  const { prisma, state } = createFakePrisma();
+
+  state.libraryEntries.push({
+    id: "lib-1",
+    title: "ISO 27001 certification statement",
+    content: "Certified to ISO 27001:2022 by BSI, certificate number IS 712345.",
+    sectionType: "executive_summary",
+    tags: ["iso", "certification"],
+    timesUsed: 0,
+    archivedAt: null,
+    createdBy: null,
+  });
+
+  let seenPrompt = "";
+  const gemini = {
+    models: {
+      generateContent: async ({ contents }: { contents: string }) => {
+        seenPrompt = contents;
+        return {
+          text: JSON.stringify({
+            title: "Executive Summary",
+            content: "A summary that reuses the approved certification wording.",
+          }),
+        };
+      },
+    },
+  };
+
+  const result = await generateProposalSectionDraft({
+    projectId: "project-1",
+    sectionId: "section-1",
+    userId: "user-1",
+    context: {
+      project: {
+        title: "Tender",
+        clientName: "Client",
+        opportunityType: "tender",
+        sector: "ICT",
+        country: "Nigeria",
+      },
+      documents: [],
+      parsedSections: [],
+      clauses: [],
+      requirements: [
+        {
+          id: "req-1",
+          title: "ISO 27001 certification",
+          description: "Bidder must hold current ISO 27001 certification.",
+          priority: "high",
+          category: "mandatory",
+          confidence: 0.9,
+          sourceClause: null,
+          evidenceNeeded: [],
+        },
+      ],
+    },
+    sectionPlan: {
+      title: "Executive Summary",
+      slug: "executive-summary",
+      sectionType: "executive_summary",
+      order: 1,
+      wordTarget: 400,
+      importance: "high",
+      prompt: "Draft the executive summary.",
+      rationale: "Sets out the offer.",
+      requirementIds: [],
+      clauseIds: [],
+      sourceDocumentIds: [],
+      sourceSectionTitles: [],
+    },
+    prismaClient: prisma as never,
+    geminiClient: gemini as never,
+  });
+
+  assert.match(seenPrompt, /APPROVED ANSWER 1: ISO 27001 certification statement/);
+  assert.match(seenPrompt, /certificate number IS 712345/);
+  assert.equal(
+    state.usageRecordedFor.length,
+    1,
+    "an entry the draft was written from should count as used",
+  );
+  assert.deepEqual(result.libraryEntriesUsed, [
+    { id: "lib-1", title: "ISO 27001 certification statement" },
+  ]);
+});
+
+test("a fallback draft does not credit library entries it never read", async () => {
+  delete process.env.GEMINI_API_KEY;
+  const { prisma, state } = createFakePrisma();
+
+  state.libraryEntries.push({
+    id: "lib-1",
+    title: "ISO 27001 certification statement",
+    content: "Certified to ISO 27001:2022.",
+    sectionType: "executive_summary",
+    tags: [],
+    timesUsed: 0,
+    archivedAt: null,
+    createdBy: null,
+  });
+
+  await generateProposalSectionDraft({
+    projectId: "project-1",
+    sectionId: "section-1",
+    userId: "user-1",
+    context: {
+      project: {
+        title: "Tender",
+        clientName: "Client",
+        opportunityType: "tender",
+        sector: "ICT",
+        country: "Nigeria",
+      },
+      documents: [],
+      parsedSections: [],
+      clauses: [],
+      requirements: [
+        {
+          id: "req-1",
+          title: "ISO 27001 certification",
+          description: "Bidder must hold current ISO 27001 certification.",
+          priority: "high",
+          category: "mandatory",
+          confidence: 0.9,
+          sourceClause: null,
+          evidenceNeeded: [],
+        },
+      ],
+    },
+    sectionPlan: {
+      title: "Executive Summary",
+      slug: "executive-summary",
+      sectionType: "executive_summary",
+      order: 1,
+      wordTarget: 400,
+      importance: "high",
+      prompt: "Draft the executive summary.",
+      rationale: "Sets out the offer.",
+      requirementIds: [],
+      clauseIds: [],
+      sourceDocumentIds: [],
+      sourceSectionTitles: [],
+    },
+    prismaClient: prisma as never,
+  });
+
+  assert.equal(
+    state.usageRecordedFor.length,
+    0,
+    "the rule-based draft cannot contain a word of the library, so nothing was used",
+  );
 });

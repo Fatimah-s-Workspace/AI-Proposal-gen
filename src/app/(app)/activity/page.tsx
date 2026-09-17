@@ -1,4 +1,5 @@
 import {
+  BookMarked,
   Building2,
   ChevronLeft,
   ChevronRight,
@@ -44,6 +45,18 @@ const ACTION_META: Record<string, { label: (metadata: Record<string, unknown>) =
   },
   "requirement.delete": {
     label: (m) => `Deleted requirement "${m.title ?? ""}"`,
+    icon: Trash2,
+  },
+  "content_library.create": {
+    label: (m) => `Saved "${m.title ?? "an answer"}" to the content library`,
+    icon: BookMarked,
+  },
+  "content_library.update": {
+    label: () => "Edited a content library entry",
+    icon: Pencil,
+  },
+  "content_library.delete": {
+    label: () => "Deleted a content library entry",
     icon: Trash2,
   },
   "proposal_section.edit": {

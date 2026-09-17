@@ -10,6 +10,10 @@ import {
   isGeminiQuotaOrAvailabilityError,
 } from "@/lib/ai/client";
 import { parseJson } from "@/features/ai/gemini-provider";
+import {
+  recordLibraryUsage,
+  suggestLibraryEntries,
+} from "@/server/content-library";
 import { prisma } from "@/server/db";
 
 const geminiDraftResponseSchema = z.object({
@@ -33,14 +37,41 @@ export async function generateProposalSectionDraft(input: {
 
   const section = await prismaClient.proposalSection.findUnique({
     where: { id: input.sectionId },
+    include: { project: { select: { organizationId: true } } },
   });
   if (!section) throw new Error("Proposal section not found");
+
+  // Saved answers relevant to this section. Fetched here rather than passed in
+  // so that every caller of this function gets the library, including the
+  // bulk "generate the whole proposal" path - a library only saves time if it
+  // applies without being asked for.
+  const libraryMatches = await suggestLibraryEntries(
+    {
+      // Taken from the section's own project rather than from the caller. A
+      // caller passing the wrong workspace id would put another customer's
+      // approved answers into this bidder's prompt, and the section already
+      // has to be loaded anyway - so there is no reason to accept the id from
+      // anywhere it could be wrong.
+      organizationId: section.project.organizationId,
+      need: {
+        title: input.sectionPlan.title,
+        sectionType: input.sectionPlan.sectionType,
+        requirements: input.context.requirements,
+      },
+    },
+    prismaClient,
+  );
 
   const prompt = buildProposalPrompt(
     input.context,
     input.sectionPlan,
     input.tone,
     input.customPrompt,
+    libraryMatches.map((match) => ({
+      id: match.entry.id,
+      title: match.entry.title,
+      content: match.entry.content,
+    })),
   );
 
   let responseText = "";
@@ -201,9 +232,26 @@ export async function generateProposalSectionDraft(input: {
       });
     });
 
+    // Counted only when the draft was actually written from them, and only in
+    // the AI path: the fallback provider never reads the prompt, so counting
+    // there would credit entries the draft cannot contain a word of.
+    if (generationMode === "gemini" && libraryMatches.length > 0) {
+      await recordLibraryUsage(
+        {
+          organizationId: section.project.organizationId,
+          entryIds: libraryMatches.map((match) => match.entry.id),
+        },
+        prismaClient,
+      );
+    }
+
     return {
       section: updatedSection,
       prompt,
+      libraryEntriesUsed: libraryMatches.map((match) => ({
+        id: match.entry.id,
+        title: match.entry.title,
+      })),
       // Returned, not just recorded. This was already being written to
       // ProposalGeneration.metadata and stopping there, so a draft written
       // by the rule-based provider reached the user looking exactly like an
@@ -273,11 +321,56 @@ function buildFallbackDraft(
 // Exported for tests: which project fields reach the model is the whole
 // point of the fields users fill in, and nothing else would catch a
 // regression that silently drops one.
+/** An approved answer offered to the model as preferred source material. */
+export interface PromptLibraryEntry {
+  id: string;
+  title: string;
+  content: string;
+}
+
+/**
+ * How much approved text one prompt will carry.
+ *
+ * A saved answer can be 20,000 characters and three of them would attach
+ * roughly fifteen thousand tokens to every section of every proposal - a cost
+ * the bidder never agreed to and would only discover on an invoice. Entries
+ * are taken in rank order while they fit, and a whole entry is dropped rather
+ * than trimmed: half an approved certification statement is worse than none,
+ * because the model will happily complete the sentence itself.
+ */
+const MAX_LIBRARY_PROMPT_CHARS = 12_000;
+
+export function selectLibraryEntriesForPrompt(
+  entries: readonly PromptLibraryEntry[],
+  budget = MAX_LIBRARY_PROMPT_CHARS,
+): { entries: PromptLibraryEntry[]; omitted: number } {
+  const selected: PromptLibraryEntry[] = [];
+  let used = 0;
+  let omitted = 0;
+
+  for (const entry of entries) {
+    const cost = entry.content.length + entry.title.length;
+    if (used + cost > budget) {
+      omitted += 1;
+      continue;
+    }
+    selected.push(entry);
+    used += cost;
+  }
+
+  // Nothing fitted, which means the best match is on its own larger than the
+  // whole budget. Sending it truncated would put a sentence the bidder never
+  // approved in front of the model, so it is left out and the omission is
+  // reported rather than hidden.
+  return { entries: selected, omitted };
+}
+
 export function buildProposalPrompt(
   context: TenderProposalContext,
   sectionPlan: TenderProposalSectionPlan,
   tone = "formal",
   customPrompt?: string,
+  libraryEntries: readonly PromptLibraryEntry[] = [],
 ) {
   const requirements = context.requirements
     .slice(0, 8)
@@ -314,6 +407,29 @@ export function buildProposalPrompt(
       ].filter(Boolean)
     : [];
 
+  // Approved answers the bidder has already used and stands behind. This is
+  // the point of the library: the model should reuse wording that has been
+  // through a real review rather than generate a fresh paraphrase of it, which
+  // is how a certification number or a client name quietly drifts.
+  //
+  // Fenced and labelled as the bidder's own material, unlike the tender text
+  // above it. That distinction is not decoration - text extracted from an
+  // uploaded PDF is written by whoever produced the document, and an
+  // instruction hidden in it must never read as if it came from the bidder.
+  const { entries: budgetedEntries } = selectLibraryEntriesForPrompt(libraryEntries);
+
+  const libraryBlock =
+    budgetedEntries.length > 0
+      ? [
+          "Approved content from the bidder's own library. This text has already been reviewed and signed off by the bidder.",
+          "Reuse its wording wherever it answers part of this section, editing only to fit the context. Do not contradict it and do not restate its facts in different numbers or names.",
+          ...budgetedEntries.map(
+            (entry, index) =>
+              `--- APPROVED ANSWER ${index + 1}: ${entry.title} ---\n${entry.content}\n--- END APPROVED ANSWER ${index + 1} ---`,
+          ),
+        ].join("\n")
+      : null;
+
   return [
     `Write a proposal section for the ${project.opportunityType} titled ${sectionPlan.title}.`,
     detail("Client", project.clientName),
@@ -344,9 +460,17 @@ export function buildProposalPrompt(
     // of. With nothing to check against, it reads as an instruction to write
     // about a bidder in the abstract, which is what produces the invented
     // detail in the first place.
+    // The approved library is a second source of bidder fact, so the guard has
+    // to name it. Without that, a prompt carrying an ISO 27001 certificate
+    // number in an approved answer also carried an instruction saying the only
+    // credentials that exist are the ones in the profile above - which invites
+    // the model to treat the bidder's own signed-off text as an invention to
+    // be dropped or hedged.
     bidderLines.length > 0
-      ? `Use only the bidder details above when describing experience, credentials, or capacity. Do not invent certifications, contracts, staff numbers, or dates. If a section needs a detail that is not given, write a clearly marked placeholder instead.`
-      : `No bidder profile has been provided. Do not state any specific experience, credentials, or past contracts - leave clearly marked placeholders where they belong.`,
+      ? `Use only the bidder details above${libraryBlock ? " and the approved library content below" : ""} when describing experience, credentials, or capacity. Do not invent certifications, contracts, staff numbers, or dates beyond what ${libraryBlock ? "those sources give" : "is given above"}. If a section needs a detail that is not given, write a clearly marked placeholder instead.`
+      : libraryBlock
+        ? `No bidder profile has been provided. Use only the approved library content below when describing experience, credentials, or capacity, and leave clearly marked placeholders for anything it does not cover.`
+        : `No bidder profile has been provided. Do not state any specific experience, credentials, or past contracts - leave clearly marked placeholders where they belong.`,
     `Tone: ${tone} and evaluator-ready.`,
     project.submissionLanguage && project.submissionLanguage !== "English"
       ? `Write the section in ${project.submissionLanguage}.`
@@ -355,6 +479,7 @@ export function buildProposalPrompt(
     `Section rationale: ${sectionPlan.rationale}`,
     `Requirements:\n${requirements || "None"}`,
     `Clauses:\n${clauses || "None"}`,
+    libraryBlock,
     customPrompt ? `Additional instruction: ${customPrompt}` : null,
     `Return JSON with the shape {"title":"...","content":"..."}.`,
     `Do not include markdown fencing or commentary.`,

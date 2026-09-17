@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  BookMarked,
   Bold,
   ChevronDown,
   Check,
@@ -28,6 +29,7 @@ import { useEditorStore } from "@/store/editor-store";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SectionLibraryPanel } from "@/components/library/section-library-panel";
 import {
   Select,
   SelectContent,
@@ -848,7 +850,7 @@ export function ProposalEditor({
               onValueChange={setActiveTab}
               className="w-full"
             >
-              <TabsList className="grid w-full grid-cols-6 h-9">
+              <TabsList className="grid w-full grid-cols-7 h-9">
                 <TabsTrigger value="requirements" className="text-xs px-1">
                   <CheckCircle2 className="h-3 w-3" />
                   <span className="sr-only">Requirements Covered</span>
@@ -868,6 +870,10 @@ export function ProposalEditor({
                 <TabsTrigger value="live-check" className="text-xs px-1">
                   <Sparkles className="h-3 w-3" />
                   <span className="sr-only">Live Check</span>
+                </TabsTrigger>
+                <TabsTrigger value="library" className="text-xs px-1">
+                  <BookMarked className="h-3 w-3" />
+                  <span className="sr-only">Saved answers</span>
                 </TabsTrigger>
                 <TabsTrigger value="versions" className="text-xs px-1">
                   <History className="h-3 w-3" />
@@ -1261,6 +1267,24 @@ export function ProposalEditor({
                     </p>
                   )}
                 </div>
+              </TabsContent>
+
+              <TabsContent value="library" className="p-4">
+                <SectionLibraryPanel
+                  key={selectedSection.id}
+                  projectId={projectId}
+                  sectionId={selectedSection.id}
+                  sectionTitle={selectedSection.title}
+                  sectionType={selectedSection.sectionType}
+                  getSectionText={() => editor?.getText() ?? ""}
+                  onInsert={(content) => {
+                    // Inserted at the cursor rather than replacing the draft:
+                    // a saved answer is usually one part of a section, and
+                    // overwriting what someone has already written to add a
+                    // paragraph would be its own kind of data loss.
+                    editor?.chain().focus().insertContent(content).run();
+                  }}
+                />
               </TabsContent>
 
               <TabsContent value="versions" className="p-4 space-y-3">

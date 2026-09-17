@@ -25,13 +25,15 @@ model User {
   memberships         Membership[]
   sentInvites         OrganizationInvite[]
 
+  contentLibraryEntries ContentLibraryEntry[]
+
   @@index([email])
 }
 
 model Organization {
-  id            String               @id @default(cuid())
-  name          String
-  slug          String               @unique
+  id                 String                @id @default(cuid())
+  name               String
+  slug               String                @unique
   // The bidder's own profile. Every proposal is written on behalf of this
   // organization, so this is set once here rather than retyped into each
   // project. All optional - a workspace works without any of it, and the
@@ -48,15 +50,16 @@ model Organization {
   // which is about winning bids rather than paying for the tool.
   billingAddress     String?
   billingTaxId       String?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  memberships   Membership[]
-  invites       OrganizationInvite[]
-  projects      Project[]
-  subscription  Subscription?
-  payments      Payment[]
-  usageTracking UsageTracking[]
-  auditLogs     AuditLog[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  memberships        Membership[]
+  invites            OrganizationInvite[]
+  projects           Project[]
+  subscription       Subscription?
+  payments           Payment[]
+  usageTracking      UsageTracking[]
+  auditLogs          AuditLog[]
+  contentLibrary     ContentLibraryEntry[]
 }
 
 // role: "owner" | "admin" | "member"
@@ -171,6 +174,8 @@ model Project {
   complianceAnalyses  ComplianceAnalysis[]
   qualityReviews      ProposalQualityReview[]
   proposalIssues      ProposalIssue[]
+
+  contentLibraryEntries ContentLibraryEntry[]
 
   @@index([organizationId])
   @@index([status])
@@ -331,6 +336,8 @@ model ProposalSection {
   requirementMappings RequirementMapping[]
   qualityReviews      ProposalQualityReview[]
   proposalIssues      ProposalIssue[]
+
+  contentLibraryEntries ContentLibraryEntry[]
 
   @@index([projectId])
   @@index([sectionType])
@@ -548,4 +555,55 @@ model UsageTracking {
 
   @@unique([organizationId, projectId, period])
   @@index([organizationId, period])
+}
+
+// An approved answer, kept at workspace level so it outlives the bid it was
+// written for. The whole point of the product is that the second tender takes
+// an hour instead of a day, and that only happens if good wording stops being
+// thrown away when a project closes.
+model ContentLibraryEntry {
+  id              String    @id @default(cuid())
+  organizationId  String
+  title           String
+  content         String
+  // Whitespace- and case-normalised content, carried as a column so the
+  // database can refuse a duplicate outright. Checking in application code
+  // first meant reading every entry's full text on every save, and still left
+  // the window that produces duplicates in practice: a double-clicked
+  // "Save to library".
+  fingerprint     String
+  // Which kind of section this suits, matching ProposalSection.sectionType.
+  // Nullable because plenty of good answers - a safety record, an insurance
+  // statement - do not belong to one section type.
+  sectionType     String?
+  // Free text the author adds, searched alongside the title. Stored as an
+  // array rather than a comma string so a tag containing a comma does not
+  // silently split into two.
+  tags            String[]  @default([])
+  // Where the text came from, kept so an entry can be traced back to the bid
+  // it was approved in. Both nullable and SetNull: deleting the project must
+  // not delete the approved answer, which is the asset.
+  sourceProjectId String?
+  sourceSectionId String?
+  createdById     String?
+  // Evidence that an entry earns its place. An entry with no uses after
+  // several bids is clutter, and the library is only useful while it stays
+  // small enough to trust.
+  timesUsed       Int       @default(0)
+  lastUsedAt      DateTime?
+  archivedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization  Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceProject Project?         @relation(fields: [sourceProjectId], references: [id], onDelete: SetNull)
+  sourceSection ProposalSection? @relation(fields: [sourceSectionId], references: [id], onDelete: SetNull)
+  createdBy     User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, fingerprint])
+  @@index([organizationId])
+  @@index([organizationId, sectionType])
+  @@index([sourceProjectId])
+  @@index([sourceSectionId])
+  @@index([createdById])
 }

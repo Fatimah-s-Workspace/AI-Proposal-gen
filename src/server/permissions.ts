@@ -41,3 +41,13 @@ export function canAssignRole(actingRole: string, targetRole: string, nextRole: 
   if (actingRole !== "admin") return false;
   return targetRole !== "owner" && nextRole !== "owner";
 }
+
+// A saved answer is shared workspace property and outlives the bid it came
+// from, so deleting one destroys work other people may be relying on for a bid
+// in progress. Any member can add and edit entries - that's the feature - but
+// permanent deletion follows the same line as projects and documents.
+// Archiving is the member-safe alternative: it stops an entry being suggested
+// without destroying it.
+export function canDeleteLibraryEntries(role: string) {
+  return role === "owner" || role === "admin";
+}
