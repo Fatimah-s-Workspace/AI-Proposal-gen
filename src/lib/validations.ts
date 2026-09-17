@@ -149,11 +149,14 @@ export const updateRequirementSchema = z.object({
   reviewNotes: z.string().max(1000).optional().nullable().or(z.literal("")),
 });
 
+// Content only, deliberately. This schema used to accept a status with a
+// default of "drafting", and the editor autosaves without sending one - so
+// every keystroke's save rewrote the review state. A reviewer marking a
+// section "needs work" had the request erased the moment the writer typed.
+// Review state is set through the project-scoped section route, by someone
+// choosing to set it.
 export const updateProposalSectionSchema = z.object({
   content: z.string().min(1),
-  status: z
-    .enum(["not_started", "drafting", "review", "approved"])
-    .default("drafting"),
 });
 
 export const generateProposalSchema = z.object({

@@ -27,6 +27,9 @@ model User {
 
   contentLibraryEntries ContentLibraryEntry[]
 
+  sectionComments  SectionComment[] @relation("SectionCommentAuthor")
+  resolvedComments SectionComment[] @relation("SectionCommentResolver")
+
   @@index([email])
 }
 
@@ -176,6 +179,8 @@ model Project {
   proposalIssues      ProposalIssue[]
 
   contentLibraryEntries ContentLibraryEntry[]
+
+  sectionComments SectionComment[]
 
   @@index([organizationId])
   @@index([status])
@@ -344,6 +349,8 @@ model ProposalSection {
   proposalIssues      ProposalIssue[]
 
   contentLibraryEntries ContentLibraryEntry[]
+
+  comments SectionComment[]
 
   @@index([projectId])
   @@index([sectionType])
@@ -612,4 +619,41 @@ model ContentLibraryEntry {
   @@index([sourceProjectId])
   @@index([sourceSectionId])
   @@index([createdById])
+}
+
+// A review conversation attached to one proposal section.
+//
+// Bids are written against a deadline by several people at once, and the
+// review currently happens somewhere this product cannot see - a WhatsApp
+// thread, a phone call, a Word document mailed round. That means the record
+// of why a section says what it says lives outside the bid.
+model SectionComment {
+  id           String    @id @default(cuid())
+  projectId    String
+  sectionId    String
+  authorId     String?
+  body         String
+  // Replies point at the comment that started the thread, never at another
+  // reply: a bid review under deadline needs a conversation, not a tree
+  // nobody can read at speed.
+  parentId     String?
+  resolvedAt   DateTime?
+  resolvedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  project    Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  section    ProposalSection  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  // The comment outlives the account: removing someone from the workspace
+  // must not silently delete the reasoning behind a decision on a live bid.
+  author     User?            @relation("SectionCommentAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  resolvedBy User?            @relation("SectionCommentResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  parent     SectionComment?  @relation("SectionCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    SectionComment[] @relation("SectionCommentReplies")
+
+  @@index([projectId])
+  @@index([sectionId, createdAt])
+  @@index([parentId])
+  @@index([authorId])
+  @@index([resolvedById])
 }

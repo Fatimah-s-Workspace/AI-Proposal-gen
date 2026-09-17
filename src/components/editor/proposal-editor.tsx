@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   BookMarked,
   Bold,
+  MessageSquare,
   ChevronDown,
   Check,
   History,
@@ -30,6 +31,8 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SectionLibraryPanel } from "@/components/library/section-library-panel";
+import { SectionCommentsPanel } from "@/components/review/section-comments-panel";
+import { SectionStatusControl } from "@/components/review/section-status-control";
 import {
   Select,
   SelectContent,
@@ -158,12 +161,14 @@ type LiveCompliance = {
 };
 
 export function ProposalEditor({
+  currentUserId,
   projectId,
   sections,
   sectionPlan = [],
   requirements = [],
   clauses = [],
 }: {
+  currentUserId: string;
   projectId: string;
   sections: Section[];
   sectionPlan?: SectionPlan[];
@@ -851,7 +856,7 @@ export function ProposalEditor({
               onValueChange={setActiveTab}
               className="w-full"
             >
-              <TabsList className="grid w-full grid-cols-7 h-9">
+              <TabsList className="grid w-full grid-cols-8 h-9">
                 <TabsTrigger value="requirements" className="text-xs px-1">
                   <CheckCircle2 className="h-3 w-3" />
                   <span className="sr-only">Requirements Covered</span>
@@ -871,6 +876,10 @@ export function ProposalEditor({
                 <TabsTrigger value="live-check" className="text-xs px-1">
                   <Sparkles className="h-3 w-3" />
                   <span className="sr-only">Live Check</span>
+                </TabsTrigger>
+                <TabsTrigger value="review" className="text-xs px-1">
+                  <MessageSquare className="h-3 w-3" />
+                  <span className="sr-only">Review and comments</span>
                 </TabsTrigger>
                 <TabsTrigger value="library" className="text-xs px-1">
                   <BookMarked className="h-3 w-3" />
@@ -1280,6 +1289,22 @@ export function ProposalEditor({
                       Add at least 50 characters to run a live section check.
                     </p>
                   )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="review" className="p-4 space-y-4">
+                <SectionStatusControl
+                  key={`status-${selectedSection.id}`}
+                  projectId={projectId}
+                  sectionId={selectedSection.id}
+                  status={selectedSection.status}
+                />
+                <div className="border-t pt-4">
+                  <SectionCommentsPanel
+                    key={`comments-${selectedSection.id}`}
+                    sectionId={selectedSection.id}
+                    currentUserId={currentUserId}
+                  />
                 </div>
               </TabsContent>
 

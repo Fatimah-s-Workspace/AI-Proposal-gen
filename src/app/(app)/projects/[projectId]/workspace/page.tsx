@@ -114,6 +114,7 @@ export default async function WorkspacePage({
       </div>
 
       <ProposalEditor
+        currentUserId={user.id}
         projectId={project.id}
         sections={sectionProps}
         sectionPlan={sectionPlan}

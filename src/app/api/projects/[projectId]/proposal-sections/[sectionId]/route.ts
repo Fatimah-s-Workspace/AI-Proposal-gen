@@ -3,13 +3,14 @@ import { z } from "zod";
 import { rateLimit } from "@/lib/rate-limit";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
+import { PROPOSAL_SECTION_STATUSES } from "@/features/proposals/review";
 import { generateTenderSectionsForProject } from "@/server/tender-proposal";
 import { unauthorized } from "@/server/responses";
 
 const updateSectionSchema = z.object({
   title: z.string().min(1).max(160).optional(),
   content: z.string().optional(),
-  status: z.enum(["not_started", "drafting", "review", "ready", "approved", "needs_work"]).optional(),
+  status: z.enum(PROPOSAL_SECTION_STATUSES).optional(),
   sectionType: z.string().min(2).max(120).optional(),
 });
 

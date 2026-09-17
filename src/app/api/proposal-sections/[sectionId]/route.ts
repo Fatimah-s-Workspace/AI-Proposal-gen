@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { statusAfterEdit } from "@/features/proposals/review";
 import { updateProposalSectionSchema } from "@/lib/validations";
 import { AUDIT_ACTIONS, logAudit } from "@/server/audit";
 import { unauthorized } from "@/server/responses";
@@ -40,11 +41,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
     }
   });
 
+  // Derived from what the section already is, never taken from the request.
+  // Editing approved text means the approved text no longer exists, so that
+  // returns to drafting - but a reviewer's "needs work" stands until someone
+  // acts on it, rather than being cleared by the writer doing the work.
+  const nextStatus = statusAfterEdit(section.status);
+
   const updated = await prisma.proposalSection.update({
     where: { id: sectionId },
     data: {
       content: parsed.data.content,
-      status: parsed.data.status,
+      status: nextStatus,
       generatedContents: {
         create: {
           projectId: section.projectId,
@@ -69,7 +76,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
     action: AUDIT_ACTIONS.proposalSectionEdit,
     entityType: "ProposalSection",
     entityId: sectionId,
-    metadata: { projectId: section.projectId, status: parsed.data.status },
+    metadata: { projectId: section.projectId, status: nextStatus },
   });
 
   return Response.json(updated);
