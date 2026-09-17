@@ -265,3 +265,54 @@ test("buildTenderProposalAssistant recommends resolving unmet high-priority requ
     assistant.recommendations.some((item) => item.includes("Tax clearance certificate")),
   );
 });
+
+// Coverage used to be a substring check against the requirement's own title,
+// so this section - which answers the requirement properly and never repeats
+// its wording - scored zero.
+test("buildTenderProposalAssistant credits a section that answers a requirement in its own words", () => {
+  const requirement = {
+    id: "req-1",
+    title: "ISO 27001 certification",
+    description: "The bidder shall hold current ISO 27001 certification.",
+    category: "mandatory" as const,
+    sourceClause: "Eligibility",
+    priority: "high" as const,
+    confidence: 0.9,
+    evidenceNeeded: ["Certificate of registration"],
+    documentId: "doc-1",
+  };
+
+  function coverageFor(content: string) {
+    const assistant = buildTenderProposalAssistant(
+      baseContext({
+        requirements: [requirement],
+        existingSections: [
+          {
+            id: "section-1",
+            title: "Eligibility and statutory compliance",
+            slug: "eligibility-and-statutory-compliance",
+            sectionType: "eligibility-and-statutory-compliance",
+            order: 2,
+            content,
+            status: "drafting",
+            wordTarget: 420,
+          },
+        ],
+      }),
+    );
+    return assistant.coverage["eligibility-and-statutory-compliance"] ?? 0;
+  }
+
+  const written = coverageFor(
+    "<p>Our information security management system has been certified to ISO 27001 since 2021, certificate number IS 712345.</p>",
+  );
+  const silent = coverageFor(
+    "<p>We will mobilise a delivery team within two weeks of contract award.</p>",
+  );
+
+  assert.ok(written > 0, "a proper answer must count as covered");
+  assert.ok(
+    written > silent,
+    "a section that addresses the requirement must outscore one that ignores it",
+  );
+});

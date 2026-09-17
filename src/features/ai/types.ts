@@ -111,6 +111,7 @@ export type SectionComplianceMetrics = {
   missing: number; // count of missing requirements
   weak: number; // count of weakly covered requirements
   strong: number; // count of strongly covered requirements
+  unassessable?: number; // requirements too generic to judge either way
   complianceScore: number; // overall compliance score
   qualityIssues: QualityIssue[];
   mappedRequirements: string[]; // requirement IDs mapped to this section

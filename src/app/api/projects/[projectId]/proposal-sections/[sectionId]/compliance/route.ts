@@ -1,3 +1,4 @@
+import { assessRequirementCoverage } from "@/features/proposals/coverage";
 import { prisma } from "@/server/db";
 import { requireApiUser } from "@/server/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
@@ -52,10 +53,23 @@ type LiveSection = {
   sectionType: string;
 };
 
+/**
+ * Requirement.evidenceNeeded is a Json column, so it holds whatever was
+ * written to it - including an object, a string, or null from an older
+ * extraction. Anything that is not a list of strings is treated as absent
+ * rather than coerced, so a malformed row degrades the assessment instead of
+ * throwing inside a route the editor calls on every keystroke.
+ */
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
 type LiveRequirement = {
   title: string;
   category: string;
   priority: string;
+  evidenceNeeded?: unknown;
 };
 
 async function analyzeLiveCompliance(
@@ -79,23 +93,42 @@ async function analyzeLiveCompliance(
     req.title.toLowerCase().includes(section.sectionType.replace(/-/g, " "))
   );
 
+  // Shares its judgement with the requirements panel rather than keeping a
+  // second opinion. These were two different checks over the same section:
+  // this one counted a requirement as answered if any single word longer than
+  // three characters appeared anywhere in the draft, so "management" in an
+  // unrelated sentence cleared "Waste management plan". One panel could call
+  // a requirement covered while the other called it missing, on the same
+  // screen, about the same paragraph.
   for (const req of sectionRequirements) {
-    const requirementWords = req.title.toLowerCase().split(/\s+/);
-    const contentLower = content.toLowerCase();
+    const assessment = assessRequirementCoverage(content, {
+      title: req.title,
+      evidenceNeeded: stringList(req.evidenceNeeded),
+    });
 
-    // Check if requirement is mentioned
-    const mentioned = requirementWords.some((word: string) =>
-      word.length > 3 && contentLower.includes(word)
-    );
-
-    if (!mentioned) {
+    if (assessment.level === "missing") {
       issues.push({
         type: "missing_requirement",
         severity: req.priority === "high" ? "high" : "medium",
         message: `Missing requirement: ${req.title}`,
         suggestion: `Add specific reference to ${req.title} and how you meet this requirement.`,
       });
+    } else if (assessment.level === "weak") {
+      // Named but thinly. Saying which words the draft never uses is more
+      // use to a writer than telling them it is "weak".
+      issues.push({
+        type: "weak_response",
+        severity: "low",
+        message: `Thin on: ${req.title}`,
+        suggestion:
+          assessment.missingTerms.length > 0
+            ? `The draft does not mention ${assessment.missingTerms.slice(0, 4).join(", ")}.`
+            : `Expand on how you meet ${req.title}.`,
+      });
     }
+    // "unassessable" deliberately raises nothing: a requirement with no
+    // distinctive words in it cannot be confirmed present or absent, and a
+    // warning nobody can act on is worse than silence.
   }
 
   // Check for vague wording

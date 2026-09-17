@@ -116,6 +116,7 @@ type DraftChecklistAnalysis = {
     missing: number;
     weak: number;
     strong: number;
+    unassessable?: number;
     complianceScore: number;
     qualityIssues: Array<{
       issueType: string;
@@ -1152,6 +1153,19 @@ export function ProposalEditor({
                           <div className="text-red-600">Missing</div>
                         </div>
                       </div>
+
+                      {sectionMetrics.unassessable ? (
+                        // Said out loud, because these three numbers would
+                        // otherwise quietly fail to add up to the number of
+                        // requirements mapped to this section.
+                        <p className="text-xs text-muted-foreground">
+                          {sectionMetrics.unassessable} requirement
+                          {sectionMetrics.unassessable === 1 ? " is" : "s are"} too
+                          generally worded to check automatically, and
+                          {sectionMetrics.unassessable === 1 ? " is" : " are"} left
+                          out of these figures. Read {sectionMetrics.unassessable === 1 ? "it" : "them"} yourself.
+                        </p>
+                      ) : null}
 
                       {qualityIssues.length > 0 && (
                         <div className="space-y-2">

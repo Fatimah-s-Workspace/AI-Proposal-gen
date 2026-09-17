@@ -6,6 +6,8 @@ import type {
   SectionComplianceMetrics,
 } from "@/features/ai";
 
+import { assessRequirementCoverage, summariseCoverage } from "./coverage";
+
 export type TenderProposalRequirement = Omit<
   ExtractedRequirement,
   "evidenceMatches" | "sourceClauseId"
@@ -395,15 +397,11 @@ export function buildTenderProposalAssistant(
       .map((id) => context.requirements.find((requirement) => requirement.id === id))
       .filter((item): item is TenderProposalRequirement => Boolean(item));
 
-    const strong = mappedRequirements.filter((requirement) => contentCoversRequirement(content, requirement, true)).length;
-    const weak = mappedRequirements.filter(
-      (requirement) =>
-        !contentCoversRequirement(content, requirement, true) &&
-        contentCoversRequirement(content, requirement, false),
-    ).length;
-    const missing = Math.max(0, mappedRequirements.length - strong - weak);
-    const total = Math.max(mappedRequirements.length, 1);
-    const sectionCoverage = Math.round(((strong + weak * 0.45) / total) * 100);
+    const assessments = mappedRequirements.map((requirement) =>
+      assessRequirementCoverage(content, requirement),
+    );
+    const { strong, weak, missing, unassessable, coverage: sectionCoverage } =
+      summariseCoverage(assessments);
     const complianceScore = Math.max(
       0,
       Math.min(100, sectionCoverage - missing * 8 + (section.importance === "high" ? 0 : 6)),
@@ -419,6 +417,9 @@ export function buildTenderProposalAssistant(
       missing,
       weak,
       strong,
+      // Requirements too generic to judge. Surfaced rather than folded into
+      // "missing", so a number a bidder reads as fact is not moved by a guess.
+      unassessable,
       complianceScore,
       qualityIssues,
       mappedRequirements: section.requirementIds,
@@ -751,22 +752,6 @@ function qualityIssuesForContent(
   return issues;
 }
 
-function contentCoversRequirement(
-  content: string,
-  requirement: TenderProposalRequirement,
-  strict: boolean,
-) {
-  const terms = [
-    requirement.title,
-    requirement.category,
-    ...requirement.evidenceNeeded,
-    ...requirement.title.split(/\s+/).filter((word) => word.length > 5).slice(0, 4),
-  ]
-    .map((value) => value.toLowerCase())
-    .filter(Boolean);
-  const hits = terms.filter((term) => content.toLowerCase().includes(term)).length;
-  return strict ? hits >= Math.min(2, terms.length) : hits >= 1;
-}
 
 function sectionForRequirement(requirement: TenderProposalRequirement) {
   if (requirement.category === "financial") return "Commercial Response";

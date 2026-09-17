@@ -13,77 +13,10 @@
  * library nobody reads a third time.
  */
 
-/**
- * Words that appear in nearly every tender and nearly every proposal, so
- * their presence says nothing about whether two texts are about the same
- * thing. The domain half of this list matters more than the grammar half:
- * without it, every entry matches every section on "proposal", "tender" and
- * "project", and the scores collapse into noise.
- */
-const STOPWORDS = new Set([
-  // ordinary english
-  "a", "an", "and", "are", "as", "at", "be", "been", "but", "by", "for",
-  "from", "has", "have", "in", "into", "is", "it", "its", "of", "on", "or",
-  "our", "that", "the", "their", "then", "there", "these", "this", "to",
-  "was", "we", "were", "will", "with", "you", "your", "shall", "must",
-  "any", "all", "not", "which", "who", "how", "what", "when", "where",
-  // words this product's documents are made of
-  "proposal", "proposals", "tender", "tenders", "bid", "bids", "bidder",
-  "project", "projects", "section", "sections", "client", "clients",
-  "company", "companies", "contract", "contracts", "requirement",
-  "requirements", "document", "documents", "provide", "provided",
-  "including", "include", "included", "relevant", "please", "ensure",
-]);
-
-const MIN_TOKEN_LENGTH = 3;
-
-/**
- * Lowercase, split on anything that is not a letter or digit, drop stopwords
- * and very short tokens.
- *
- * Digits are kept and not length-filtered the same way, because the most
- * valuable matches in this domain are codes: ISO 27001, NDPR, VAT, PENCOM.
- * Losing "iso" to a three-letter minimum would lose exactly the entries a
- * bidder most wants found.
- */
-export function tokenize(text: string): string[] {
-  if (!text) return [];
-  const raw = text
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean);
-
-  const tokens: string[] = [];
-  for (const token of raw) {
-    if (STOPWORDS.has(token)) continue;
-    // Keep short tokens when they contain a digit, so "27001" and "9001"
-    // survive alongside the words around them.
-    if (token.length < MIN_TOKEN_LENGTH && !/[0-9]/.test(token)) continue;
-    tokens.push(token);
-  }
-  return tokens;
-}
-
-export function tokenSet(text: string): Set<string> {
-  return new Set(tokenize(text));
-}
-
-/**
- * The fraction of `needle` tokens that appear in `haystack`.
- *
- * Containment rather than Jaccard, because the two sides are deliberately
- * different sizes: a section's title is a handful of words and a saved answer
- * can be several paragraphs. Jaccard would score a thorough answer *worse*
- * than a thin one for being longer, which is backwards.
- */
-export function containment(needle: Set<string>, haystack: Set<string>): number {
-  if (needle.size === 0) return 0;
-  let found = 0;
-  for (const token of needle) {
-    if (haystack.has(token)) found += 1;
-  }
-  return found / needle.size;
-}
+import {
+  containment,
+  tokenSet,
+} from "@/lib/text-overlap";
 
 export interface LibraryCandidate {
   id: string;

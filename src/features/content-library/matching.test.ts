@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { containment, tokenize } from "@/lib/text-overlap";
+
 import {
-  containment,
   describeMatch,
   matchLibraryEntries,
-  tokenize,
   type LibraryCandidate,
 } from "./matching";
 
