@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  ShieldAlert,
   StickyNote,
   Trash2,
   Star,
@@ -39,6 +40,7 @@ type Document = {
   parsingStatus: string | null;
   parsingError: string | null;
   analysisNotice?: string | null;
+  trustNotice?: string | null;
   parsedAt: Date | null;
   documentType: string;
   isPrimary: boolean;
@@ -349,6 +351,20 @@ export function DocumentsTable({
                           text={document.analysisNotice}
                           className="text-xs text-amber-700 dark:text-amber-400"
                         />
+                      ) : null}
+                      {/* Red, unlike the analysis notice above it. That one
+                          says part of a document went unread; this one says
+                          the part that was read may not be what the buyer
+                          wrote, which is a reason to stop and look. */}
+                      {document.trustNotice ? (
+                        <div className="mt-1 flex items-start gap-1.5">
+                          <ShieldAlert className="mt-0.5 size-3 shrink-0 text-destructive" />
+                          <TruncatedText
+                            as="p"
+                            text={document.trustNotice}
+                            className="text-xs text-destructive"
+                          />
+                        </div>
                       ) : null}
                     </TableCell>
                     <TableCell className="text-muted-foreground">

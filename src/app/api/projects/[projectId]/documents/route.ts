@@ -13,6 +13,10 @@ import {
   hasMachineReadableText,
   parseTenderSections,
 } from "@/features/documents/parser";
+import {
+  inspectDocumentText,
+  trustNoticeFor,
+} from "@/features/documents/poisoning";
 import { saveUploadedFile, validateUpload } from "@/features/documents/upload";
 import {
   ocrUnavailableMessage,
@@ -254,6 +258,13 @@ export async function POST(
       }
     }
 
+    // Inspected after OCR, not before: a transcription is model output from
+    // an image the bidder did not write either, so text planted in a scan
+    // arrives by exactly the same route as text planted in a text layer.
+    const trust = inspectDocumentText(extractedText);
+    extractedText = trust.cleanedText;
+    const trustNotice = trustNoticeFor(trust);
+
     const localSections = parseTenderSections(extractedText);
 
     const shouldBecomePrimary =
@@ -297,6 +308,7 @@ export async function POST(
         // a parsing failure - the file was read fine, it just has no text in
         // it. Analysis may overwrite this with a coverage notice of its own.
         analysisNotice: ocrNotice,
+        trustNotice,
         parsedAt: procurementDocumentTypes.has(documentType) || evidenceDocumentTypes.has(documentType)
           ? null
           : new Date(),

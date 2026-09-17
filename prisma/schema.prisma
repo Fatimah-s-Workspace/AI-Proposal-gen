@@ -197,6 +197,12 @@ model TenderDocument {
   // because this is a warning on a usable document, not a failure, and the UI
   // colours the two differently.
   analysisNotice     String?
+  // Set when the uploaded file contains text that is not what it appears to
+  // be - characters that cannot be seen, or wording addressed to an AI system
+  // rather than to a bidder. Separate from analysisNotice, which is about how
+  // much of a document was read: this is about whether what was read can be
+  // trusted, and the analysis path overwrites analysisNotice on every run.
+  trustNotice        String?
   parsedAt           DateTime?
   sections           Json?
   status             String               @default("uploaded")
